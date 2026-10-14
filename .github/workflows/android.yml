@@ -1,0 +1,75 @@
+# Fabrique l'appli Android à chaque mise à jour du code, et la publie
+# dans « Releases » sous un nom fixe : cerveau-externe.apk
+name: Fabriquer l'appli Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier le code (types + tests)
+        run: |
+          npx tsc --noEmit
+          npm test
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Générer le projet Android
+        run: npx expo prebuild --platform android --no-install
+        env:
+          CI: 1
+
+      - name: Configurer la signature
+        env:
+          CE_KEYSTORE_BASE64: ${{ secrets.CE_KEYSTORE_BASE64 }}
+          CE_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          echo "$CE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/cerveau-externe.jks"
+          node scripts/patch-android.js
+
+      - name: Fabriquer l'APK
+        working-directory: android
+        env:
+          CE_KEYSTORE_PATH: ${{ runner.temp }}/cerveau-externe.jks
+          CE_KEYSTORE_PASSWORD: ${{ secrets.CE_KEYSTORE_PASSWORD }}
+          CE_KEY_ALIAS: ${{ secrets.CE_KEY_ALIAS }}
+          CE_KEY_PASSWORD: ${{ secrets.CE_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Publier la nouvelle version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk cerveau-externe.apk
+          TAG="v1.0.${{ github.run_number }}"
+          gh release create "$TAG" cerveau-externe.apk \
+            --title "Cerveau Externe $TAG" \
+            --notes "$(git log -1 --pretty=%s)" \
+            --latest

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "cerveau-externe",
+    "name": "Cerveau Externe",
     "slug": "cerveau-externe",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,10 +16,17 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.valentinvoisin.cerveauexterne"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "Cerveau Externe",
+      "shortName": "Cerveau",
+      "themeColor": "#1F6F6B",
+      "backgroundColor": "#F5F3EE",
+      "lang": "fr"
     }
   }
 }
