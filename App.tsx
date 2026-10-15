@@ -4,15 +4,17 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AtkinsonHyperlegible_400Regular, AtkinsonHyperlegible_700Bold, useFonts } from '@expo-google-fonts/atkinson-hyperlegible';
 import { CalendarProvider, useCalendar } from './src/calendar/CalendarContext';
-import { CalendarScreen } from './src/calendar/CalendarScreen';
+import { AppTabs } from './src/AppTabs';
 import { SettingsProvider, useSettings } from './src/settings/SettingsContext';
+import { TasksProvider, useTasks } from './src/tasks/TasksContext';
 import { colors } from './src/theme';
 
 function Gate() {
   const { loaded: settingsLoaded } = useSettings();
   const { loaded: calendarLoaded } = useCalendar();
-  if (!settingsLoaded || !calendarLoaded) return <Splash />;
-  return <CalendarScreen />;
+  const { loaded: tasksLoaded } = useTasks();
+  if (!settingsLoaded || !calendarLoaded || !tasksLoaded) return <Splash />;
+  return <AppTabs />;
 }
 
 function Splash() {
@@ -31,7 +33,9 @@ export default function App() {
       {fontsLoaded ? (
         <SettingsProvider>
           <CalendarProvider>
-            <Gate />
+            <TasksProvider>
+              <Gate />
+            </TasksProvider>
           </CalendarProvider>
         </SettingsProvider>
       ) : (

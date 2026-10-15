@@ -1,0 +1,77 @@
+// Barre d'onglets du bas. Un module = une ligne dans TABS.
+// Navigation volontairement simple (sans Expo Router) tant que l'appli n'a que quelques modules.
+// Tous les écrans restent affichés en mémoire : on retrouve le jour et la vue là où on les a laissés.
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CalendarScreen } from './calendar/CalendarScreen';
+import { inSas } from './tasks/model';
+import { TasksScreen } from './tasks/TasksScreen';
+import { useTasks } from './tasks/TasksContext';
+import { colors } from './theme';
+import { Icon, IconName, Txt } from './ui';
+
+type TabId = 'calendrier' | 'taches';
+
+const TABS: { id: TabId; label: string; icon: IconName; screen: () => React.ReactElement }[] = [
+  { id: 'calendrier', label: 'Calendrier', icon: 'calendar', screen: () => <CalendarScreen /> },
+  { id: 'taches', label: 'Tâches', icon: 'check-square', screen: () => <TasksScreen /> },
+];
+
+export function AppTabs() {
+  const insets = useSafeAreaInsets();
+  const { tasks } = useTasks();
+  const [active, setActive] = useState<TabId>('calendrier');
+  const sasCount = inSas(tasks).length;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {/* La barre du bas gère elle-même la zone de sécurité : les écrans n'ont pas à l'ajouter. */}
+      <SafeAreaInsetsContext.Provider value={{ ...insets, bottom: 0 }}>
+        <View style={{ flex: 1 }}>
+          {TABS.map((t) => (
+            <View key={t.id} style={[StyleSheet.absoluteFill, active !== t.id && { display: 'none' }]}>
+              {t.screen()}
+            </View>
+          ))}
+        </View>
+      </SafeAreaInsetsContext.Provider>
+
+      <View style={[st.bar, { paddingBottom: Math.max(insets.bottom, 8) }]} accessibilityRole="tablist">
+        {TABS.map((t) => {
+          const on = active === t.id;
+          const badge = t.id === 'taches' && sasCount > 0 ? sasCount : 0;
+          return (
+            <Pressable
+              key={t.id}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={badge ? `${t.label}, ${badge} dans le sas` : t.label}
+              onPress={() => setActive(t.id)}
+              style={({ pressed }) => [st.tab, pressed && { opacity: 0.6 }]}
+            >
+              <View>
+                <Icon name={t.icon} size={22} color={on ? colors.accent : colors.muted} />
+                {badge ? (
+                  <View style={st.badge}>
+                    <Txt bold size={11} color="#FFFFFF">{badge > 99 ? '99+' : badge}</Txt>
+                  </View>
+                ) : null}
+              </View>
+              <Txt bold={on} size={12} color={on ? colors.accent : colors.muted}>{t.label}</Txt>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const st = StyleSheet.create({
+  bar: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.card, paddingTop: 6 },
+  tab: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  badge: {
+    position: 'absolute', top: -6, right: -12, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4,
+    backgroundColor: colors.warn, alignItems: 'center', justifyContent: 'center',
+  },
+});

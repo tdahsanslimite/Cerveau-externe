@@ -3,7 +3,7 @@
 Application mobile pour les TDAH, faite par un TDAH. Android d'abord, iOS ensuite.
 Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iOS et le web.
 
-## État actuel : module Calendrier (v0.1)
+## Module Calendrier
 
 - Vues **Jour**, **Semaine**, **Mois**, navigation ‹ › et retour à aujourd'hui.
 - Ajout / modification / suppression d'événements : intitulé, jour, heure (ou journée entière), durée, domaine (Travail, Famille, Santé, Sport, Perso), répétition (une fois, chaque semaine, lun–ven, chaque jour), note.
@@ -14,16 +14,29 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 - **Réglages** : limite par jour, vue à l'ouverture, créneaux libres.
 - Données stockées sur le téléphone uniquement.
 
+## Module Tâches
+
+- **Saisie rapide** : un champ toujours visible, tout ce qu'on écrit tombe dans **le sas**, sans aucune décision à prendre. On peut enchaîner les idées.
+- **Le sas** : la salle d'attente. Ces tâches ne comptent dans aucune journée tant qu'elles ne sont pas triées.
+- **Tri guidé** : une tâche à la fois, trois questions (important ? urgent ? pour quand ?), et la tâche est rangée.
+- **Matrice d'Eisenhower** : À faire en premier / À planifier / À déléguer ou alléger / À lâcher ? (icônes et texte, pas seulement des couleurs, pour ne pas se confondre avec les domaines).
+- **Aujourd'hui** : les tâches prévues, cochables, avec la charge du jour.
+- **Glissement** : une tâche non faite d'un jour passé glisse à aujourd'hui, sans reproche. Après 3 glissements, l'appli propose de la découper, de lui donner une heure ou de la lâcher.
+- **Lâcher** : une tâche lâchée disparaît partout mais reste en mémoire (pour un futur bilan).
+- Les tâches prévues apparaissent dans les vues **Jour** et **Semaine** du calendrier et **comptent dans la charge du jour** (nombre d'éléments : événements + tâches).
+- Barre d'onglets en bas : Calendrier / Tâches (badge avec le nombre de tâches dans le sas).
+
 ## Prochains modules
 
-1. Tâches (priorité Eisenhower, glissement au lendemain, comptées dans la charge du jour)
-2. Routines (cochables partout, recopiées chaque mois, bilan caché)
-3. Check-in du soir + rappels variés (notifications natives)
+1. Routines (cochables partout, recopiées chaque mois, bilan caché)
+2. Check-in du soir + rappels variés (notifications natives)
 
 ## Organisation du code
 
 ```
 App.tsx                         polices, fournisseurs de données
+src/AppTabs.tsx                 barre d'onglets (un module = une ligne dans TABS)
+src/load.ts                     charge d'un jour = événements + tâches prévues
 src/theme.ts                    couleurs, polices, tailles
 src/ui.tsx                      boutons, puces, feuilles, champs partagés
 src/storage.ts                  sauvegarde locale
@@ -34,6 +47,12 @@ src/calendar/CalendarContext    données du calendrier
 src/calendar/views.tsx          vues Jour / Semaine / Mois
 src/calendar/EventEditor.tsx    fiche d'événement
 src/calendar/CalendarScreen.tsx écran principal
+src/tasks/model.ts              tâches, sas, Eisenhower, glissement, charge (testés)
+src/tasks/TasksContext.tsx      données des tâches (ce.tasks.v1)
+src/tasks/TasksScreen.tsx       saisie rapide, Aujourd'hui, Sas, Matrice
+src/tasks/SortSheet.tsx         tri guidé du sas
+src/tasks/TaskEditor.tsx        fiche d'une tâche
+src/tasks/DayTasks.tsx          tâches du jour dans le calendrier
 ```
 
 ## Commandes
@@ -46,5 +65,5 @@ npx expo start      # lancer sur le téléphone avec l'appli Expo Go
 npx expo export --platform web   # version web
 ```
 
-Note : la navigation est volontairement gérée à la main pour l'instant (un seul écran).
-Quand les modules Tâches et Routines arriveront, on passera à Expo Router avec une barre d'onglets.
+Note : la navigation est gérée à la main (barre d'onglets simple dans `src/AppTabs.tsx`, sans nouvelle dépendance).
+Le passage à Expo Router reste à faire, à un moment où l'on peut tester une vraie fabrication de l'appli.

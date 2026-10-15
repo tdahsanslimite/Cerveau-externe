@@ -1,7 +1,9 @@
 // Les trois vues du calendrier : Jour, Semaine, Mois.
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useDayLoad } from '../load';
 import { useSettings } from '../settings/SettingsContext';
+import { DayTaskRows, DayTasks } from '../tasks/DayTasks';
 import { colors, fonts, radius } from '../theme';
 import { Card, Icon, SectionLabel, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
@@ -21,10 +23,12 @@ export interface ViewProps {
 export function DayView({ day, onEdit, onAdd }: ViewProps) {
   const { events } = useCalendar();
   const { settings } = useSettings();
+  const load = useDayLoad();
   const occs = occurrencesOn(events, day);
+  const count = load(day); // événements + tâches prévues
   const allDay = occs.filter((o) => o.event.start === null);
   const timed = occs.filter((o) => o.event.start !== null);
-  const level = loadLevel(occs.length, settings.dailyLimit);
+  const level = loadLevel(count, settings.dailyLimit);
 
   // Fusion chronologique des rendez-vous et des créneaux libres.
   type Row = { kind: 'event'; occ: Occurrence; at: number } | { kind: 'free'; from: number; to: number; at: number };
@@ -36,8 +40,10 @@ export function DayView({ day, onEdit, onAdd }: ViewProps) {
   return (
     <View style={{ gap: 14 }}>
       <Card style={{ padding: 16 }}>
-        <LoadGauge level={level} count={occs.length} limit={settings.dailyLimit} />
+        <LoadGauge level={level} count={count} limit={settings.dailyLimit} />
       </Card>
+
+      <DayTasks day={day} />
 
       {allDay.length > 0 && (
         <View style={{ gap: 8 }}>
@@ -71,6 +77,7 @@ export function DayView({ day, onEdit, onAdd }: ViewProps) {
 export function WeekView({ day, onEdit, onOpenDay }: ViewProps) {
   const { events, weekNote, setWeekNote } = useCalendar();
   const { settings } = useSettings();
+  const load = useDayLoad();
   const today = todayKey();
   const weekStart = startOfWeek(day);
 
@@ -78,7 +85,8 @@ export function WeekView({ day, onEdit, onOpenDay }: ViewProps) {
     <View style={{ gap: 14 }}>
       {weekDays(day).map((d) => {
         const occs = occurrencesOn(events, d);
-        const level = loadLevel(occs.length, settings.dailyLimit);
+        const count = load(d);
+        const level = loadLevel(count, settings.dailyLimit);
         const isToday = d === today;
         const rel = relativeLabel(d, today);
         return (
@@ -94,14 +102,15 @@ export function WeekView({ day, onEdit, onOpenDay }: ViewProps) {
                 {rel ? <Txt size={13} color={colors.accent}>{rel}</Txt> : null}
               </View>
               <View style={st.loadPill}>
-                <View style={[st.loadDot, { backgroundColor: occs.length ? LOAD_COLOR[level] : colors.border }]} />
+                <View style={[st.loadDot, { backgroundColor: count ? LOAD_COLOR[level] : colors.border }]} />
                 <Txt size={13} color={level === 'trop' ? colors.danger : colors.muted}>
-                  {occs.length}/{settings.dailyLimit}
+                  {count}/{settings.dailyLimit}
                 </Txt>
               </View>
               <Icon name="chevron-right" size={18} color={colors.faint} />
             </Pressable>
             {occs.map((o) => <EventRow key={o.event.id} occ={o} compact onPress={() => onEdit(o)} />)}
+            <DayTaskRows day={d} />
           </Card>
         );
       })}
@@ -141,6 +150,7 @@ function WeekNotes({ initial, onChange }: { initial: string; onChange: (t: strin
 export function MonthView({ day, onEdit, onOpenDay, onSelect }: ViewProps & { onSelect: (d: DayKey) => void }) {
   const { events } = useCalendar();
   const { settings } = useSettings();
+  const load = useDayLoad();
   const today = todayKey();
   const cells = monthGrid(day);
   const selectedOccs = occurrencesOn(events, day);
@@ -160,13 +170,13 @@ export function MonthView({ day, onEdit, onOpenDay, onSelect }: ViewProps & { on
               const cats = Array.from(new Set(occs.map((o) => o.event.category))).slice(0, 3);
               const selected = c.key === day;
               const isToday = c.key === today;
-              const over = occs.length > settings.dailyLimit;
+              const over = load(c.key) > settings.dailyLimit;
               return (
                 <Pressable
                   key={c.key}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  accessibilityLabel={`${labelDayShort(c.key)}, ${occs.length} rendez-vous`}
+                  accessibilityLabel={`${labelDayShort(c.key)}, ${load(c.key)} éléments`}
                   onPress={() => (selected ? onOpenDay(c.key) : onSelect(c.key))}
                   style={[
                     st.cell,

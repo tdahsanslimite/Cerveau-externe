@@ -1,12 +1,13 @@
 // Fiche d'ajout / modification d'un événement.
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useDayLoad } from '../load';
 import { useSettings } from '../settings/SettingsContext';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
 import { addDays, DayKey, durationLabel, labelDayLong, minutesToLabel, relativeLabel } from './dates';
-import { CalendarEvent, CATEGORIES, newId, occurrencesOn, REPEATS } from './model';
+import { CalendarEvent, CATEGORIES, newId, REPEATS } from './model';
 
 const DURATIONS = [15, 30, 60, 90, 120, 180];
 
@@ -22,8 +23,9 @@ export function blankEvent(day: DayKey, start: number | null = 9 * 60): Calendar
 }
 
 export function EventEditor({ state, onClose }: { state: EditorState | null; onClose: () => void }) {
-  const { events, saveEvent, deleteEvent, skipOccurrence } = useCalendar();
+  const { saveEvent, deleteEvent, skipOccurrence } = useCalendar();
   const { settings } = useSettings();
+  const load = useDayLoad();
   const [e, setE] = useState<CalendarEvent | null>(state?.event ?? null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [lastStart, setLastStart] = useState(9 * 60);
@@ -38,8 +40,8 @@ export function EventEditor({ state, onClose }: { state: EditorState | null; onC
   const canSave = e.title.trim().length > 0;
   const recurring = e.repeat !== 'none';
 
-  // Charge du jour visé, sans compter l'événement en cours d'édition.
-  const others = occurrencesOn(events.filter((x) => x.id !== e.id), e.date).length;
+  // Charge du jour visé (événements + tâches), sans compter l'événement en cours d'édition.
+  const others = load(e.date, { eventId: e.id });
   const after = others + 1;
   const overLimit = after > settings.dailyLimit;
 

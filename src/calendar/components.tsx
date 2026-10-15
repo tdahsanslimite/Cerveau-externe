@@ -20,7 +20,7 @@ export function LoadGauge({ level, count, limit }: { level: LoadLevel; count: nu
   const filled = LOAD_SEGMENTS[level];
   const message =
     level === 'trop'
-      ? `${count} rendez-vous pour une limite de ${limit}. Qu'est-ce qui peut glisser à un autre jour ?`
+      ? `${count} éléments pour une limite de ${limit}. Qu'est-ce qui peut glisser à un autre jour ?`
       : level === 'chargee'
         ? `Tu es pile à ta limite de ${limit}. Évite d'ajouter autre chose aujourd'hui.`
         : level === 'vide'
