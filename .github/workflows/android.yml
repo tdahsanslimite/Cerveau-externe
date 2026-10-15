@@ -48,19 +48,22 @@ jobs:
 
       - name: Configurer la signature
         env:
-          CE_KEYSTORE_BASE64: ${{ secrets.CE_KEYSTORE_BASE64 }}
+          CE_KEYSTORE_PASSWORD: ${{ secrets.CE_KEYSTORE_PASSWORD }}
           CE_VERSION_CODE: ${{ github.run_number }}
         run: |
-          echo "$CE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/cerveau-externe.jks"
+          if [ -z "$CE_KEYSTORE_PASSWORD" ]; then
+            echo "::error::Le secret CE_KEYSTORE_PASSWORD manque (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
           node scripts/patch-android.js
 
       - name: Fabriquer l'APK
         working-directory: android
         env:
-          CE_KEYSTORE_PATH: ${{ runner.temp }}/cerveau-externe.jks
+          CE_KEYSTORE_PATH: ${{ github.workspace }}/signing/cerveau-externe.jks
           CE_KEYSTORE_PASSWORD: ${{ secrets.CE_KEYSTORE_PASSWORD }}
-          CE_KEY_ALIAS: ${{ secrets.CE_KEY_ALIAS }}
-          CE_KEY_PASSWORD: ${{ secrets.CE_KEY_PASSWORD }}
+          CE_KEY_ALIAS: cerveau-externe
+          CE_KEY_PASSWORD: ${{ secrets.CE_KEYSTORE_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Publier la nouvelle version
