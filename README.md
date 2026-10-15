@@ -24,12 +24,22 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 - **Glissement** : une tâche non faite d'un jour passé glisse à aujourd'hui, sans reproche. Après 3 glissements, l'appli propose de la découper, de lui donner une heure ou de la lâcher.
 - **Lâcher** : une tâche lâchée disparaît partout mais reste en mémoire (pour un futur bilan).
 - Les tâches prévues apparaissent dans les vues **Jour** et **Semaine** du calendrier et **comptent dans la charge du jour** (nombre d'éléments : événements + tâches).
-- Barre d'onglets en bas : Calendrier / Tâches (badge avec le nombre de tâches dans le sas).
+- Barre d'onglets en bas : Calendrier / Tâches / Routines (badge avec le nombre de tâches dans le sas).
+
+## Module Routines
+
+- Onglet **Routines** : le jour choisi (bande de la semaine pour revenir sur un jour passé), les routines à cocher, groupées Matin / Journée / Soir.
+- Les mêmes cases à cocher sont aussi en bas de la vue **Jour** du calendrier (« cochables partout »).
+- Chaque routine a ses jours de la semaine (tous les jours, lun–ven, lun/mer/ven…). Elle revient **toute seule chaque mois** : rien à recopier.
+- On ne coche pas à l'avance ; on peut compléter un jour passé.
+- **Retirer** une routine la fait disparaître des listes à partir d'aujourd'hui, mais son passé reste dans le bilan.
+- **Bilan caché** derrière « Voir mon bilan » : jamais affiché tout seul, ton indulgent (cases cochées, meilleure série, pas de série « perdue »). Aujourd'hui pas encore coché n'est pas compté comme un oubli.
+- Les routines **ne comptent pas** dans la charge du jour (ce serait toujours « trop chargé »).
+- Données dans la clé locale `ce.routines.v1`.
 
 ## Prochains modules
 
-1. Routines (cochables partout, recopiées chaque mois, bilan caché)
-2. Check-in du soir + rappels variés (notifications natives)
+1. Check-in du soir + rappels variés (notifications natives)
 
 ## Organisation du code
 
@@ -53,6 +63,12 @@ src/tasks/TasksScreen.tsx       saisie rapide, Aujourd'hui, Sas, Matrice
 src/tasks/SortSheet.tsx         tri guidé du sas
 src/tasks/TaskEditor.tsx        fiche d'une tâche
 src/tasks/DayTasks.tsx          tâches du jour dans le calendrier
+src/routines/model.ts           routines, jours prévus, cases cochées, bilan du mois (testés)
+src/routines/RoutinesContext    données des routines (ce.routines.v1)
+src/routines/RoutinesScreen.tsx écran Routines
+src/routines/components.tsx     liste cochable (partagée avec la vue Jour)
+src/routines/RoutineEditor.tsx  fiche d'une routine
+src/routines/BilanSheet.tsx     bilan du mois, à la demande
 ```
 
 ## Commandes

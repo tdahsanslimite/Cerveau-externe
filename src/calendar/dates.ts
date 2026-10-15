@@ -65,6 +65,14 @@ export function isoWeek(key: DayKey): number {
   return 1 + Math.round((thursday.getTime() - firstWeekStart.getTime()) / (7 * 86400000));
 }
 
+/** Tous les jours du mois contenant `key`, du 1er au dernier. */
+export function monthDays(key: DayKey): DayKey[] {
+  const d = fromKey(key);
+  const count = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const prefix = key.slice(0, 7);
+  return Array.from({ length: count }, (_, i) => `${prefix}-${pad(i + 1)}`);
+}
+
 /** Grille du mois : semaines complètes du lundi au dimanche (35 ou 42 cases). */
 export function monthGrid(key: DayKey): { key: DayKey; inMonth: boolean }[] {
   const d = fromKey(key);

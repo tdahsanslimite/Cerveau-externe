@@ -5,17 +5,19 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarScreen } from './calendar/CalendarScreen';
+import { RoutinesScreen } from './routines/RoutinesScreen';
 import { inSas } from './tasks/model';
 import { TasksScreen } from './tasks/TasksScreen';
 import { useTasks } from './tasks/TasksContext';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
 
-type TabId = 'calendrier' | 'taches';
+type TabId = 'calendrier' | 'taches' | 'routines';
 
 const TABS: { id: TabId; label: string; icon: IconName; screen: () => React.ReactElement }[] = [
   { id: 'calendrier', label: 'Calendrier', icon: 'calendar', screen: () => <CalendarScreen /> },
   { id: 'taches', label: 'Tâches', icon: 'check-square', screen: () => <TasksScreen /> },
+  { id: 'routines', label: 'Routines', icon: 'repeat', screen: () => <RoutinesScreen /> },
 ];
 
 export function AppTabs() {
