@@ -7,6 +7,7 @@ import { SettingsSheet } from '../settings/SettingsSheet';
 import { colors, radius } from '../theme';
 import { Icon, IconButton, Txt } from '../ui';
 import { addDays, addMonths, DayKey, fromKey, isoWeek, labelDayLong, labelMonth, labelWeekRange, relativeLabel, startOfWeek, todayKey } from './dates';
+import { useCalendar } from './CalendarContext';
 import { blankEvent, EditorState, EventEditor } from './EventEditor';
 import { Occurrence } from './model';
 import { DayView, MonthView, WeekView } from './views';
@@ -20,6 +21,7 @@ const TABS: { id: CalendarView; label: string }[] = [
 export function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
+  const { domains } = useCalendar();
   const [view, setView] = useState<CalendarView>(settings.startView);
   const [day, setDay] = useState<DayKey>(todayKey());
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -40,7 +42,8 @@ export function CalendarScreen() {
         : ['Vue mensuelle', labelMonth(day)];
 
   const onEdit = (occ: Occurrence) => setEditor({ event: occ.event, isNew: false, day: occ.day });
-  const onAdd = (d: DayKey, start?: number) => setEditor({ event: blankEvent(d, start ?? 9 * 60), isNew: true, day: d });
+  const onAdd = (d: DayKey, start?: number) =>
+    setEditor({ event: blankEvent(d, start ?? 9 * 60, domains[0]?.id), isNew: true, day: d });
   const onOpenDay = (d: DayKey) => {
     setDay(d);
     setView('jour');

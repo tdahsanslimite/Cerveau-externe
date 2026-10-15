@@ -1,10 +1,17 @@
-// Modèle de données du calendrier + logique pure (récurrences, charge du jour).
-import { diffDays, weekdayIndex } from './dates.ts';
+// Modèle de données du calendrier + logique pure (récurrences, charge, chevauchements, bilan).
+// Tout ce fichier est testé dans dates.test.ts.
+import { addDays, diffDays, weekdayIndex } from './dates.ts';
 import type { DayKey } from './dates.ts';
 
-export type CategoryId = 'travail' | 'famille' | 'sante' | 'sport' | 'perso';
+// ---------------- Domaines (personnalisables) ----------------
 
-export const CATEGORIES: { id: CategoryId; label: string; color: string }[] = [
+export interface Domain {
+  id: string;
+  label: string;
+  color: string;
+}
+
+export const DEFAULT_DOMAINS: Domain[] = [
   { id: 'travail', label: 'Travail', color: '#2F63B0' },
   { id: 'famille', label: 'Famille', color: '#C9721F' },
   { id: 'sante', label: 'Santé', color: '#2E8B57' },
@@ -12,7 +19,19 @@ export const CATEGORIES: { id: CategoryId; label: string; color: string }[] = [
   { id: 'perso', label: 'Perso', color: '#6B7178' },
 ];
 
-export const categoryOf = (id: CategoryId) => CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[4];
+/** Couleurs proposées pour un domaine : distinctes, lisibles sur fond clair. */
+export const DOMAIN_COLORS = [
+  '#2F63B0', '#1F8A9E', '#2E8B57', '#6E8B1F', '#B38A00', '#C9721F',
+  '#C2452D', '#B03A6E', '#7A4FB0', '#4F5BB0', '#6B7178', '#8A5A3C',
+];
+
+const FALLBACK_DOMAIN: Domain = { id: '_', label: 'Sans domaine', color: '#9AA0A6' };
+
+export function domainOf(domains: Domain[], id: string): Domain {
+  return domains.find((d) => d.id === id) ?? FALLBACK_DOMAIN;
+}
+
+// ---------------- Événements ----------------
 
 export type Repeat = 'none' | 'daily' | 'weekdays' | 'weekly';
 
@@ -23,6 +42,29 @@ export const REPEATS: { id: Repeat; label: string }[] = [
   { id: 'daily', label: 'Chaque jour' },
 ];
 
+/** Nature d'un événement. Plusieurs possibles : un IRM est un rendez-vous ET un objet à prendre. */
+export type EventKind = 'rdv' | 'tache' | 'objet';
+
+export const KINDS: { id: EventKind; label: string; hint: string }[] = [
+  { id: 'rdv', label: 'Rendez-vous', hint: 'Un lieu, une heure, quelqu’un t’attend.' },
+  { id: 'tache', label: 'Tâche', hint: 'Un créneau bloqué pour faire quelque chose, à cocher une fois fait.' },
+  { id: 'objet', label: 'Objet à prendre', hint: 'Une chose à ne pas oublier d’emporter.' },
+];
+
+export type ReminderUnit = 'min' | 'h' | 'j';
+
+export interface Reminder {
+  amount: number;
+  unit: ReminderUnit;
+}
+
+export const MAX_REMINDERS = 3;
+export const REMINDER_UNITS: { id: ReminderUnit; label: string; minutes: number }[] = [
+  { id: 'min', label: 'min', minutes: 1 },
+  { id: 'h', label: 'heures', minutes: 60 },
+  { id: 'j', label: 'jours', minutes: 1440 },
+];
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -31,11 +73,35 @@ export interface CalendarEvent {
   /** Minutes depuis minuit, ou null pour « toute la journée ». */
   start: number | null;
   durationMin: number;
-  category: CategoryId;
+  /** Identifiant du domaine (Travail, Sport…). */
+  category: string;
   repeat: Repeat;
+  /** Absent sur les événements créés avant la v1.1 : traité comme ['rdv']. */
+  kinds?: EventKind[];
+  /** Ce qu'il faut emporter (type « objet »). */
+  item?: string;
+  /** Rappel la veille à 20 h pour préparer l'objet. */
+  itemEveReminder?: boolean;
+  reminders?: Reminder[];
+  /** Jours où la tâche a été faite (une série peut être cochée jour par jour). */
+  doneDays?: DayKey[];
   /** Jours où une occurrence d'une série a été supprimée. */
   skipped?: DayKey[];
   note?: string;
+}
+
+export const kindsOf = (e: CalendarEvent): EventKind[] => (e.kinds && e.kinds.length ? e.kinds : ['rdv']);
+export const isTask = (e: CalendarEvent) => kindsOf(e).includes('tache');
+export const isDoneOn = (e: CalendarEvent, day: DayKey) => !!e.doneDays?.includes(day);
+export const endOf = (e: CalendarEvent) => (e.start ?? 0) + e.durationMin;
+
+export function reminderMinutes(r: Reminder): number {
+  return r.amount * (REMINDER_UNITS.find((u) => u.id === r.unit)?.minutes ?? 1);
+}
+
+export function reminderLabel(r: Reminder): string {
+  const unit = r.unit === 'min' ? 'min' : r.unit === 'h' ? (r.amount > 1 ? 'heures' : 'heure') : r.amount > 1 ? 'jours' : 'jour';
+  return `${r.amount} ${unit} avant`;
 }
 
 /** Une occurrence affichable d'un événement, sur un jour précis. */
@@ -68,6 +134,8 @@ export function occurrencesOn(events: CalendarEvent[], day: DayKey): Occurrence[
     .sort((a, b) => (a.event.start ?? -1) - (b.event.start ?? -1) || a.event.title.localeCompare(b.event.title));
 }
 
+// ---------------- Charge du jour ----------------
+
 export type LoadLevel = 'vide' | 'legere' | 'equilibree' | 'chargee' | 'trop';
 
 export const LOAD_LABEL: Record<LoadLevel, string> = {
@@ -87,6 +155,8 @@ export function loadLevel(count: number, limit: number): LoadLevel {
   return 'legere';
 }
 
+// ---------------- Créneaux et chevauchements ----------------
+
 /**
  * Créneaux libres d'au moins `minGap` minutes entre `dayStart` et `dayEnd`,
  * en tenant compte des chevauchements. Les événements « journée » sont ignorés.
@@ -94,7 +164,7 @@ export function loadLevel(count: number, limit: number): LoadLevel {
 export function freeSlots(occs: Occurrence[], dayStart = 8 * 60, dayEnd = 21 * 60, minGap = 60): { from: number; to: number }[] {
   const busy = occs
     .filter((o) => o.event.start !== null)
-    .map((o) => ({ from: o.event.start as number, to: (o.event.start as number) + o.event.durationMin }))
+    .map((o) => ({ from: o.event.start as number, to: endOf(o.event) }))
     .sort((a, b) => a.from - b.from);
   const slots: { from: number; to: number }[] = [];
   let cursor = dayStart;
@@ -104,6 +174,50 @@ export function freeSlots(occs: Occurrence[], dayStart = 8 * 60, dayEnd = 21 * 6
   }
   if (dayEnd - cursor >= minGap) slots.push({ from: cursor, to: dayEnd });
   return slots;
+}
+
+const overlaps = (a: CalendarEvent, b: CalendarEvent) =>
+  a.start !== null && b.start !== null && a.start < endOf(b) && b.start < endOf(a);
+
+/**
+ * Premier événement déjà prévu qui chevauche `candidate`.
+ * Pour une série, vérifie les `horizonDays` prochains jours.
+ * Les événements « toute la journée » ne bloquent rien.
+ */
+export function findConflict(events: CalendarEvent[], candidate: CalendarEvent, horizonDays = 56): Occurrence | null {
+  if (candidate.start === null) return null;
+  const others = events.filter((e) => e.id !== candidate.id && e.start !== null);
+  const days = candidate.repeat === 'none' ? 1 : horizonDays;
+  for (let i = 0; i < days; i++) {
+    const day = addDays(candidate.date, i);
+    if (!occursOn(candidate, day)) continue;
+    const hit = others.find((o) => occursOn(o, day) && overlaps(candidate, o));
+    if (hit) return { event: hit, day };
+  }
+  return null;
+}
+
+/** Première heure de début ≥ `from` où un événement de `duration` minutes tient ce jour-là. */
+export function nextFreeStart(events: CalendarEvent[], candidate: CalendarEvent, from: number): number | null {
+  for (let s = from; s + candidate.durationMin <= 24 * 60; s += 5) {
+    const moved = { ...candidate, start: s, repeat: 'none' as Repeat };
+    if (!findConflict(events, moved)) return s;
+  }
+  return null;
+}
+
+// ---------------- Bilan : heures par domaine ----------------
+
+/** Minutes passées par domaine sur [from, to] inclus (événements à heure précise uniquement). */
+export function minutesByDomain(events: CalendarEvent[], from: DayKey, to: DayKey): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (let day = from; diffDays(day, to) >= 0; day = addDays(day, 1)) {
+    for (const o of occurrencesOn(events, day)) {
+      if (o.event.start === null) continue;
+      out[o.event.category] = (out[o.event.category] ?? 0) + o.event.durationMin;
+    }
+  }
+  return out;
 }
 
 export function newId(): string {

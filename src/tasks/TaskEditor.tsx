@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { addDays, labelDayLong, relativeLabel, todayKey } from '../calendar/dates';
 import type { DayKey } from '../calendar/dates';
-import { CATEGORIES } from '../calendar/model';
+import { useCalendar } from '../calendar/CalendarContext';
 import { useDayLoad } from '../load';
 import { useSettings } from '../settings/SettingsContext';
 import { colors, fonts, radius, TOUCH } from '../theme';
@@ -13,6 +13,7 @@ import { useTasks } from './TasksContext';
 
 export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const { save, remove } = useTasks();
+  const { domains } = useCalendar();
   const { settings } = useSettings();
   const load = useDayLoad();
   const [t, setT] = useState<Task | null>(task);
@@ -116,7 +117,7 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
       <Field label="Domaine">
         <View style={st.wrap}>
           <Chip label="Aucun" selected={!t.category} color={colors.ink} onPress={() => patch({ category: undefined })} />
-          {CATEGORIES.map((c) => (
+          {domains.map((c) => (
             <Chip key={c.id} label={c.label} dot={c.color} color={colors.ink} selected={t.category === c.id} onPress={() => patch({ category: c.id })} />
           ))}
         </View>

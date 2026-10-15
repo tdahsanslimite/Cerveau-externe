@@ -10,7 +10,7 @@ import { Card, Icon, SectionLabel, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
 import { EmptyState, EventRow, FreeSlotRow, LOAD_COLOR, LoadGauge } from './components';
 import { DAY_SHORT, DayKey, fromKey, labelDayShort, monthGrid, relativeLabel, startOfWeek, todayKey, weekDays } from './dates';
-import { CATEGORIES, categoryOf, freeSlots, loadLevel, Occurrence, occurrencesOn } from './model';
+import { freeSlots, loadLevel, Occurrence, occurrencesOn } from './model';
 
 export interface ViewProps {
   day: DayKey;
@@ -151,7 +151,7 @@ function WeekNotes({ initial, onChange }: { initial: string; onChange: (t: strin
 // ---------------- MOIS ----------------
 
 export function MonthView({ day, onEdit, onOpenDay, onSelect }: ViewProps & { onSelect: (d: DayKey) => void }) {
-  const { events } = useCalendar();
+  const { events, domain } = useCalendar();
   const { settings } = useSettings();
   const load = useDayLoad();
   const today = todayKey();
@@ -191,7 +191,7 @@ export function MonthView({ day, onEdit, onOpenDay, onSelect }: ViewProps & { on
                   <Txt bold size={14} color={selected ? '#FFFFFF' : colors.ink}>{fromKey(c.key).getDate()}</Txt>
                   <View style={st.dots}>
                     {cats.map((cat) => (
-                      <View key={cat} style={[st.dot, { backgroundColor: selected ? '#FFFFFF' : categoryOf(cat).color }]} />
+                      <View key={cat} style={[st.dot, { backgroundColor: selected ? '#FFFFFF' : domain(cat).color }]} />
                     ))}
                   </View>
                   {over ? <View style={[st.overBar, { backgroundColor: selected ? '#FFFFFF' : colors.danger }]} /> : <View style={st.overBar} />}
@@ -227,9 +227,10 @@ export function MonthView({ day, onEdit, onOpenDay, onSelect }: ViewProps & { on
 }
 
 function Legend() {
+  const { domains } = useCalendar();
   return (
     <View style={st.legend}>
-      {CATEGORIES.map((c) => (
+      {domains.map((c) => (
         <View key={c.id} style={st.legendItem}>
           <View style={[st.dot, { width: 10, height: 10, borderRadius: 5, backgroundColor: c.color }]} />
           <Txt size={13} color={colors.muted}>{c.label}</Txt>

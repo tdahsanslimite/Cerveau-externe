@@ -3,7 +3,7 @@
 Application mobile pour les TDAH, faite par un TDAH. Android d'abord, iOS ensuite.
 Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iOS et le web.
 
-## Module Calendrier
+## Module Calendrier (v1.1)
 
 - Vues **Jour**, **Semaine**, **Mois**, navigation ‹ › et retour à aujourd'hui.
 - Ajout / modification / suppression d'événements : intitulé, jour, heure (ou journée entière), durée, domaine (Travail, Famille, Santé, Sport, Perso), répétition (une fois, chaque semaine, lun–ven, chaque jour), note.
@@ -12,6 +12,11 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 - **Créneaux libres** affichés entre les rendez-vous (8 h – 21 h).
 - Vue Semaine en cartes qui s'agrandissent (fini les cases A6 trop petites) + **page libre de la semaine**.
 - **Réglages** : limite par jour, vue à l'ouverture, créneaux libres.
+- Heure de début et de fin, avec roue (tap sur l'heure) ou boutons ±15 min / ±1 h.
+- Chevauchements interdits, avec proposition du prochain créneau libre.
+- Types combinables : Rendez-vous, Tâche (cochable, jour par jour pour une série), Objet à prendre (+ rappel la veille à 20 h).
+- Jusqu'à 3 rappels par événement (minutes, heures, jours), notifications locales sur Android.
+- Domaines personnalisables (nom, couleur, création, suppression) dans les Réglages.
 - Données stockées sur le téléphone uniquement.
 
 ## Module Tâches

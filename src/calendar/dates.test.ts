@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { addDays, addMonths, isoWeek, monthGrid, startOfWeek, weekdayIndex, labelWeekRange, relativeLabel, minutesToLabel, durationLabel } from './dates.ts';
-import { occursOn, occurrencesOn, loadLevel, freeSlots } from './model.ts';
+import { planReminders } from './reminders.ts';
+import { occursOn, occurrencesOn, loadLevel, freeSlots, findConflict, nextFreeStart, minutesByDomain, reminderMinutes, reminderLabel } from './model.ts';
 import type { CalendarEvent } from './model.ts';
 
 test('navigation entre jours, y compris changement de mois, d’année et heure d’été', () => {
@@ -93,4 +94,67 @@ test('créneaux libres, avec chevauchement', () => {
     { from: 19 * 60, to: 21 * 60 },
   ]);
   assert.deepEqual(freeSlots([]), [{ from: 480, to: 1260 }]);
+});
+
+test('chevauchements : bloque, ignore la journée entière et l’événement lui-même', () => {
+  const dentist = ev({ id: 'd', start: 10 * 60, durationMin: 60 });           // 10h-11h
+  const trampo = ev({ id: 't', date: '2026-10-07', start: 17 * 60, durationMin: 120, repeat: 'weekly' }); // mer. 17h-19h
+  const allDay = ev({ id: 'a', start: null });
+  const events = [dentist, trampo, allDay];
+  assert.equal(findConflict(events, ev({ id: 'n', start: 10 * 60 + 30, durationMin: 30 }))?.event.id, 'd');
+  assert.equal(findConflict(events, ev({ id: 'n', start: 11 * 60, durationMin: 30 })), null); // bout à bout : OK
+  assert.equal(findConflict(events, ev({ id: 'n', start: 9 * 60, durationMin: 60 })), null);
+  assert.equal(findConflict(events, { ...dentist }), null); // se modifier soi-même
+  // Une série hebdo du mardi qui tombe un mercredi 3 semaines plus tard ? Non : on teste un mercredi.
+  const conflict = findConflict(events, ev({ id: 'n', date: '2026-10-28', start: 18 * 60, durationMin: 30 }));
+  assert.equal(conflict?.event.id, 't');
+  // Une nouvelle série quotidienne qui finit par croiser le trampoline du mercredi
+  const daily = findConflict(events, ev({ id: 'n', date: '2026-10-13', start: 18 * 60, durationMin: 30, repeat: 'daily' }));
+  assert.deepEqual([daily?.event.id, daily?.day], ['t', '2026-10-14']);
+});
+
+test('prochain créneau libre après un conflit', () => {
+  const events = [ev({ id: 'd', start: 10 * 60, durationMin: 60 }), ev({ id: 'e', start: 11 * 60, durationMin: 30 })];
+  assert.equal(nextFreeStart(events, ev({ id: 'n', start: 10 * 60, durationMin: 45 }), 10 * 60), 11 * 60 + 30);
+});
+
+test('heures par domaine sur une période', () => {
+  const events = [
+    ev({ id: '1', category: 'travail', start: 9 * 60, durationMin: 120 }),
+    ev({ id: '2', category: 'sport', start: 18 * 60, durationMin: 60, repeat: 'daily' }),
+    ev({ id: '3', category: 'sport', start: null }),
+  ];
+  assert.deepEqual(minutesByDomain(events, '2026-10-13', '2026-10-15'), { travail: 120, sport: 180 });
+});
+
+test('rappels', () => {
+  assert.equal(reminderMinutes({ amount: 2, unit: 'h' }), 120);
+  assert.equal(reminderMinutes({ amount: 1, unit: 'j' }), 1440);
+  assert.equal(reminderLabel({ amount: 1, unit: 'j' }), '1 jour avant');
+  assert.equal(reminderLabel({ amount: 30, unit: 'min' }), '30 min avant');
+});
+
+test('rappels programmés : heures exactes, objet, veille au soir, passé ignoré', () => {
+  const now = new Date(2026, 9, 15, 11, 0); // jeudi 15 oct. 11:00
+  const irm = ev({
+    id: 'irm', title: 'IRM', date: '2026-10-16', start: 10 * 60, durationMin: 45,
+    kinds: ['rdv', 'objet'], item: 'devis signé', itemEveReminder: true,
+    reminders: [{ amount: 1, unit: 'h' }, { amount: 1, unit: 'j' }],
+  });
+  const past = ev({ id: 'p', date: '2026-10-15', start: 9 * 60, reminders: [{ amount: 30, unit: 'min' }] });
+  const plan = planReminders([irm, past], now, '2026-10-15');
+  const at = (p: { at: Date }) => `${p.at.getDate()} ${p.at.getHours()}:${String(p.at.getMinutes()).padStart(2, '0')}`;
+  assert.deepEqual(plan.map(at), ['15 20:00', '16 9:00']); // veille 20 h ; 1 h avant. « 1 jour avant » (15 à 10:00) est déjà passé
+  assert.equal(plan[0].title, 'Demain : IRM');
+  assert.match(plan[0].body, /devis signé/);
+  assert.equal(plan[1].title, 'IRM · 1 heure avant');
+  assert.match(plan[1].body, /10:00 – 10:45\nPense à prendre : devis signé/);
+});
+
+test('rappels d’une série : une notification par occurrence', () => {
+  const now = new Date(2026, 9, 15, 11, 0);
+  const trampo = ev({ id: 't', date: '2026-10-14', start: 17 * 60, repeat: 'weekly', reminders: [{ amount: 30, unit: 'min' }] });
+  const plan = planReminders([trampo], now, '2026-10-15');
+  assert.equal(plan.length, 4); // 21, 28 oct., 4, 11 nov. (horizon 30 jours)
+  assert.equal(plan[0].at.getDate(), 21);
 });

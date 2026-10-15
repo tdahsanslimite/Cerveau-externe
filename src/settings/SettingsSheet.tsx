@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { colors, radius, TOUCH } from '../theme';
 import { Chip, Sheet, Txt } from '../ui';
+import { DomainsEditor } from './DomainsEditor';
 import { CalendarView, useSettings } from './SettingsContext';
 
 const VIEWS: { id: CalendarView; label: string }[] = [
@@ -55,8 +56,12 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
           />
         </View>
       </View>
+      <View style={{ gap: 8 }}>
+        <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 4 }}>Domaines</Txt>
+        <DomainsEditor />
+      </View>
       <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4, lineHeight: 19 }}>
-        Tes données restent sur ce téléphone. Les réglages des tâches, routines et rappels arriveront avec ces modules.
+        Tes données restent sur ce téléphone.
       </Txt>
     </Sheet>
   );

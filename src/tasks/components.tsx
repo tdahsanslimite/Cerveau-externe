@@ -2,7 +2,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { labelDayShort, relativeLabel } from '../calendar/dates';
-import { categoryOf } from '../calendar/model';
+import { useCalendar } from '../calendar/CalendarContext';
 import { colors, radius, TOUCH } from '../theme';
 import { Icon, Txt } from '../ui';
 import { isStuck, quadrantInfo, quadrantOf, slideLabel, Task } from './model';
@@ -25,6 +25,7 @@ export function Checkbox({ checked, onToggle, label }: { checked: boolean; onTog
 export function TaskRow({ task, onPress, onToggle, showDay = false }: {
   task: Task; onPress: () => void; onToggle: (done: boolean) => void; showDay?: boolean;
 }) {
+  const { domain } = useCalendar();
   const done = task.status === 'done';
   const q = quadrantOf(task);
   const slide = slideLabel(task);
@@ -32,7 +33,7 @@ export function TaskRow({ task, onPress, onToggle, showDay = false }: {
   const meta = [
     q ? quadrantInfo(q).label : null,
     showDay && task.day ? (relativeLabel(task.day) ?? labelDayShort(task.day)) : null,
-    task.category ? categoryOf(task.category).label : null,
+    task.category ? domain(task.category).label : null,
   ].filter(Boolean).join(' · ');
   return (
     <View style={st.row}>

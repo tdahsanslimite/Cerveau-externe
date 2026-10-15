@@ -2,7 +2,6 @@
 // Testé dans model.test.ts. Les imports gardent l'extension .ts pour que `npm test` les lise.
 import { addDays } from '../calendar/dates.ts';
 import type { DayKey } from '../calendar/dates.ts';
-import type { CategoryId } from '../calendar/model.ts';
 
 export type TaskStatus = 'todo' | 'done' | 'dropped';
 
@@ -21,7 +20,8 @@ export interface Task {
   doneAt?: DayKey;
   /** Nombre de fois où la tâche a glissé vers un nouveau jour faute d'avoir été faite. */
   slides: number;
-  category?: CategoryId;
+  /** Identifiant d'un domaine du calendrier (personnalisable). */
+  category?: string;
   note?: string;
 }
 
