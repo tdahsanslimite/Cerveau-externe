@@ -25,3 +25,13 @@ if (!g.includes('signingConfig signingConfigs.release') || !g.includes("System.g
 }
 fs.writeFileSync(path, g);
 console.log(`Signature configurée, versionCode ${code}`);
+
+// 3. Uniquement les processeurs 64 bits ARM (tous les téléphones Android récents) :
+//    l'APK passe d'environ 70 Mo à environ 25 Mo.
+const propsPath = 'android/gradle.properties';
+let props = fs.readFileSync(propsPath, 'utf8');
+props = /^reactNativeArchitectures=.*$/m.test(props)
+  ? props.replace(/^reactNativeArchitectures=.*$/m, 'reactNativeArchitectures=arm64-v8a')
+  : props + '\nreactNativeArchitectures=arm64-v8a\n';
+fs.writeFileSync(propsPath, props);
+console.log('Architecture : arm64-v8a');
