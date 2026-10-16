@@ -1,5 +1,6 @@
 // Réglages de l'utilisateur. Les modules suivants (tâches, routines) y ajouteront les leurs.
 import React, { createContext, ReactNode, useContext, useMemo } from 'react';
+import type { AlertKind } from '../calendar/model';
 import { usePersistentState } from '../storage';
 
 export type CalendarView = 'jour' | 'semaine' | 'mois';
@@ -11,9 +12,11 @@ export interface Settings {
   startView: CalendarView;
   /** Afficher les créneaux libres entre deux rendez-vous dans la vue Jour. */
   showFreeSlots: boolean;
+  /** Type d'alerte des rappels quand l'événement n'en précise pas. */
+  defaultAlert: AlertKind;
 }
 
-export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true };
+export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true, defaultAlert: 'sonnerie' };
 
 interface Ctx {
   settings: Settings;

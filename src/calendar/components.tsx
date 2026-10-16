@@ -50,13 +50,14 @@ export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: 
   const e = occ.event;
   const cat = domain(e.category);
   const kinds = kindsOf(e);
-  const task = kinds.includes('tache');
+  const sent = !!e.sentToSas;
+  const task = kinds.includes('tache') && !sent;
   const done = task && isDoneOn(e, occ.day);
   const time = e.start === null ? 'Journée' : minutesToLabel(e.start);
   const timeEnd = e.start === null ? null : minutesToLabel(endOf(e));
   const meta = [
     cat.label,
-    task ? 'Tâche' : null,
+    sent ? 'Pas cochée · repassée au sas' : task ? 'Tâche' : null,
     REPEAT_HINT[e.repeat] || null,
     e.reminders?.length ? `${e.reminders.length} rappel${e.reminders.length > 1 ? 's' : ''}` : null,
   ].filter(Boolean).join(' · ');

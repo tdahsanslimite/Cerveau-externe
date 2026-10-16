@@ -2,7 +2,7 @@
 import { addDays, fromKey, minutesToLabel, todayKey } from './dates.ts';
 import type { DayKey } from './dates.ts';
 import { kindsOf, occursOn, reminderLabel, reminderMinutes } from './model.ts';
-import type { CalendarEvent } from './model.ts';
+import type { AlertKind, CalendarEvent } from './model.ts';
 
 export const HORIZON_DAYS = 30;
 export const MAX_SCHEDULED = 400; // Android limite le nombre d'alarmes par appli : on reste large
@@ -11,6 +11,7 @@ const EVE_REMINDER = 20 * 60; // rappel « objet à préparer » la veille à 20
 
 export interface Planned {
   at: Date;
+  alert: AlertKind;
   title: string;
   body: string;
 }
@@ -22,7 +23,9 @@ function dateAt(day: DayKey, minutes: number): Date {
 }
 
 /** Liste des rappels à programmer (fonction pure, sans effet). */
-export function planReminders(events: CalendarEvent[], now = new Date(), today: DayKey = todayKey()): Planned[] {
+export function planReminders(
+  events: CalendarEvent[], now = new Date(), today: DayKey = todayKey(), defaultAlert: AlertKind = 'sonnerie',
+): Planned[] {
   const out: Planned[] = [];
   const first = addDays(today, -1); // un rappel « 1 jour avant » peut viser demain
   for (let i = 0; i <= HORIZON_DAYS + 7; i++) {
@@ -39,6 +42,7 @@ export function planReminders(events: CalendarEvent[], now = new Date(), today: 
 
       for (const r of e.reminders ?? []) {
         out.push({
+          alert: e.alert ?? defaultAlert,
           at: dateAt(day, base - reminderMinutes(r)),
           title: `${e.title} · ${reminderLabel(r)}`,
           body: lines.join('\n'),
@@ -46,6 +50,7 @@ export function planReminders(events: CalendarEvent[], now = new Date(), today: 
       }
       if (item && e.itemEveReminder) {
         out.push({
+          alert: e.alert ?? defaultAlert,
           at: dateAt(addDays(day, -1), EVE_REMINDER),
           title: `Demain : ${e.title}`,
           body: `Prépare dès ce soir : ${item}`,

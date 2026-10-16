@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { colors, radius, TOUCH } from '../theme';
 import { Chip, Sheet, Txt } from '../ui';
 import { DomainsEditor } from './DomainsEditor';
+import { RemindersSettings } from './RemindersSettings';
 import { CalendarView, useSettings } from './SettingsContext';
 
 const VIEWS: { id: CalendarView; label: string }[] = [
@@ -55,6 +56,10 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
             thumbColor="#FFFFFF"
           />
         </View>
+      </View>
+      <View style={{ gap: 8 }}>
+        <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 4 }}>Rappels</Txt>
+        <RemindersSettings />
       </View>
       <View style={{ gap: 8 }}>
         <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 4 }}>Domaines</Txt>

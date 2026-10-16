@@ -22,7 +22,7 @@ export interface Task {
   /** `dropped` = lâchée : cachée partout, mais gardée pour un futur bilan. */
   status: TaskStatus;
   doneAt?: DayKey;
-  /** Nombre de fois où la tâche a glissé vers un nouveau jour faute d'avoir été faite. */
+  /** Nombre de fois où la tâche est revenue au sas faute d'avoir été faite le jour prévu. */
   slides: number;
   /** Identifiant d'un domaine du calendrier (personnalisable). */
   category?: string;
@@ -87,7 +87,7 @@ export function taskToItem(t: Task): TaskItem {
  * Les séries (chaque jour, chaque semaine…) restent dans le calendrier : elles n'ont pas de priorité à trier.
  */
 export function eventToItem(e: CalendarEvent): TaskItem | null {
-  if (!(e.kinds ?? []).includes('tache') || e.repeat !== 'none') return null;
+  if (!(e.kinds ?? []).includes('tache') || e.repeat !== 'none' || e.sentToSas) return null;
   return {
     key: `event:${e.id}`, source: 'event', id: e.id, title: e.title, day: e.date,
     start: e.start, durationMin: e.durationMin,
@@ -144,15 +144,35 @@ export function tasksOn<T extends Triable & { start?: number | null }>(items: T[
 export const taskCountOn = (tasks: Task[], day: DayKey): number =>
   tasks.reduce((n, t) => (t.day === day && t.status !== 'dropped' ? n + 1 : n), 0);
 
-// ---- Glissement ----
+// ---- Retour au sas ----
 
 /**
- * Les tâches prévues un jour passé et pas faites glissent à aujourd'hui, sans reproche.
- * Renvoie le même tableau (même référence) quand il n'y a rien à faire glisser.
+ * Une tâche prévue un jour passé et pas cochée ne glisse PAS au lendemain : elle repasse par le sas,
+ * sans jour ni priorité, pour qu'on décide à nouveau si elle vaut encore la peine (pas d'accumulation).
+ * `slides` compte ces retours. Renvoie le même tableau (même référence) quand il n'y a rien à faire.
  */
-export function slideOverdue(tasks: Task[], today: DayKey): Task[] {
-  if (!tasks.some((t) => t.status === 'todo' && t.day !== null && t.day < today)) return tasks;
-  return tasks.map((t) => (t.status === 'todo' && t.day !== null && t.day < today ? { ...t, day: today, slides: t.slides + 1 } : t));
+export function returnOverdueToSas(tasks: Task[], today: DayKey): Task[] {
+  const overdue = (t: Task) => t.status === 'todo' && t.day !== null && t.day < today;
+  if (!tasks.some(overdue)) return tasks;
+  return tasks.map((t) => (overdue(t) ? { ...t, day: null, important: null, urgent: null, slides: t.slides + 1 } : t));
+}
+
+/**
+ * Événements « Tâche » ponctuels d'un jour passé, pas cochés : le créneau reste dans le calendrier
+ * (c'était prévu ce jour-là), et une tâche toute neuve repart dans le sas.
+ */
+export function eventTasksToReturn(events: CalendarEvent[], today: DayKey): CalendarEvent[] {
+  return events.filter(
+    (e) => (e.kinds ?? []).includes('tache') && e.repeat === 'none' && !e.sentToSas
+      && e.date < today && !e.doneDays?.includes(e.date),
+  );
+}
+
+export function taskFromMissedEvent(e: CalendarEvent, today: DayKey): Task {
+  return {
+    id: newId(), title: e.title, createdAt: today, important: null, urgent: null, day: null,
+    status: 'todo', slides: 1, category: e.category, note: e.note,
+  };
 }
 
 /** Seuil à partir duquel on propose autre chose que de la repousser encore. */
@@ -160,7 +180,7 @@ export const STUCK_AFTER = 3;
 
 export function slideLabel(t: Pick<TaskItem, 'status' | 'slides'>): string | null {
   if (t.status !== 'todo' || t.slides === 0) return null;
-  return t.slides === 1 ? 'Glissée 1 fois' : `Glissée ${t.slides} fois`;
+  return t.slides === 1 ? 'Revenue au sas 1 fois' : `Revenue au sas ${t.slides} fois`;
 }
 
 export const isStuck = (t: Pick<TaskItem, 'status' | 'slides'>) => t.status === 'todo' && t.slides >= STUCK_AFTER;

@@ -1,6 +1,7 @@
 // Données du calendrier : événements, domaines, page libre de chaque semaine.
 import React, { createContext, ReactNode, useContext, useEffect, useMemo } from 'react';
 import { usePersistentState } from '../storage';
+import { useSettings } from '../settings/SettingsContext';
 import { syncReminders } from './notifications';
 import type { DayKey } from './dates';
 import { CalendarEvent, DEFAULT_DOMAINS, Domain, domainOf } from './model';
@@ -40,12 +41,14 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   });
   const domains = data.domains?.length ? data.domains : DEFAULT_DOMAINS;
 
+  const defaultAlert = useSettings().settings.defaultAlert ?? 'sonnerie';
+
   // Reprogramme les rappels du téléphone dès que le calendrier change (et au démarrage).
   useEffect(() => {
     if (!loaded) return;
-    const t = setTimeout(() => void syncReminders(data.events), 800);
+    const t = setTimeout(() => void syncReminders(data.events, defaultAlert), 800);
     return () => clearTimeout(t);
-  }, [data.events, loaded]);
+  }, [data.events, loaded, defaultAlert]);
 
   const value = useMemo<Ctx>(() => ({
     events: data.events,

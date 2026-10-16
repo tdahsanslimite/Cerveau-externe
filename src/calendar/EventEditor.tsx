@@ -8,7 +8,7 @@ import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
 import { addDays, DayKey, durationLabel, labelDayLong, labelDayShort, minutesToLabel, relativeLabel } from './dates';
 import {
-  CalendarEvent, EventKind, findConflict, KINDS, kindsOf, MAX_REMINDERS, newId, nextFreeStart,
+  ALERTS, CalendarEvent, EventKind, findConflict, KINDS, kindsOf, MAX_REMINDERS, newId, nextFreeStart,
   Reminder, REMINDER_UNITS, REPEATS,
 } from './model';
 import { notificationsSupported } from './notifications';
@@ -211,9 +211,9 @@ export function EventEditor({ state, onClose, onSaved }: {
         </View>
         {e.start !== null ? (
           <View style={{ gap: 8 }}>
-            <TimeRow label="Début" value={start} open={wheel === 'start'} onToggle={() => setWheel(wheel === 'start' ? null : 'start')} onShift={(d) => setStart(start + d)} />
+            <TimeRow label="Début" value={start} open={wheel === 'start'} onToggle={() => setWheel(wheel === 'start' ? null : 'start')} />
             {wheel === 'start' ? <TimeWheel value={start} onChange={setStart} /> : null}
-            <TimeRow label="Fin" value={end} open={wheel === 'end'} onToggle={() => setWheel(wheel === 'end' ? null : 'end')} onShift={(d) => setEnd(end + d)} />
+            <TimeRow label="Fin" value={end} open={wheel === 'end'} onToggle={() => setWheel(wheel === 'end' ? null : 'end')} />
             {wheel === 'end' ? <TimeWheel value={Math.min(end, DAY_END - 5)} onChange={setEnd} /> : null}
             <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4 }}>Durée : {durationLabel(e.durationMin)}</Txt>
           </View>
@@ -276,6 +276,21 @@ export function EventEditor({ state, onClose, onSaved }: {
             onPress={() => patch({ reminders: [...reminders, reminders.length === 0 ? { amount: 30, unit: 'min' } : { amount: 1, unit: 'j' }] })}
           />
         ) : null}
+        {reminders.length > 0 || e.itemEveReminder ? (
+          <View style={{ gap: 8, marginTop: 4 }}>
+            <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4 }}>Type d'alerte</Txt>
+            <View style={st.wrap}>
+              {ALERTS.map((a) => (
+                <Chip
+                  key={a.id}
+                  label={a.id === settings.defaultAlert ? `${a.label} (par défaut)` : a.label}
+                  selected={(e.alert ?? settings.defaultAlert) === a.id}
+                  onPress={() => patch({ alert: a.id === settings.defaultAlert ? undefined : a.id })}
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
       </Field>
 
       <Field label="Domaine">
@@ -309,27 +324,18 @@ export function EventEditor({ state, onClose, onSaved }: {
   );
 }
 
-function TimeRow({ label, value, open, onToggle, onShift }: {
-  label: string; value: number; open: boolean; onToggle: () => void; onShift: (delta: number) => void;
-}) {
+function TimeRow({ label, value, open, onToggle }: { label: string; value: number; open: boolean; onToggle: () => void }) {
   return (
-    <View style={{ gap: 4 }}>
-      <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4 }}>{label}</Txt>
-      <View style={st.stepper}>
-        <StepBtn text="−1 h" label={`${label} : une heure plus tôt`} onPress={() => onShift(-60)} />
-        <StepBtn text="−15" label={`${label} : quinze minutes plus tôt`} onPress={() => onShift(-15)} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${label} ${minutesToLabel(value)}. Choisir sur la roue`}
-          onPress={onToggle}
-          style={[st.timeBtn, open && st.timeBtnOn]}
-        >
-          <Txt bold size={22}>{minutesToLabel(value)}</Txt>
-        </Pressable>
-        <StepBtn text="+15" label={`${label} : quinze minutes plus tard`} onPress={() => onShift(15)} />
-        <StepBtn text="+1 h" label={`${label} : une heure plus tard`} onPress={() => onShift(60)} />
-      </View>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} ${minutesToLabel(value)}. Choisir sur la roue`}
+      onPress={onToggle}
+      style={[st.timeRow, open && st.timeBtnOn]}
+    >
+      <Txt size={15} color={colors.muted} style={{ width: 52 }}>{label}</Txt>
+      <Txt bold size={22} style={{ flex: 1 }}>{minutesToLabel(value)}</Txt>
+      <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+    </Pressable>
   );
 }
 
@@ -359,8 +365,11 @@ const st = StyleSheet.create({
   inputError: { borderColor: colors.danger, borderWidth: 1.5 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.card, borderRadius: radius.m, borderWidth: 1, borderColor: colors.line, padding: 6 },
   stepBtn: { minWidth: TOUCH, height: TOUCH, borderRadius: radius.s, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  timeBtn: { flex: 1, height: TOUCH, borderRadius: radius.s, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.border, borderStyle: 'dashed' },
-  timeBtnOn: { borderColor: colors.accent, borderStyle: 'solid', backgroundColor: colors.accentSoft },
+  timeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16,
+    borderRadius: radius.m, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
+  },
+  timeBtnOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   notice: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', borderRadius: radius.m, padding: 12 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: TOUCH },

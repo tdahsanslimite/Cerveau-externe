@@ -2,7 +2,7 @@
   "expo": {
     "name": "Cerveau Externe",
     "slug": "cerveau-externe",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,8 @@
       "permissions": [
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
@@ -39,7 +40,11 @@
         {
           "icon": "./assets/android-icon-monochrome.png",
           "color": "#1F6F6B",
-          "defaultChannel": "rappels"
+          "defaultChannel": "rappel-sonnerie",
+          "sounds": [
+            "./assets/sounds/carillon.wav",
+            "./assets/sounds/cloche.wav"
+          ]
         }
       ]
     ]

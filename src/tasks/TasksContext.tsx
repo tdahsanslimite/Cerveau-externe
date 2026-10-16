@@ -1,8 +1,9 @@
 // Données des tâches, stockées sur le téléphone (clé ce.tasks.v1).
-import React, { createContext, ReactNode, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { usePersistentState } from '../storage';
 import { todayKey } from '../calendar/dates';
-import { newTask, setDone, slideOverdue, Task } from './model';
+import { useCalendar } from '../calendar/CalendarContext';
+import { eventTasksToReturn, newTask, returnOverdueToSas, setDone, Task, taskFromMissedEvent } from './model';
 
 interface TasksData {
   tasks: Task[];
@@ -23,17 +24,36 @@ const TasksCtx = createContext<Ctx | null>(null);
 export function TasksProvider({ children }: { children: ReactNode }) {
   const [data, setData, loaded] = usePersistentState<TasksData>('ce.tasks.v1', { tasks: [] });
 
-  // Au chargement, puis chaque minute (passage de minuit appli ouverte), les tâches en retard glissent à aujourd'hui.
+  const { events, loaded: calendarLoaded, saveEvent } = useCalendar();
+
+  // Au chargement, puis chaque minute (passage de minuit appli ouverte) : les tâches pas cochées
+  // un jour passé repassent par le sas (pas d'accumulation sur le lendemain).
   useEffect(() => {
     if (!loaded) return;
-    const slide = () => setData((d) => {
-      const tasks = slideOverdue(d.tasks, todayKey());
+    const back = () => setData((d) => {
+      const tasks = returnOverdueToSas(d.tasks, todayKey());
       return tasks === d.tasks ? d : { ...d, tasks };
     });
-    slide();
-    const timer = setInterval(slide, 60 * 1000);
+    back();
+    const timer = setInterval(back, 60 * 1000);
     return () => clearInterval(timer);
   }, [loaded, setData]);
+
+  // Même règle pour les événements « Tâche » du calendrier : le créneau reste (c'était prévu ce jour-là),
+  // une nouvelle tâche part dans le sas. Revérifié à chaque changement du calendrier et chaque minute.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((n) => n + 1), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    if (!loaded || !calendarLoaded) return;
+    const today = todayKey();
+    const missed = eventTasksToReturn(events, today);
+    if (!missed.length) return;
+    setData((d) => ({ ...d, tasks: [...d.tasks, ...missed.map((e) => taskFromMissedEvent(e, today))] }));
+    for (const e of missed) saveEvent({ ...e, sentToSas: true });
+  }, [events, loaded, calendarLoaded, saveEvent, setData, tick]);
 
   const value = useMemo<Ctx>(() => ({
     tasks: data.tasks,

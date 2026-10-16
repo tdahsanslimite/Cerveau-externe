@@ -12,10 +12,12 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 - **Créneaux libres** affichés entre les rendez-vous (8 h – 21 h).
 - Vue Semaine en cartes qui s'agrandissent (fini les cases A6 trop petites) + **page libre de la semaine**.
 - **Réglages** : limite par jour, vue à l'ouverture, créneaux libres.
-- Heure de début et de fin, avec roue (tap sur l'heure) ou boutons ±15 min / ±1 h.
+- Heure de début et de fin : un tap sur l'heure ouvre une roue heures / minutes.
 - Chevauchements interdits, avec proposition du prochain créneau libre.
 - Types combinables : Rendez-vous, Tâche (cochable, jour par jour pour une série), Objet à prendre (+ rappel la veille à 20 h).
 - Jusqu'à 3 rappels par événement (minutes, heures, jours), notifications locales sur Android.
+- Type d'alerte : Sonnerie, Carillon, Cloche (sons de l'appli, `assets/sounds`), Vibreur, Silencieux ; par défaut dans les Réglages, modifiable par événement. Un canal Android par type.
+- Réglages › Rappels : bouton « Tester un rappel » (10 s) et état (autorisation, nombre programmé, prochain, dernier problème).
 - Domaines personnalisables (nom, couleur, création, suppression) dans les Réglages.
 - Données stockées sur le téléphone uniquement.
 
@@ -26,7 +28,7 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 - **Tri guidé** : un élément à la fois, deux questions (important ? urgent ?), plus « pour quand ? » seulement s'il n'a pas déjà un créneau.
 - **Matrice d'Eisenhower** : À faire en premier / À planifier / À déléguer ou alléger / À lâcher ? (icônes et texte, pas seulement des couleurs, pour ne pas se confondre avec les domaines).
 - **Aujourd'hui** : les tâches prévues, cochables, avec la charge du jour ; celles qui ont une heure passent d'abord.
-- **Glissement** : une tâche non faite d'un jour passé glisse à aujourd'hui, sans reproche. Après 3 glissements, l'appli propose de la découper, de lui donner une heure ou de la lâcher.
+- **Retour au sas** : une tâche pas cochée un jour passé ne glisse pas au lendemain ; elle repasse par le sas (sans jour ni priorité) pour décider si elle vaut encore la peine. Pour un événement « Tâche », le créneau reste dans le calendrier et une tâche neuve part dans le sas. Après 3 retours, l'appli propose de la découper, de lui donner une heure ou de la lâcher.
 - **Lâcher** : une tâche lâchée disparaît partout mais reste en mémoire (pour un futur bilan).
 - Les tâches prévues apparaissent dans les vues **Jour** et **Semaine** du calendrier et **comptent dans la charge du jour** (nombre d'éléments : événements + tâches).
 - **Une seule liste, deux sources, jamais de copie** :

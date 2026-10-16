@@ -59,6 +59,17 @@ export interface Reminder {
 }
 
 export const MAX_REMINDERS = 3;
+
+/** Comment le téléphone se manifeste au moment du rappel. */
+export type AlertKind = 'sonnerie' | 'vibreur' | 'silencieux' | 'carillon' | 'cloche';
+
+export const ALERTS: { id: AlertKind; label: string }[] = [
+  { id: 'sonnerie', label: 'Sonnerie' },
+  { id: 'carillon', label: 'Carillon' },
+  { id: 'cloche', label: 'Cloche' },
+  { id: 'vibreur', label: 'Vibreur' },
+  { id: 'silencieux', label: 'Silencieux' },
+];
 export const REMINDER_UNITS: { id: ReminderUnit; label: string; minutes: number }[] = [
   { id: 'min', label: 'min', minutes: 1 },
   { id: 'h', label: 'heures', minutes: 60 },
@@ -83,6 +94,8 @@ export interface CalendarEvent {
   /** Rappel la veille à 20 h pour préparer l'objet. */
   itemEveReminder?: boolean;
   reminders?: Reminder[];
+  /** Type d'alerte de ses rappels ; absent = celui choisi dans les réglages. */
+  alert?: AlertKind;
   /** Jours où la tâche a été faite (une série peut être cochée jour par jour). */
   doneDays?: DayKey[];
   /**
@@ -91,6 +104,8 @@ export interface CalendarEvent {
    */
   important?: boolean | null;
   urgent?: boolean | null;
+  /** Tâche pas cochée le jour prévu : le créneau reste (historique) et une nouvelle tâche est repartie dans le sas. */
+  sentToSas?: boolean;
   /** Jours où une occurrence d'une série a été supprimée. */
   skipped?: DayKey[];
   note?: string;

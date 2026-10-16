@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  byQuadrant, eventFromTask, eventToItem, inSas, isStuck, itemsOf, newTask, quadrantOf, setDone, slideLabel, slideOverdue,
+  byQuadrant, eventFromTask, eventToItem, inSas, isStuck, itemsOf, newTask, quadrantOf, setDone, slideLabel, returnOverdueToSas, eventTasksToReturn, taskFromMissedEvent,
   sortEvent, sortTask, taskCountOn, taskToItem, tasksOn, whenToDay,
 } from './model.ts';
 import type { Task, TaskItem } from './model.ts';
@@ -82,39 +82,63 @@ test('la charge du jour compte les tâches prévues, faites ou non, pas les lâc
   assert.equal(taskCountOn(tasks, '2026-10-17'), 0);
 });
 
-test('glissement : une tâche non faite d’un jour passé passe à aujourd’hui', () => {
+test('retour au sas : une tâche pas cochée un jour passé repasse par le sas, sans jour ni priorité', () => {
   const tasks = [
-    mk({ id: 'retard', day: '2026-10-13' }),
+    mk({ id: 'retard', day: '2026-10-13', important: true, urgent: true }),
     mk({ id: 'aujourdhui', day: TODAY }),
     mk({ id: 'futur', day: '2026-10-20' }),
     mk({ id: 'sansjour', day: null }),
     mk({ id: 'faite', day: '2026-10-13', status: 'done' }),
     mk({ id: 'lachee', day: '2026-10-13', status: 'dropped' }),
   ];
-  const out = slideOverdue(tasks, TODAY);
+  const out = returnOverdueToSas(tasks, TODAY);
   const get = (id: string) => out.find((t) => t.id === id) as Task;
-  assert.equal(get('retard').day, TODAY);
+  assert.equal(get('retard').day, null);
+  assert.equal(get('retard').important, null);
+  assert.equal(get('retard').urgent, null);
   assert.equal(get('retard').slides, 1);
+  assert.ok(inSas(out.map(taskToItem)).some((i) => i.id === 'retard'));
   for (const id of ['aujourdhui', 'futur', 'sansjour', 'faite', 'lachee']) {
     assert.equal(get(id).slides, 0, id);
     assert.equal(get(id).day, tasks.find((t) => t.id === id)?.day);
   }
 });
 
-test('glissement : rien à faire = même tableau, et jamais deux fois le même jour', () => {
+test('retour au sas : rien à faire = même tableau, rien ne s’accumule sur demain', () => {
   const calme = [mk({ day: TODAY }), mk({ day: null })];
-  assert.equal(slideOverdue(calme, TODAY), calme);
-  const once = slideOverdue([mk({ day: '2026-10-01' })], TODAY);
-  assert.equal(slideOverdue(once, TODAY), once);
-  assert.equal(once[0].slides, 1);
-  // le lendemain, si elle n’est toujours pas faite, elle glisse encore
-  assert.equal(slideOverdue(once, '2026-10-16')[0].slides, 2);
+  assert.equal(returnOverdueToSas(calme, TODAY), calme);
+  const once = returnOverdueToSas([mk({ day: '2026-10-01' })], TODAY);
+  assert.equal(returnOverdueToSas(once, TODAY), once);
+  assert.equal(returnOverdueToSas(once, '2026-10-16'), once); // sans jour : elle attend dans le sas
 });
 
-test('une tâche qui glisse beaucoup est signalée comme coincée', () => {
+test('événement « Tâche » pas coché : le créneau reste, une tâche repart dans le sas', () => {
+  const ev = (o: Partial<CalendarEvent>): CalendarEvent => ({
+    id: 'e', title: 'Monter la vidéo', date: '2026-10-13', start: 14 * 60, durationMin: 120,
+    category: 'travail', repeat: 'none', kinds: ['tache'], important: true, urgent: false, ...o,
+  });
+  const events = [
+    ev({ id: 'rate' }),
+    ev({ id: 'fait', doneDays: ['2026-10-13'] }),
+    ev({ id: 'deja', sentToSas: true }),
+    ev({ id: 'aujourdhui', date: TODAY }),
+    ev({ id: 'serie', repeat: 'daily' }),
+    ev({ id: 'rdv', kinds: ['rdv'] }),
+  ];
+  assert.deepEqual(eventTasksToReturn(events, TODAY).map((e) => e.id), ['rate']);
+  const t = taskFromMissedEvent(events[0], TODAY);
+  assert.equal(t.title, 'Monter la vidéo');
+  assert.equal(t.day, null);
+  assert.equal(t.important, null);
+  assert.equal(t.slides, 1);
+  // une fois renvoyé, l'événement ne compte plus comme tâche (pas de doublon)
+  assert.equal(eventToItem({ ...events[0], sentToSas: true }), null);
+});
+
+test('une tâche qui revient souvent au sas est signalée comme coincée', () => {
   assert.equal(slideLabel(mk()), null);
-  assert.equal(slideLabel(mk({ slides: 1 })), 'Glissée 1 fois');
-  assert.equal(slideLabel(mk({ slides: 4 })), 'Glissée 4 fois');
+  assert.equal(slideLabel(mk({ slides: 1 })), 'Revenue au sas 1 fois');
+  assert.equal(slideLabel(mk({ slides: 4 })), 'Revenue au sas 4 fois');
   assert.equal(isStuck(mk({ slides: 2 })), false);
   assert.equal(isStuck(mk({ slides: 3 })), true);
   assert.equal(isStuck(mk({ slides: 5, status: 'done' })), false);
