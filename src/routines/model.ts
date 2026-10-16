@@ -138,7 +138,9 @@ export function routineMonth(routine: Routine, done: DoneMap, anyDayOfMonth: Day
 /** Bilan d'un mois : seules les routines qui existaient ce mois-là, avec au moins un jour prévu. */
 export function monthReport(routines: Routine[], done: DoneMap, anyDayOfMonth: DayKey, today: DayKey): RoutineMonth[] {
   return routines
-    .map((r) => routineMonth(r, done, anyDayOfMonth, today))
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => momentRank(a.r.moment) - momentRank(b.r.moment) || a.i - b.i)
+    .map(({ r }) => routineMonth(r, done, anyDayOfMonth, today))
     .filter((m) => m.cells.some((c) => c.state !== 'off'));
 }
 

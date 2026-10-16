@@ -44,7 +44,8 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 - Chaque routine a ses jours de la semaine (tous les jours, lun–ven, lun/mer/ven…). Elle revient **toute seule chaque mois** : rien à recopier.
 - On ne coche pas à l'avance ; on peut compléter un jour passé.
 - **Retirer** une routine la fait disparaître des listes à partir d'aujourd'hui, mais son passé reste dans le bilan.
-- **Bilan caché** derrière « Voir mon bilan » : jamais affiché tout seul, ton indulgent (cases cochées, meilleure série, pas de série « perdue »). Aujourd'hui pas encore coché n'est pas compté comme un oubli.
+- **Ajouter une routine** : ligne en pointillés collée sous la liste du jour (elle défile avec la page).
+- **Bilan** : gros bouton flottant « Bilan » en bas à droite de l'écran Routines (jamais affiché tout seul). Il ouvre **un seul tableau plein écran** pour le mois entier : routines en colonnes (même ordre que la liste du jour), jours en lignes, tout visible d'un coup d'œil. Cases : fait / pas coché / pas prévu (point) ; le futur reste vide ; aujourd'hui est surligné et sa case à remplir est entourée. En-tête de colonne : « fait/prévu » (aujourd'hui non coché n'est pas compté comme un oubli). Mois précédents navigables. Avec beaucoup de routines, le tableau défile à l'horizontale (une demi-colonne dépasse pour le signaler) ; la colonne des jours reste fixe.
 - Les routines **ne comptent pas** dans la charge du jour (ce serait toujours « trop chargé »).
 - Données dans la clé locale `ce.routines.v1`.
 
@@ -80,7 +81,8 @@ src/routines/RoutinesContext    données des routines (ce.routines.v1)
 src/routines/RoutinesScreen.tsx écran Routines
 src/routines/components.tsx     liste cochable (partagée avec la vue Jour)
 src/routines/RoutineEditor.tsx  fiche d'une routine
-src/routines/BilanSheet.tsx     bilan du mois, à la demande
+src/routines/BilanScreen.tsx    bilan : tableau unique du mois, plein écran
+src/routines/tableLayout.ts     tailles du tableau de bilan (testées)
 ```
 
 ## Commandes

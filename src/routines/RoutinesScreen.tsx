@@ -1,11 +1,11 @@
-// Écran principal du module Routines : le jour choisi, ses routines à cocher, le bilan à la demande.
+// Écran principal du module Routines : le jour choisi, ses routines à cocher, le bilan en bouton flottant.
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
 import { Button, Card, Icon, IconButton, SectionLabel, Txt } from '../ui';
 import { addDays, DAY_SHORT, DayKey, fromKey, isoWeek, labelDayLong, labelWeekRange, relativeLabel, startOfWeek, todayKey, weekDays } from '../calendar/dates';
-import { BilanSheet } from './BilanSheet';
+import { BilanScreen } from './BilanScreen';
 import { RoutineChecklist } from './components';
 import { blankRoutine, RoutineEditor, RoutineEditorState } from './RoutineEditor';
 import { useRoutines } from './RoutinesContext';
@@ -84,6 +84,16 @@ export function RoutinesScreen() {
           <>
             <RoutineChecklist day={day} onEdit={onEdit} />
 
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ajouter une routine"
+              onPress={onAdd}
+              style={({ pressed }) => [st.addRow, pressed && { backgroundColor: colors.accentSoft }]}
+            >
+              <Icon name="plus" size={20} color={colors.accent} />
+              <Txt bold size={15} color={colors.accent}>Ajouter une routine</Txt>
+            </Pressable>
+
             {resting.length > 0 ? (
               <View style={{ gap: 8 }}>
                 <SectionLabel>Pas au programme ce jour</SectionLabel>
@@ -106,24 +116,24 @@ export function RoutinesScreen() {
                 </Card>
               </View>
             ) : null}
-
-            <Button label="Voir mon bilan" icon="bar-chart-2" kind="ghost" onPress={() => setBilanOpen(true)} />
           </>
         )}
       </ScrollView>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Ajouter une routine"
-        onPress={onAdd}
-        style={({ pressed }) => [st.fab, pressed && { opacity: 0.85 }]}
-      >
-        <Icon name="plus" size={22} color="#FFFFFF" />
-        <Txt bold size={15} color="#FFFFFF">Routine</Txt>
-      </Pressable>
+      {routines.length > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir le bilan du mois"
+          onPress={() => setBilanOpen(true)}
+          style={({ pressed }) => [st.fab, pressed && { opacity: 0.85 }]}
+        >
+          <Icon name="grid" size={22} color="#FFFFFF" />
+          <Txt bold size={15} color="#FFFFFF">Bilan</Txt>
+        </Pressable>
+      ) : null}
 
       <RoutineEditor state={editor} onClose={() => setEditor(null)} />
-      <BilanSheet visible={bilanOpen} onClose={() => setBilanOpen(false)} />
+      <BilanScreen visible={bilanOpen} onClose={() => setBilanOpen(false)} />
     </View>
   );
 }
@@ -139,6 +149,10 @@ const st = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 2,
   },
   content: { paddingHorizontal: 16, gap: 14, maxWidth: 640, width: '100%', alignSelf: 'center' },
+  addRow: {
+    minHeight: 56, borderRadius: radius.l, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.accent,
+    flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18,
+  },
   restRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
   fab: {
     position: 'absolute', right: 18, bottom: 24, height: 56, paddingHorizontal: 20, borderRadius: 28, backgroundColor: colors.accent,

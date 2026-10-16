@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { monthDays } from '../calendar/dates.ts';
+import { fitColWidth, fitRowHeight } from './tableLayout.ts';
 import { ALL_WEEK, canCheck, dayProgress, daysLabel, isDone, isDue, monthReport, routineMonth, routinesOn, toggleDone } from './model.ts';
 import type { DoneMap, Routine } from './model.ts';
 
@@ -115,4 +116,37 @@ test('bilan du mois : seulement les routines qui existaient', () => {
   assert.deepEqual(sept, ['old', 'cur']);
   const oct = monthReport([old, current, recent], {}, '2026-10-10', '2026-10-15').map((m) => m.routine.id);
   assert.deepEqual(oct, ['cur', 'new']);
+});
+
+test('bilan : une case par jour du mois, dans l’ordre, et colonnes dans l’ordre de la liste du jour', () => {
+  const soir = routine({ id: 's', moment: 'soir' });
+  const matin1 = routine({ id: 'm1', moment: 'matin' });
+  const matin2 = routine({ id: 'm2', moment: 'matin' });
+  const days = monthDays('2026-10-15');
+  const report = monthReport([soir, matin1, matin2], {}, '2026-10-15', '2026-10-15');
+  assert.deepEqual(report.map((m) => m.routine.id), ['m1', 'm2', 's']);
+  for (const m of report) {
+    assert.equal(m.cells.length, days.length);
+    assert.deepEqual(m.cells.map((c) => c.day), days);
+  }
+});
+
+test('tableau : hauteur de ligne ajustée au mois, bornée', () => {
+  assert.equal(fitRowHeight(640, 64, 31, 18, 40), 18); // 576 / 31 = 18,58 → 18 : tient sans défiler
+  assert.equal(fitRowHeight(755, 64, 31, 18, 40), 22);
+  assert.equal(fitRowHeight(2000, 64, 28, 18, 40), 40); // grand écran : plafonné
+  assert.equal(fitRowHeight(300, 64, 31, 18, 40), 18); // petit écran : plancher (le tableau défilera)
+});
+
+test('tableau : largeur de colonne ; s’il faut défiler, une demi-colonne dépasse', () => {
+  assert.equal(fitColWidth(300, 3, 50), 100);
+  assert.equal(fitColWidth(300, 5, 50), 60); // tout tient
+  assert.equal(fitColWidth(300, 6, 50), 50); // tout tient, pile
+  assert.equal(fitColWidth(300, 0, 50), 50);
+  for (const cols of [7, 9, 15]) {
+    const w = fitColWidth(300, cols, 50);
+    assert.ok(w >= 50, 'jamais plus étroit que le minimum');
+    assert.ok(cols * w > 300, 'il faut défiler');
+    assert.ok(Math.abs((300 / w) % 1 - 0.5) < 0.1, 'une demi-colonne est visible à droite');
+  }
 });
