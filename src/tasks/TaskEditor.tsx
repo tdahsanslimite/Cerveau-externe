@@ -11,6 +11,7 @@ import { useSettings } from '../settings/SettingsContext';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
 import { eventFromTask, isStuck, quadrantInfo, quadrantOf, Task } from './model';
+import { useOneThing } from './priority';
 import { useTasks } from './TasksContext';
 
 export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () => void }) {
@@ -21,6 +22,7 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
   const [t, setT] = useState<Task | null>(task);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [scheduling, setScheduling] = useState<EditorState | null>(null);
+  const { ask, sheet: oneThingSheet } = useOneThing();
 
   useEffect(() => {
     setT(task);
@@ -47,9 +49,17 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
     onClose();
   };
 
+  /** Une seule chose importante ET urgente : s'il y en a déjà une, on demande laquelle reste. */
+  const onSave = () => {
+    if (!canSave) return;
+    if (t.status === 'todo' && t.important === true && t.urgent === true) {
+      ask({ key: `task:${t.id}`, title: t.title.trim() }, (p) => commit({ ...t, ...p }));
+    } else commit(t);
+  };
+
   const footer = (
     <>
-      <Button label="Enregistrer" kind="dark" onPress={() => commit(t)} style={!canSave && { opacity: 0.4 }} />
+      <Button label="Enregistrer" kind="dark" onPress={onSave} style={!canSave && { opacity: 0.4 }} />
       {t.status !== 'dropped' && !confirmDelete ? (
         <Button label="Lâcher cette tâche" kind="ghost" icon="wind" onPress={() => commit({ ...t, status: 'dropped' })} />
       ) : null}
@@ -149,7 +159,8 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
       </Field>
     </Sheet>
     {/* La tâche est retirée du module une fois l'événement enregistré : un seul exemplaire, dans le calendrier. */}
-    <EventEditor state={scheduling} onClose={() => setScheduling(null)} onSaved={() => { remove(t.id); onClose(); }} />
+    <EventEditor state={scheduling} ignoreKey={`task:${t.id}`} onClose={() => setScheduling(null)} onSaved={() => { remove(t.id); onClose(); }} />
+    {oneThingSheet}
     </>
   );
 }

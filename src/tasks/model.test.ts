@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   byQuadrant, eventFromTask, eventToItem, inSas, isStuck, itemsOf, newTask, quadrantOf, setDone, slideLabel, returnOverdueToSas, eventTasksToReturn, taskFromMissedEvent,
   sortEvent, sortTask, taskCountOn, taskToItem, tasksOn, whenToDay,
+  justCompleted, oneThing, priorityOf, shouldAdvance, waitingItems,
 } from './model.ts';
 import type { Task, TaskItem } from './model.ts';
 import type { CalendarEvent } from '../calendar/model.ts';
@@ -268,4 +269,61 @@ test('une tâche du module se convertit en élément de liste sans perdre ses ch
   assert.equal(item.start, null);
   assert.equal(item.slides, 2);
   assert.equal(item.category, 'perso');
+});
+
+// ---- Une seule chose à la fois ----
+
+const it = (key: string, important: boolean | null, urgent: boolean | null, over: Partial<TaskItem> = {}): TaskItem => ({
+  ...(taskToItem(mk({ id: key })) as TaskItem), key, important, urgent, ...over,
+});
+
+test('la priorité de chaque case de la matrice', () => {
+  assert.deepEqual(priorityOf('faire'), { important: true, urgent: true });
+  assert.deepEqual(priorityOf('planifier'), { important: true, urgent: false });
+  assert.deepEqual(priorityOf('alleger'), { important: false, urgent: true });
+  assert.deepEqual(priorityOf('lacher'), { important: false, urgent: false });
+  for (const q of ['faire', 'planifier', 'alleger', 'lacher'] as const) assert.equal(quadrantOf(priorityOf(q)), q);
+});
+
+test('la chose du moment : la seule importante et urgente, pas faite', () => {
+  assert.equal(oneThing([it('a', true, false), it('b', false, true)]), null);
+  assert.equal(oneThing([it('a', true, true), it('b', true, false)])?.key, 'a');
+  assert.equal(oneThing([it('a', true, true, { status: 'done' })]), null);
+  assert.equal(oneThing([it('a', true, true, { status: 'dropped' })]), null);
+});
+
+test('la chose du moment ignore la tâche qu’on est en train de régler', () => {
+  const items = [it('a', true, true), it('b', true, false)];
+  assert.equal(oneThing(items, ['a']), null);
+  assert.equal(oneThing(items, ['b'])?.key, 'a');
+  assert.equal(oneThing([it('a', true, true, { day: '2026-10-20' }), it('c', true, true, { day: '2026-10-17' })])?.key, 'c');
+});
+
+test('les candidats à la prochaine chose : urgent seulement d’abord, puis important seulement, du plus proche au plus lointain', () => {
+  const items = [
+    it('plan-tard', true, false, { day: '2026-10-25' }),
+    it('plan-tot', true, false, { day: '2026-10-18' }),
+    it('urgent', false, true, { day: '2026-10-30' }),
+    it('lacher', false, false),
+    it('faite', true, false, { status: 'done' }),
+    it('sas', null, null),
+  ];
+  assert.deepEqual(waitingItems(items).map((i) => i.key), ['urgent', 'plan-tot', 'plan-tard']);
+});
+
+test('les tâches qui viennent d’être cochées', () => {
+  const before = [it('a', true, true), it('b', true, false), it('c', null, null, { status: 'done' })];
+  const after = [it('a', true, true, { status: 'done' }), it('b', true, false), it('c', null, null, { status: 'done' }), it('d', null, null)];
+  assert.deepEqual(justCompleted(before, after), ['a']);
+  assert.deepEqual(justCompleted(after, before), []); // décocher ne déclenche rien
+  assert.deepEqual(justCompleted(before, before), []);
+});
+
+test('on propose de requalifier seulement si la place est libre et qu’il y a de quoi la prendre', () => {
+  assert.equal(shouldAdvance([it('a', true, false)]), true); // place libre + une tâche en attente
+  assert.equal(shouldAdvance([it('a', null, null)]), true); // place libre + du sas
+  assert.equal(shouldAdvance([it('a', true, true), it('b', true, false)]), false); // la place est prise
+  assert.equal(shouldAdvance([it('a', false, false)]), false); // rien à promouvoir (à lâcher)
+  assert.equal(shouldAdvance([]), false);
+  assert.equal(shouldAdvance([it('a', true, true, { status: 'done' }), it('b', false, true)]), true); // la chose vient d'être faite
 });

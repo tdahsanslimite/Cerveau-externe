@@ -9,6 +9,7 @@ import { useSettings } from '../settings/SettingsContext';
 import { colors, radius } from '../theme';
 import { Button, Card, Icon, Sheet, Txt } from '../ui';
 import { inSas, quadrantInfo, quadrantOf, sortEvent, sortTask, TaskItem, WhenChoice, whenToDay } from './model';
+import { useOneThing } from './priority';
 import { useTasks } from './TasksContext';
 import { useTaskItems } from './useTaskItems';
 
@@ -18,6 +19,7 @@ export function SortSheet({ visible, onClose }: { visible: boolean; onClose: () 
   const items = useTaskItems();
   const { settings } = useSettings();
   const load = useDayLoad();
+  const { ask, sheet: oneThingSheet } = useOneThing();
   const [queue, setQueue] = useState<string[]>([]);
   const [pos, setPos] = useState(0);
   const [important, setImportant] = useState<boolean | null>(null);
@@ -49,12 +51,19 @@ export function SortSheet({ visible, onClose }: { visible: boolean; onClose: () 
 
   /** Réponse à « urgent ? ». Un événement du calendrier a déjà son créneau : on l'enregistre et on passe au suivant. */
   const answerUrgent = (value: boolean) => {
-    if (event && important !== null) {
-      saveEvent(sortEvent(event, important, value));
-      next();
-      return;
-    }
-    setUrgent(value);
+    if (important === null || !current) return;
+    const apply = (imp: boolean, urg: boolean) => {
+      if (event) {
+        saveEvent(sortEvent(event, imp, urg));
+        next();
+      } else {
+        setImportant(imp);
+        setUrgent(urg);
+      }
+    };
+    // Importante ET urgente : une seule à la fois. S'il y en a déjà une, on demande laquelle reste.
+    if (important && value) ask({ key: current.key, title: current.title }, (p) => apply(p.important, p.urgent));
+    else apply(important, value);
   };
 
   const place = (day: ReturnType<typeof whenToDay>) => {
@@ -81,6 +90,7 @@ export function SortSheet({ visible, onClose }: { visible: boolean; onClose: () 
     : null;
 
   return (
+    <>
     <Sheet
       visible={visible}
       onClose={onClose}
@@ -152,6 +162,8 @@ export function SortSheet({ visible, onClose }: { visible: boolean; onClose: () 
         </>
       )}
     </Sheet>
+    {oneThingSheet}
+    </>
   );
 }
 

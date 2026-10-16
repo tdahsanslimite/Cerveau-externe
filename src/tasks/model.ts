@@ -34,7 +34,7 @@ export interface Task {
 export type QuadrantId = 'faire' | 'planifier' | 'alleger' | 'lacher';
 
 export const QUADRANTS: { id: QuadrantId; label: string; hint: string; icon: 'zap' | 'calendar' | 'users' | 'wind' }[] = [
-  { id: 'faire', label: 'À faire en premier', hint: 'Important et urgent', icon: 'zap' },
+  { id: 'faire', label: 'À faire en premier', hint: 'Important et urgent · une seule à la fois', icon: 'zap' },
   { id: 'planifier', label: 'À planifier', hint: 'Important, pas urgent', icon: 'calendar' },
   { id: 'alleger', label: 'À déléguer ou alléger', hint: 'Urgent, pas important', icon: 'users' },
   { id: 'lacher', label: 'À lâcher ?', hint: 'Ni important, ni urgent', icon: 'wind' },
@@ -121,6 +121,43 @@ export function byQuadrant<T extends Triable>(items: T[], id: QuadrantId): T[] {
   return items
     .filter((t) => t.status === 'todo' && quadrantOf(t) === id)
     .sort((a, b) => (a.day ?? '9999').localeCompare(b.day ?? '9999'));
+}
+
+// ---- Une seule chose à la fois (comme « The One Thing ») ----
+
+/**
+ * Une seule tâche peut être à la fois importante ET urgente. Les autres attendent :
+ * « important seulement » (à planifier) ou « urgent seulement » (à déléguer ou alléger).
+ */
+export const ONE_THING_MAX = 1;
+
+/** Priorité (important, urgent) qui correspond à une case de la matrice. */
+export function priorityOf(q: QuadrantId): { important: boolean; urgent: boolean } {
+  return { important: q === 'faire' || q === 'planifier', urgent: q === 'faire' || q === 'alleger' };
+}
+
+/** La chose importante ET urgente du moment (pas faite), hors `exceptKeys`. S'il y en a plusieurs (anciennes données), la plus proche. */
+export function oneThing<T extends Triable & { key: string }>(items: T[], exceptKeys: string[] = []): T | null {
+  return byQuadrant(items.filter((i) => !exceptKeys.includes(i.key)), 'faire')[0] ?? null;
+}
+
+/** Ce qui attend dans « urgent seulement » puis « important seulement », du plus proche au plus lointain : les candidats à devenir la prochaine chose. */
+export function waitingItems<T extends Triable>(items: T[]): T[] {
+  return [...byQuadrant(items, 'alleger'), ...byQuadrant(items, 'planifier')];
+}
+
+/** Clés des éléments qui viennent d'être cochés (pas faits avant, faits maintenant). */
+export function justCompleted(before: Pick<TaskItem, 'key' | 'status'>[], after: Pick<TaskItem, 'key' | 'status'>[]): string[] {
+  const was = new Map(before.map((i) => [i.key, i.status]));
+  return after.filter((i) => i.status === 'done' && was.get(i.key) === 'todo').map((i) => i.key);
+}
+
+/**
+ * Faut-il proposer de requalifier la matrice ? Oui quand la place de « la chose » est libre
+ * et qu'il y a quelque chose pour la prendre : une tâche en attente, ou du sas à trier.
+ */
+export function shouldAdvance(items: TaskItem[]): boolean {
+  return oneThing(items) === null && (waitingItems(items).length > 0 || inSas(items).length > 0);
 }
 
 // ---- Jour ----

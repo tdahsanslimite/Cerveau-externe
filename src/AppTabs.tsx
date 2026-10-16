@@ -1,12 +1,15 @@
 // Barre d'onglets du bas. Un module = une ligne dans TABS.
 // Navigation volontairement simple (sans Expo Router) tant que l'appli n'a que quelques modules.
 // Tous les écrans restent affichés en mémoire : on retrouve le jour et la vue là où on les a laissés.
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarScreen } from './calendar/CalendarScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
-import { inSas } from './tasks/model';
+import { inSas, justCompleted, shouldAdvance } from './tasks/model';
+import type { TaskItem } from './tasks/model';
+import { AdvanceSheet } from './tasks/priority';
+import { SortSheet } from './tasks/SortSheet';
 import { TasksScreen } from './tasks/TasksScreen';
 import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
@@ -25,6 +28,16 @@ export function AppTabs() {
   const items = useTaskItems();
   const [active, setActive] = useState<TabId>('calendrier');
   const sasCount = inSas(items).length;
+  const [advance, setAdvance] = useState(false);
+  const [sorting, setSorting] = useState(false);
+  const previous = useRef<TaskItem[] | null>(null);
+
+  // Dès qu'une tâche est cochée et que la place de « la chose » est libre, on propose de requalifier la matrice.
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = items;
+    if (before && justCompleted(before, items).length > 0 && shouldAdvance(items)) setAdvance(true);
+  }, [items]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -65,6 +78,15 @@ export function AppTabs() {
           );
         })}
       </View>
+      <AdvanceSheet
+        visible={advance}
+        onClose={() => setAdvance(false)}
+        onSort={() => {
+          setActive('taches');
+          setSorting(true);
+        }}
+      />
+      <SortSheet visible={sorting} onClose={() => setSorting(false)} />
     </View>
   );
 }

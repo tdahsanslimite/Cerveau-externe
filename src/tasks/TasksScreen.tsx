@@ -14,6 +14,7 @@ import { colors, fonts, radius } from '../theme';
 import { Button, Card, Icon, IconButton, SectionLabel, Txt } from '../ui';
 import { TaskRow } from './components';
 import { byQuadrant, inSas, QUADRANTS, Task, TaskItem, tasksOn } from './model';
+import { MoveSheet } from './priority';
 import { SortSheet } from './SortSheet';
 import { TaskEditor } from './TaskEditor';
 import { useTasks } from './TasksContext';
@@ -34,6 +35,7 @@ export function TasksScreen() {
   const [editing, setEditing] = useState<Task | null>(null);
   const [editingEvent, setEditingEvent] = useState<EditorState | null>(null);
   const [sorting, setSorting] = useState(false);
+  const [moving, setMoving] = useState<TaskItem | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const input = useRef<TextInput>(null);
 
@@ -77,8 +79,15 @@ export function TasksScreen() {
     else if (item.day) toggleEventDone(item.id, item.day); // bascule le jour de l'événement
   };
 
-  const row = (item: TaskItem, showDay = false) => (
-    <TaskRow key={item.key} task={item} showDay={showDay} onPress={() => open(item)} onToggle={(done) => toggle(item, done)} />
+  const row = (item: TaskItem, showDay = false, movable = false) => (
+    <TaskRow
+      key={item.key}
+      task={item}
+      showDay={showDay}
+      onPress={() => open(item)}
+      onToggle={(done) => toggle(item, done)}
+      onMove={movable ? () => setMoving(item) : undefined}
+    />
   );
 
   return (
@@ -182,7 +191,13 @@ export function TasksScreen() {
                   </View>
                   <Txt bold size={14} color={colors.muted}>{list.length}</Txt>
                 </View>
-                <Card>{list.length === 0 ? <EmptyState text="Rien ici." /> : list.map((t) => row(t, true))}</Card>
+                <Card>
+                  {list.length === 0 ? (
+                    <EmptyState text={q.id === 'faire' ? 'La place est libre. Qu’est-ce qui compte le plus maintenant ?' : 'Rien ici.'} />
+                  ) : (
+                    list.map((t) => row(t, true, true))
+                  )}
+                </Card>
               </View>
             );
           })}
@@ -190,6 +205,7 @@ export function TasksScreen() {
 
       <TaskEditor task={editing} onClose={() => setEditing(null)} />
       <EventEditor state={editingEvent} onClose={() => setEditingEvent(null)} />
+      <MoveSheet item={moving} onClose={() => setMoving(null)} />
       <SortSheet visible={sorting} onClose={() => setSorting(false)} />
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </View>

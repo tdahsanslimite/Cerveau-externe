@@ -11,6 +11,7 @@ import {
   ALERTS, CalendarEvent, EventKind, findConflict, KINDS, kindsOf, MAX_REMINDERS, newId, nextFreeStart,
   Reminder, REMINDER_UNITS, REPEATS,
 } from './model';
+import { useOneThing } from '../tasks/priority';
 import { notificationsSupported } from './notifications';
 import { TimeWheel } from './TimeWheel';
 
@@ -31,8 +32,10 @@ export function blankEvent(day: DayKey, start: number | null = 9 * 60, category 
   };
 }
 
-export function EventEditor({ state, onClose, onSaved }: {
+export function EventEditor({ state, onClose, onSaved, ignoreKey }: {
   state: EditorState | null; onClose: () => void;
+  /** Élément de la liste à ne pas compter pour la règle « une seule chose » (la tâche qu'on transforme en événement). */
+  ignoreKey?: string;
   /** Appelé après l'enregistrement (avant `onClose`) : sert à finir le passage d'une tâche au calendrier. */
   onSaved?: () => void;
 }) {
@@ -44,6 +47,7 @@ export function EventEditor({ state, onClose, onSaved }: {
   const [wheel, setWheel] = useState<'start' | 'end' | null>(null);
   const [lastStart, setLastStart] = useState(9 * 60);
   const [tried, setTried] = useState(false);
+  const { ask, sheet: oneThingSheet } = useOneThing();
 
   useEffect(() => {
     setE(state?.event ? { ...state.event, kinds: kindsOf(state.event), reminders: state.event.reminders ?? [] } : null);
@@ -95,14 +99,21 @@ export function EventEditor({ state, onClose, onSaved }: {
   const save = () => {
     setTried(true);
     if (!canSave) return;
+    // Une seule chose importante ET urgente : s'il y en a déjà une, on demande laquelle reste.
+    if (inMatrix && e.important === true && e.urgent === true) {
+      ask({ key: `event:${e.id}`, title: e.title.trim() }, (p) => commit(p), ignoreKey ? [ignoreKey] : []);
+    } else commit();
+  };
+
+  const commit = (p?: { important: boolean; urgent: boolean }) => {
     saveEvent({
       ...e,
       title: e.title.trim(),
       item: e.item?.trim() || undefined,
       note: e.note?.trim() || undefined,
       // La priorité ne sert qu'aux tâches ponctuelles (sas et matrice) : on ne garde pas une valeur oubliée.
-      important: inMatrix ? e.important ?? null : undefined,
-      urgent: inMatrix ? e.urgent ?? null : undefined,
+      important: inMatrix ? p?.important ?? e.important ?? null : undefined,
+      urgent: inMatrix ? p?.urgent ?? e.urgent ?? null : undefined,
     });
     onSaved?.();
     onClose();
@@ -134,6 +145,7 @@ export function EventEditor({ state, onClose, onSaved }: {
   );
 
   return (
+    <>
     <Sheet visible onClose={onClose} title={state.isNew ? 'Nouvel événement' : 'Modifier'} footer={footer}>
       <Field label="Intitulé">
         <TextInput
@@ -321,6 +333,8 @@ export function EventEditor({ state, onClose, onSaved }: {
         />
       </Field>
     </Sheet>
+    {oneThingSheet}
+    </>
   );
 }
 

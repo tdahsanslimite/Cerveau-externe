@@ -35,6 +35,9 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
   - un événement du calendrier coché **Tâche** (ponctuel) apparaît dans le sas, la matrice et Aujourd'hui, avec son créneau ; sa priorité (important / urgent) se règle dans sa fiche ou au tri guidé ; on le coche des deux côtés ;
   - **Mettre au calendrier** (fiche d'une tâche) ouvre la fiche d'événement déjà remplie (intitulé, jour, domaine, note, priorité) : il ne reste qu'à choisir l'heure. À l'enregistrement la tâche devient cet événement (un seul exemplaire) et reste dans la matrice ;
   - les séries (chaque jour, chaque semaine…), rendez-vous et objets restent dans le calendrier : pas de priorité à trier.
+- **Une seule chose à la fois** (méthode *The One Thing*) : une seule tâche peut être **importante ET urgente**. Si une deuxième veut cette place (au tri, dans une fiche, ou en la déplaçant), l'appli demande laquelle reste *la chose* et où l'autre attend (« important seulement » ou « urgent seulement »). Le reste attend dans ces deux cases.
+- **Déplacer dans la matrice** : sur chaque ligne de la matrice, le bouton ✥ ouvre les 4 cases ; un tap suffit (pas de glisser-déposer, qui demanderait une bibliothèque de gestes et serait moins fiable).
+- **Requalifier après une tâche cochée** : quand on coche une tâche et que la place de « la chose » devient libre, l'appli propose de choisir la prochaine parmi ce qui attend, ou de trier le sas.
 - Barre d'onglets en bas : Calendrier / Tâches / Routines (badge avec le nombre de tâches dans le sas).
 
 ## Module Routines
@@ -74,6 +77,7 @@ src/tasks/useTaskItems.ts       la liste unique pour les écrans
 src/tasks/TasksContext.tsx      données des tâches (ce.tasks.v1)
 src/tasks/TasksScreen.tsx       saisie rapide, Aujourd'hui, Sas, Matrice
 src/tasks/SortSheet.tsx         tri guidé du sas
+src/tasks/priority.tsx          règle « une seule chose », déplacement dans la matrice, requalification
 src/tasks/TaskEditor.tsx        fiche d'une tâche
 src/tasks/DayTasks.tsx          tâches du jour dans le calendrier
 src/routines/model.ts           routines, jours prévus, cases cochées, bilan du mois (testés)

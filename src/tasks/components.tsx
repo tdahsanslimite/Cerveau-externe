@@ -23,8 +23,10 @@ export function Checkbox({ checked, onToggle, label }: { checked: boolean; onTog
 }
 
 /** Une ligne de tâche. `task.source === 'event'` : posée dans le calendrier, avec son créneau. */
-export function TaskRow({ task, onPress, onToggle, showDay = false }: {
+export function TaskRow({ task, onPress, onToggle, onMove, showDay = false }: {
   task: TaskItem; onPress: () => void; onToggle: (done: boolean) => void; showDay?: boolean;
+  /** Si présent : bouton « Déplacer » vers une autre case de la matrice. */
+  onMove?: () => void;
 }) {
   const { domain } = useCalendar();
   const done = task.status === 'done';
@@ -62,6 +64,16 @@ export function TaskRow({ task, onPress, onToggle, showDay = false }: {
         {task.source === 'event' ? <Icon name="calendar" size={16} color={colors.faint} /> : null}
         <Icon name="chevron-right" size={18} color={colors.faint} />
       </Pressable>
+      {onMove && !done ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Déplacer ${task.title}`}
+          onPress={onMove}
+          style={({ pressed }) => [st.move, pressed && { opacity: 0.6 }]}
+        >
+          <Icon name="move" size={20} color={colors.accentDark} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -71,5 +83,6 @@ const st = StyleSheet.create({
   checkZone: { width: TOUCH + 12, minHeight: 60, alignItems: 'center', justifyContent: 'center' },
   box: { width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   boxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  move: { width: TOUCH, minHeight: 60, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingRight: 14, minHeight: 60, borderRadius: radius.s },
 });
