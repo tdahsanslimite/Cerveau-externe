@@ -115,7 +115,7 @@ export function TasksScreen() {
       </View>
       <View style={st.captureNote}>
         <Txt size={13} color={justAdded ? colors.accent : colors.muted} numberOfLines={1}>
-          {justAdded ? `« ${justAdded} » est dans le sas.` : 'Tout ce que tu écris ici va dans le sas. Rien à décider maintenant.'}
+          {justAdded ? `« ${justAdded} » est dans le sas.` : 'Ce que tu écris va dans le sas. Rien à décider.'}
         </Txt>
       </View>
 
