@@ -31,7 +31,11 @@ export function blankEvent(day: DayKey, start: number | null = 9 * 60, category 
   };
 }
 
-export function EventEditor({ state, onClose }: { state: EditorState | null; onClose: () => void }) {
+export function EventEditor({ state, onClose, onSaved }: {
+  state: EditorState | null; onClose: () => void;
+  /** Appelé après l'enregistrement (avant `onClose`) : sert à finir le passage d'une tâche au calendrier. */
+  onSaved?: () => void;
+}) {
   const { events, domains, saveEvent, deleteEvent, skipOccurrence } = useCalendar();
   const { settings } = useSettings();
   const load = useDayLoad();
@@ -54,6 +58,8 @@ export function EventEditor({ state, onClose }: { state: EditorState | null; onC
   const reminders = e.reminders ?? [];
   const recurring = e.repeat !== 'none';
   const hasItem = kinds.includes('objet');
+  /** Une tâche ponctuelle peut être triée dans le sas et la matrice d'Eisenhower du module Tâches. */
+  const inMatrix = kinds.includes('tache') && !recurring;
 
   // ---- Heures : début et fin ----
   const start = e.start ?? lastStart;
@@ -89,7 +95,16 @@ export function EventEditor({ state, onClose }: { state: EditorState | null; onC
   const save = () => {
     setTried(true);
     if (!canSave) return;
-    saveEvent({ ...e, title: e.title.trim(), item: e.item?.trim() || undefined, note: e.note?.trim() || undefined });
+    saveEvent({
+      ...e,
+      title: e.title.trim(),
+      item: e.item?.trim() || undefined,
+      note: e.note?.trim() || undefined,
+      // La priorité ne sert qu'aux tâches ponctuelles (sas et matrice) : on ne garde pas une valeur oubliée.
+      important: inMatrix ? e.important ?? null : undefined,
+      urgent: inMatrix ? e.urgent ?? null : undefined,
+    });
+    onSaved?.();
     onClose();
   };
 
@@ -140,6 +155,23 @@ export function EventEditor({ state, onClose }: { state: EditorState | null; onC
           ))}
         </View>
       </Field>
+
+      {inMatrix ? (
+        <>
+          <Field label="Important ?" hint="Pour la matrice des Tâches. Laisse vide pour la trier plus tard : elle ira dans le sas.">
+            <View style={st.wrap}>
+              <Chip label="Oui" selected={e.important === true} onPress={() => patch({ important: e.important === true ? null : true })} />
+              <Chip label="Non" selected={e.important === false} onPress={() => patch({ important: e.important === false ? null : false })} />
+            </View>
+          </Field>
+          <Field label="Urgent ?">
+            <View style={st.wrap}>
+              <Chip label="Oui" selected={e.urgent === true} onPress={() => patch({ urgent: e.urgent === true ? null : true })} />
+              <Chip label="Non" selected={e.urgent === false} onPress={() => patch({ urgent: e.urgent === false ? null : false })} />
+            </View>
+          </Field>
+        </>
+      ) : null}
 
       {hasItem ? (
         <Field label="Objet à prendre">

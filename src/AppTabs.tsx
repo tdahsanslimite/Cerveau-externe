@@ -8,7 +8,7 @@ import { CalendarScreen } from './calendar/CalendarScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
 import { inSas } from './tasks/model';
 import { TasksScreen } from './tasks/TasksScreen';
-import { useTasks } from './tasks/TasksContext';
+import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
 
@@ -22,9 +22,9 @@ const TABS: { id: TabId; label: string; icon: IconName; screen: () => React.Reac
 
 export function AppTabs() {
   const insets = useSafeAreaInsets();
-  const { tasks } = useTasks();
+  const items = useTaskItems();
   const [active, setActive] = useState<TabId>('calendrier');
-  const sasCount = inSas(tasks).length;
+  const sasCount = inSas(items).length;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>

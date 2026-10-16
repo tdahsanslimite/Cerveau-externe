@@ -85,6 +85,12 @@ export interface CalendarEvent {
   reminders?: Reminder[];
   /** Jours où la tâche a été faite (une série peut être cochée jour par jour). */
   doneDays?: DayKey[];
+  /**
+   * Priorité d'un événement « Tâche » ponctuel, pour le sas et la matrice d'Eisenhower du module Tâches.
+   * Absent ou null = pas encore trié (l'événement apparaît alors dans le sas).
+   */
+  important?: boolean | null;
+  urgent?: boolean | null;
   /** Jours où une occurrence d'une série a été supprimée. */
   skipped?: DayKey[];
   note?: string;

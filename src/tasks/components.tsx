@@ -1,11 +1,11 @@
 // Briques d'interface propres aux tâches.
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { labelDayShort, relativeLabel } from '../calendar/dates';
+import { labelDayShort, minutesToLabel, relativeLabel } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
 import { colors, radius, TOUCH } from '../theme';
 import { Icon, Txt } from '../ui';
-import { isStuck, quadrantInfo, quadrantOf, slideLabel, Task } from './model';
+import { isStuck, quadrantInfo, quadrantOf, slideLabel, TaskItem } from './model';
 
 export function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
   return (
@@ -22,17 +22,20 @@ export function Checkbox({ checked, onToggle, label }: { checked: boolean; onTog
   );
 }
 
+/** Une ligne de tâche. `task.source === 'event'` : posée dans le calendrier, avec son créneau. */
 export function TaskRow({ task, onPress, onToggle, showDay = false }: {
-  task: Task; onPress: () => void; onToggle: (done: boolean) => void; showDay?: boolean;
+  task: TaskItem; onPress: () => void; onToggle: (done: boolean) => void; showDay?: boolean;
 }) {
   const { domain } = useCalendar();
   const done = task.status === 'done';
   const q = quadrantOf(task);
   const slide = slideLabel(task);
   const stuck = isStuck(task);
+  const slot = task.start === null ? null : `${minutesToLabel(task.start)}–${minutesToLabel(task.start + task.durationMin)}`;
   const meta = [
     q ? quadrantInfo(q).label : null,
     showDay && task.day ? (relativeLabel(task.day) ?? labelDayShort(task.day)) : null,
+    slot,
     task.category ? domain(task.category).label : null,
   ].filter(Boolean).join(' · ');
   return (
@@ -56,6 +59,7 @@ export function TaskRow({ task, onPress, onToggle, showDay = false }: {
             </Txt>
           ) : null}
         </View>
+        {task.source === 'event' ? <Icon name="calendar" size={16} color={colors.faint} /> : null}
         <Icon name="chevron-right" size={18} color={colors.faint} />
       </Pressable>
     </View>

@@ -22,13 +22,17 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 ## Module Tâches
 
 - **Saisie rapide** : un champ toujours visible, tout ce qu'on écrit tombe dans **le sas**, sans aucune décision à prendre. On peut enchaîner les idées.
-- **Le sas** : la salle d'attente. Ces tâches ne comptent dans aucune journée tant qu'elles ne sont pas triées.
-- **Tri guidé** : une tâche à la fois, trois questions (important ? urgent ? pour quand ?), et la tâche est rangée.
+- **Le sas** : la salle d'attente de la tête, c'est-à-dire tout ce qui n'a pas encore de priorité (important / urgent).
+- **Tri guidé** : un élément à la fois, deux questions (important ? urgent ?), plus « pour quand ? » seulement s'il n'a pas déjà un créneau.
 - **Matrice d'Eisenhower** : À faire en premier / À planifier / À déléguer ou alléger / À lâcher ? (icônes et texte, pas seulement des couleurs, pour ne pas se confondre avec les domaines).
-- **Aujourd'hui** : les tâches prévues, cochables, avec la charge du jour.
+- **Aujourd'hui** : les tâches prévues, cochables, avec la charge du jour ; celles qui ont une heure passent d'abord.
 - **Glissement** : une tâche non faite d'un jour passé glisse à aujourd'hui, sans reproche. Après 3 glissements, l'appli propose de la découper, de lui donner une heure ou de la lâcher.
 - **Lâcher** : une tâche lâchée disparaît partout mais reste en mémoire (pour un futur bilan).
 - Les tâches prévues apparaissent dans les vues **Jour** et **Semaine** du calendrier et **comptent dans la charge du jour** (nombre d'éléments : événements + tâches).
+- **Une seule liste, deux sources, jamais de copie** :
+  - un événement du calendrier coché **Tâche** (ponctuel) apparaît dans le sas, la matrice et Aujourd'hui, avec son créneau ; sa priorité (important / urgent) se règle dans sa fiche ou au tri guidé ; on le coche des deux côtés ;
+  - **Mettre au calendrier** (fiche d'une tâche) ouvre la fiche d'événement déjà remplie (intitulé, jour, domaine, note, priorité) : il ne reste qu'à choisir l'heure. À l'enregistrement la tâche devient cet événement (un seul exemplaire) et reste dans la matrice ;
+  - les séries (chaque jour, chaque semaine…), rendez-vous et objets restent dans le calendrier : pas de priorité à trier.
 - Barre d'onglets en bas : Calendrier / Tâches / Routines (badge avec le nombre de tâches dans le sas).
 
 ## Module Routines
@@ -62,7 +66,8 @@ src/calendar/CalendarContext    données du calendrier
 src/calendar/views.tsx          vues Jour / Semaine / Mois
 src/calendar/EventEditor.tsx    fiche d'événement
 src/calendar/CalendarScreen.tsx écran principal
-src/tasks/model.ts              tâches, sas, Eisenhower, glissement, charge (testés)
+src/tasks/model.ts              tâches, liste unique (tâches + événements « Tâche »), sas, Eisenhower, glissement (testés)
+src/tasks/useTaskItems.ts       la liste unique pour les écrans
 src/tasks/TasksContext.tsx      données des tâches (ce.tasks.v1)
 src/tasks/TasksScreen.tsx       saisie rapide, Aujourd'hui, Sas, Matrice
 src/tasks/SortSheet.tsx         tri guidé du sas

@@ -1,14 +1,16 @@
-// Fiche d'une tâche : intitulé, priorité (important / urgent), jour, domaine, note.
+// Fiche d'une tâche : intitulé, priorité (important / urgent), jour, domaine, note,
+// et « Mettre au calendrier » pour lui réserver un créneau sans tout ressaisir.
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { addDays, labelDayLong, relativeLabel, todayKey } from '../calendar/dates';
 import type { DayKey } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
+import { EditorState, EventEditor } from '../calendar/EventEditor';
 import { useDayLoad } from '../load';
 import { useSettings } from '../settings/SettingsContext';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
-import { isStuck, quadrantInfo, quadrantOf, Task } from './model';
+import { eventFromTask, isStuck, quadrantInfo, quadrantOf, Task } from './model';
 import { useTasks } from './TasksContext';
 
 export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () => void }) {
@@ -18,10 +20,12 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
   const load = useDayLoad();
   const [t, setT] = useState<Task | null>(task);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [scheduling, setScheduling] = useState<EditorState | null>(null);
 
   useEffect(() => {
     setT(task);
     setConfirmDelete(false);
+    setScheduling(null);
   }, [task]);
 
   if (!task || !t) return null;
@@ -32,6 +36,10 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
 
   const after = t.day ? load(t.day, { taskId: t.id }) + 1 : 0;
   const overLimit = t.day !== null && after > settings.dailyLimit;
+
+  /** Ouvre la fiche d'événement déjà remplie avec cette tâche (intitulé, jour, domaine, note, priorité). */
+  const schedule = () =>
+    setScheduling({ event: eventFromTask(t, today, domains.map((d) => d.id)), isNew: true, day: t.day ?? today });
 
   const commit = (next: Task) => {
     if (!next.title.trim()) return;
@@ -57,7 +65,8 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
   );
 
   return (
-    <Sheet visible onClose={onClose} title="Modifier la tâche" footer={footer}>
+    <>
+    <Sheet visible={!scheduling} onClose={onClose} title="Modifier la tâche" footer={footer}>
       <Field label="Intitulé">
         <TextInput
           accessibilityLabel="Intitulé"
@@ -114,6 +123,10 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
         ) : null}
       </Field>
 
+      <Field label="Calendrier" hint="Choisis une heure : la tâche passe dans ton calendrier avec son intitulé, son jour, son domaine et sa priorité. Elle reste dans la matrice.">
+        <Button label="Mettre au calendrier" kind="ghost" icon="calendar" onPress={schedule} />
+      </Field>
+
       <Field label="Domaine">
         <View style={st.wrap}>
           <Chip label="Aucun" selected={!t.category} color={colors.ink} onPress={() => patch({ category: undefined })} />
@@ -135,6 +148,9 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
         />
       </Field>
     </Sheet>
+    {/* La tâche est retirée du module une fois l'événement enregistré : un seul exemplaire, dans le calendrier. */}
+    <EventEditor state={scheduling} onClose={() => setScheduling(null)} onSaved={() => { remove(t.id); onClose(); }} />
+    </>
   );
 }
 

@@ -2,8 +2,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCalendar } from '../calendar/CalendarContext';
 import { EmptyState, LoadGauge } from '../calendar/components';
 import { labelDayLong, todayKey } from '../calendar/dates';
+import { EditorState, EventEditor } from '../calendar/EventEditor';
 import { loadLevel } from '../calendar/model';
 import { useDayLoad } from '../load';
 import { useSettings } from '../settings/SettingsContext';
@@ -11,29 +13,33 @@ import { SettingsSheet } from '../settings/SettingsSheet';
 import { colors, fonts, radius } from '../theme';
 import { Button, Card, Icon, IconButton, SectionLabel, Txt } from '../ui';
 import { TaskRow } from './components';
-import { byQuadrant, inSas, QUADRANTS, Task, tasksOn } from './model';
+import { byQuadrant, inSas, QUADRANTS, Task, TaskItem, tasksOn } from './model';
 import { SortSheet } from './SortSheet';
 import { TaskEditor } from './TaskEditor';
 import { useTasks } from './TasksContext';
+import { useTaskItems } from './useTaskItems';
 
 type Segment = 'aujourdhui' | 'sas' | 'matrice';
 
 export function TasksScreen() {
   const insets = useSafeAreaInsets();
   const { tasks, capture, toggleDone } = useTasks();
+  const { events, toggleDone: toggleEventDone } = useCalendar();
+  const items = useTaskItems(); // tâches du module + événements « Tâche » du calendrier
   const { settings } = useSettings();
   const load = useDayLoad();
   const [segment, setSegment] = useState<Segment>('aujourdhui');
   const [draft, setDraft] = useState('');
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EditorState | null>(null);
   const [sorting, setSorting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const input = useRef<TextInput>(null);
 
   const today = todayKey();
-  const sas = inSas(tasks);
-  const todays = tasksOn(tasks, today);
+  const sas = inSas(items);
+  const todays = tasksOn(items, today);
   const count = load(today);
   const level = loadLevel(count, settings.dailyLimit);
 
@@ -58,8 +64,21 @@ export function TasksScreen() {
     { id: 'matrice', label: 'Matrice' },
   ];
 
-  const row = (t: Task, showDay = false) => (
-    <TaskRow key={t.id} task={t} showDay={showDay} onPress={() => setEditing(t)} onToggle={(done) => toggleDone(t.id, done)} />
+  // Une tâche du module s'ouvre dans sa fiche, un événement « Tâche » dans la fiche du calendrier.
+  const open = (item: TaskItem) => {
+    if (item.source === 'task') setEditing(tasks.find((t) => t.id === item.id) ?? null);
+    else {
+      const event = events.find((e) => e.id === item.id);
+      if (event) setEditingEvent({ event, isNew: false, day: event.date });
+    }
+  };
+  const toggle = (item: TaskItem, done: boolean) => {
+    if (item.source === 'task') toggleDone(item.id, done);
+    else if (item.day) toggleEventDone(item.id, item.day); // bascule le jour de l'événement
+  };
+
+  const row = (item: TaskItem, showDay = false) => (
+    <TaskRow key={item.key} task={item} showDay={showDay} onPress={() => open(item)} onToggle={(done) => toggle(item, done)} />
   );
 
   return (
@@ -141,7 +160,7 @@ export function TasksScreen() {
         {segment === 'sas' && (
           <>
             <Txt size={14} color={colors.muted} style={{ lineHeight: 20, paddingHorizontal: 4 }}>
-              Le sas, c’est la salle d’attente de ta tête. Ces tâches ne comptent dans aucune journée tant que tu ne les as pas triées.
+              Le sas, c’est la salle d’attente de ta tête : tout ce qui n’a pas encore de priorité. Les tâches du calendrier y arrivent aussi tant que tu ne les as pas triées.
             </Txt>
             {sas.length > 0 ? <Button label={`Trier le sas (${sas.length})`} icon="shuffle" kind="dark" onPress={() => setSorting(true)} /> : null}
             <Card>
@@ -152,7 +171,7 @@ export function TasksScreen() {
 
         {segment === 'matrice' &&
           QUADRANTS.map((q) => {
-            const list = byQuadrant(tasks, q.id);
+            const list = byQuadrant(items, q.id);
             return (
               <View key={q.id} style={{ gap: 8 }}>
                 <View style={st.quadHead}>
@@ -170,6 +189,7 @@ export function TasksScreen() {
       </ScrollView>
 
       <TaskEditor task={editing} onClose={() => setEditing(null)} />
+      <EventEditor state={editingEvent} onClose={() => setEditingEvent(null)} />
       <SortSheet visible={sorting} onClose={() => setSorting(false)} />
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </View>

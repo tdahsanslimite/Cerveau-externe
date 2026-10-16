@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import type { DayKey } from '../calendar/dates';
 import { Card, SectionLabel } from '../ui';
 import { TaskRow } from './components';
-import { Task, tasksOn } from './model';
+import { Task, taskToItem, tasksOn } from './model';
 import { TaskEditor } from './TaskEditor';
 import { useTasks } from './TasksContext';
 
@@ -16,7 +16,7 @@ export function DayTaskRows({ day }: { day: DayKey }) {
   return (
     <>
       {list.map((t) => (
-        <TaskRow key={t.id} task={t} onPress={() => setEditing(t)} onToggle={(done) => toggleDone(t.id, done)} />
+        <TaskRow key={t.id} task={taskToItem(t)} onPress={() => setEditing(t)} onToggle={(done) => toggleDone(t.id, done)} />
       ))}
       <TaskEditor task={editing} onClose={() => setEditing(null)} />
     </>
