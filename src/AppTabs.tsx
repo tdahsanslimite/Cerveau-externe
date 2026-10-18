@@ -5,6 +5,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarScreen } from './calendar/CalendarScreen';
+import { useIdeas } from './ideas/IdeasContext';
+import { IdeasScreen } from './ideas/IdeasScreen';
+import { openCount, VRAC_ID } from './ideas/model';
 import { RoutinesScreen } from './routines/RoutinesScreen';
 import { inSas, justCompleted, shouldAdvance } from './tasks/model';
 import type { TaskItem } from './tasks/model';
@@ -15,12 +18,13 @@ import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
 
-type TabId = 'calendrier' | 'taches' | 'routines';
+type TabId = 'calendrier' | 'taches' | 'routines' | 'idees';
 
 const TABS: { id: TabId; label: string; icon: IconName; screen: () => React.ReactElement }[] = [
   { id: 'calendrier', label: 'Calendrier', icon: 'calendar', screen: () => <CalendarScreen /> },
   { id: 'taches', label: 'Tâches', icon: 'check-square', screen: () => <TasksScreen /> },
   { id: 'routines', label: 'Routines', icon: 'repeat', screen: () => <RoutinesScreen /> },
+  { id: 'idees', label: 'Idées', icon: 'inbox', screen: () => <IdeasScreen /> },
 ];
 
 export function AppTabs() {
@@ -28,6 +32,9 @@ export function AppTabs() {
   const items = useTaskItems();
   const [active, setActive] = useState<TabId>('calendrier');
   const sasCount = inSas(items).length;
+  const { items: ideas } = useIdeas();
+  // Pastille : ce qui attend d'être trié dans « En vrac ».
+  const vracCount = openCount(ideas, VRAC_ID);
   const [advance, setAdvance] = useState(false);
   const [sorting, setSorting] = useState(false);
   const previous = useRef<TaskItem[] | null>(null);
@@ -55,13 +62,13 @@ export function AppTabs() {
       <View style={[st.bar, { paddingBottom: Math.max(insets.bottom, 8) }]} accessibilityRole="tablist">
         {TABS.map((t) => {
           const on = active === t.id;
-          const badge = t.id === 'taches' && sasCount > 0 ? sasCount : 0;
+          const badge = t.id === 'taches' ? sasCount : t.id === 'idees' ? vracCount : 0;
           return (
             <Pressable
               key={t.id}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
-              accessibilityLabel={badge ? `${t.label}, ${badge} dans le sas` : t.label}
+              accessibilityLabel={badge ? `${t.label}, ${badge} ${t.id === 'idees' ? 'en vrac' : 'dans le sas'}` : t.label}
               onPress={() => setActive(t.id)}
               style={({ pressed }) => [st.tab, pressed && { opacity: 0.6 }]}
             >
