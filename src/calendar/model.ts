@@ -243,6 +243,37 @@ export function minutesByDomain(events: CalendarEvent[], from: DayKey, to: DayKe
   return out;
 }
 
+export type BilanPeriod = 'semaine' | 'mois' | 'annee';
+
+export interface DomainHours {
+  /** Minutes déjà passées (jours écoulés et aujourd'hui). */
+  done: number;
+  /** Minutes encore prévues d'ici la fin de la période. */
+  planned: number;
+}
+
+/**
+ * Bilan des heures par domaine sur [from, to].
+ * Jours passés (et aujourd'hui) → « passé » ; jours à venir → « prévu ».
+ * Une tâche du calendrier non cochée un jour passé n'a pas eu lieu : elle n'est pas comptée.
+ * Les événements « toute la journée » n'ont pas de durée : ignorés.
+ */
+export function hoursByDomain(events: CalendarEvent[], from: DayKey, to: DayKey, today: DayKey): Record<string, DomainHours> {
+  const out: Record<string, DomainHours> = {};
+  for (let day = from; diffDays(day, to) >= 0; day = addDays(day, 1)) {
+    const past = diffDays(day, today) >= 0;
+    for (const o of occurrencesOn(events, day)) {
+      const e = o.event;
+      if (e.start === null) continue;
+      if (past && isTask(e) && !isDoneOn(e, day) && diffDays(day, today) > 0) continue;
+      const slot = (out[e.category] ??= { done: 0, planned: 0 });
+      if (past) slot.done += e.durationMin;
+      else slot.planned += e.durationMin;
+    }
+  }
+  return out;
+}
+
 export function newId(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }

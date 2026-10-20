@@ -2,7 +2,9 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useCalendar } from '../calendar/CalendarContext';
-import { Domain, DOMAIN_COLORS, newId } from '../calendar/model';
+import { todayKey } from '../calendar/dates';
+import { hoursLabel, periodRange } from '../calendar/HoursBilan';
+import { Domain, DOMAIN_COLORS, hoursByDomain, newId } from '../calendar/model';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Icon, Txt } from '../ui';
 
@@ -37,6 +39,9 @@ export function DomainsEditor() {
 
   const isNew = !!draft && !domains.some((d) => d.id === draft.id);
   const usage = (id: string) => events.filter((e) => e.category === id).length;
+  const today = todayKey();
+  const month = periodRange('mois', today);
+  const monthMinutes = hoursByDomain(events, month.from, month.to, today);
   const fallback = domains.find((d) => d.id !== openId);
 
   const editor = draft ? (
@@ -97,7 +102,7 @@ export function DomainsEditor() {
           >
             <View style={[st.dot, { backgroundColor: openId === d.id && draft ? draft.color : d.color }]} />
             <Txt bold style={{ flex: 1 }}>{d.label}</Txt>
-            <Txt size={13} color={colors.muted}>{usage(d.id) || ''}</Txt>
+            <Txt size={13} color={colors.muted}>{monthMinutes[d.id]?.done ? `${hoursLabel(monthMinutes[d.id].done)} ce mois` : ''}</Txt>
             <Icon name={openId === d.id ? 'chevron-up' : 'edit-2'} size={16} color={colors.faint} />
           </Pressable>
           {openId === d.id ? editor : null}

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { addDays, addMonths, isoWeek, monthGrid, startOfWeek, weekdayIndex, labelWeekRange, relativeLabel, minutesToLabel, durationLabel } from './dates.ts';
 import { planReminders } from './reminders.ts';
-import { occursOn, occurrencesOn, loadLevel, freeSlots, findConflict, nextFreeStart, minutesByDomain, reminderMinutes, reminderLabel } from './model.ts';
+import { occursOn, occurrencesOn, loadLevel, freeSlots, findConflict, nextFreeStart, minutesByDomain, hoursByDomain, reminderMinutes, reminderLabel } from './model.ts';
 import type { CalendarEvent } from './model.ts';
 
 test('navigation entre jours, y compris changement de mois, d’année et heure d’été', () => {
@@ -157,4 +157,17 @@ test('rappels d’une série : une notification par occurrence', () => {
   const plan = planReminders([trampo], now, '2026-10-15');
   assert.equal(plan.length, 4); // 21, 28 oct., 4, 11 nov. (horizon 30 jours)
   assert.equal(plan[0].at.getDate(), 21);
+});
+
+test('bilan des heures par domaine : passé, prévu, tâches non faites', () => {
+  const events = [
+    ev({ id: '1', category: 'travail', date: '2026-10-19', start: 9 * 60, durationMin: 120 }),                 // lun. passé : 2 h
+    ev({ id: '2', category: 'sport', date: '2026-10-19', start: 18 * 60, durationMin: 60, repeat: 'daily' }), // 1 h / jour
+    ev({ id: '3', category: 'travail', date: '2026-10-19', start: 14 * 60, durationMin: 90, kinds: ['tache'] }), // tâche non cochée hier : 0
+    ev({ id: '4', category: 'travail', date: '2026-10-20', start: 14 * 60, durationMin: 30, kinds: ['tache'] }), // tâche aujourd'hui pas encore cochée : comptée
+    ev({ id: '5', category: 'travail', date: '2026-10-22', start: 9 * 60, durationMin: 60 }),                  // jeudi : prévu
+  ];
+  const r = hoursByDomain(events, '2026-10-19', '2026-10-25', '2026-10-20');
+  assert.deepEqual(r.travail, { done: 150, planned: 60 });
+  assert.deepEqual(r.sport, { done: 120, planned: 300 });
 });

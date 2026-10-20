@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarView, useSettings } from '../settings/SettingsContext';
 import { SettingsSheet } from '../settings/SettingsSheet';
+import { HoursBilan } from './HoursBilan';
 import { colors, radius } from '../theme';
 import { Icon, IconButton, Txt } from '../ui';
 import { addDays, addMonths, DayKey, fromKey, isoWeek, labelDayLong, labelMonth, labelWeekRange, relativeLabel, startOfWeek, todayKey } from './dates';
@@ -26,6 +27,7 @@ export function CalendarScreen() {
   const [day, setDay] = useState<DayKey>(todayKey());
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [bilanOpen, setBilanOpen] = useState(false);
 
   const today = todayKey();
   const step = (dir: 1 | -1) =>
@@ -62,6 +64,7 @@ export function CalendarScreen() {
             <Txt bold size={14} color={colors.accent}>Aujourd'hui</Txt>
           </Pressable>
         ) : null}
+        <IconButton icon="bar-chart-2" label="Bilan des heures" onPress={() => setBilanOpen(true)} />
         <IconButton icon="sliders" label="Réglages" onPress={() => setSettingsOpen(true)} />
       </View>
 
@@ -104,6 +107,7 @@ export function CalendarScreen() {
 
       <EventEditor state={editor} onClose={() => setEditor(null)} />
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <HoursBilan visible={bilanOpen} onClose={() => setBilanOpen(false)} />
     </View>
   );
 }

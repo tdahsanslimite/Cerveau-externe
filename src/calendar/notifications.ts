@@ -5,6 +5,7 @@
 // Sur Android, le son et la vibration appartiennent à un « canal » (réglé une fois pour toutes) :
 // on crée donc un canal par type d'alerte, et chaque rappel est envoyé sur le canal choisi.
 import { Linking, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import type { AlertKind, CalendarEvent } from './model';
 import { planReminders, splitByAlarm } from './reminders';
@@ -28,8 +29,46 @@ export const channelIdFor = (alert: AlertKind) => CHANNELS[alert === 'alarme' ? 
 /** Rappel récurrent de l'onglet Idées : la synchro du calendrier ne doit jamais l'effacer. */
 export const IDEAS_REMINDER_ID = 'idees-rappel';
 
-/** Dernier problème rencontré, affiché dans Réglages › Rappels pour comprendre ce qui bloque. */
-let lastError: string | null = null;
+/**
+ * Problèmes rencontrés, affichés dans Réglages › Rappels pour comprendre ce qui bloque.
+ * Gardés (5 derniers, avec l'heure) et sauvegardés : une synchro réussie ne les efface plus,
+ * sinon le message disparaît avant qu'on ait eu le temps de le lire.
+ */
+export interface NotifProblem { at: number; msg: string }
+const PROBLEMS_KEY = 'ce.notif-problems.v1';
+let problems: NotifProblem[] = [];
+const problemsLoaded = AsyncStorage.getItem(PROBLEMS_KEY)
+  .then((raw) => { if (raw) problems = [...JSON.parse(raw), ...problems].slice(-5); })
+  .catch(() => undefined);
+
+function recordError(msg: string) {
+  problems = [...problems, { at: Date.now(), msg }].slice(-5);
+  AsyncStorage.setItem(PROBLEMS_KEY, JSON.stringify(problems)).catch(() => undefined);
+}
+
+export async function clearProblems(): Promise<void> {
+  problems = [];
+  await AsyncStorage.removeItem(PROBLEMS_KEY).catch(() => undefined);
+}
+
+const errText = (e: unknown) => String((e as Error)?.message ?? e);
+
+type Trigger = Notifications.NotificationTriggerInput;
+
+/**
+ * Programme une notification sur son canal. Si Android refuse (canal absent, etc.),
+ * on note le problème et on réessaie sur le canal par défaut : mieux vaut un rappel
+ * avec le son standard qu'aucun rappel.
+ */
+async function scheduleSafe(content: Notifications.NotificationContentInput, trigger: Trigger, label: string): Promise<void> {
+  try {
+    await Notifications.scheduleNotificationAsync({ content, trigger });
+  } catch (e) {
+    recordError(`${label} (canal ${(trigger as { channelId?: string })?.channelId ?? '?'}) : ${errText(e)}`);
+    const { channelId: _drop, ...plain } = (trigger ?? {}) as Record<string, unknown>;
+    await Notifications.scheduleNotificationAsync({ content: { ...content, sound: true }, trigger: plain as Trigger });
+  }
+}
 
 // Affiche aussi les rappels quand l'appli est ouverte.
 if (notificationsSupported) {
@@ -48,15 +87,18 @@ let channelsReady: Promise<void> | null = null;
 function createChannels(): Promise<void> {
   if (!channelsReady) {
     channelsReady = (async () => {
+      // Un canal à la fois : si l'un échoue (un son introuvable…), les autres sont quand même créés.
       for (const { id, ...input } of Object.values(CHANNELS)) {
-        await Notifications.setNotificationChannelAsync(id, input);
+        try {
+          await Notifications.setNotificationChannelAsync(id, input);
+          if (!(await Notifications.getNotificationChannelAsync(id))) recordError(`Canal ${id} : pas créé par Android.`);
+        } catch (e) {
+          recordError(`Canal ${id} : ${errText(e)}`);
+        }
       }
       // Ancien canal unique de la v1.1 : retiré pour ne pas encombrer les réglages Android.
       await Notifications.deleteNotificationChannelAsync('rappels').catch(() => undefined);
-    })().catch((e) => {
-      channelsReady = null;
-      lastError = `Canaux : ${String(e?.message ?? e)}`;
-    });
+    })();
   }
   return channelsReady;
 }
@@ -70,14 +112,14 @@ export async function ensureNotifications(): Promise<boolean> {
     const current = await Notifications.getPermissionsAsync();
     if (current.status === 'granted') return true;
     if (!current.canAskAgain) {
-      lastError = 'Notifications refusées dans les réglages Android.';
+      recordError('Notifications refusées dans les réglages Android.');
       return false;
     }
     const asked = await Notifications.requestPermissionsAsync();
-    if (asked.status !== 'granted') lastError = 'Autorisation des notifications refusée.';
+    if (asked.status !== 'granted') recordError('Autorisation des notifications refusée.');
     return asked.status === 'granted';
   } catch (e) {
-    lastError = `Autorisation : ${String((e as Error)?.message ?? e)}`;
+    recordError(`Autorisation : ${errText(e)}`);
     return false;
   }
 }
@@ -101,17 +143,22 @@ async function doSync(events: CalendarEvent[], defaultAlert: AlertKind): Promise
     for (const n of scheduled) {
       if (n.identifier !== IDEAS_REMINDER_ID) await Notifications.cancelScheduledNotificationAsync(n.identifier);
     }
+    let failed = 0;
     for (const p of plan) {
-      await Notifications.scheduleNotificationAsync({
-        content: { title: p.title, body: p.body },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.at, channelId: channelIdFor(p.alert) },
-      });
+      try {
+        await scheduleSafe(
+          { title: p.title, body: p.body },
+          { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.at, channelId: channelIdFor(p.alert) },
+          `Rappel « ${p.title} »`,
+        );
+      } catch (e) {
+        if (++failed === 1) recordError(`Programmation : ${errText(e)}`);
+      }
     }
     // Les alarmes (son en boucle) sont reprogrammées à part ; sans alarme, on efface celles d'avant.
     await scheduleAlarms(alarms);
-    lastError = null;
   } catch (e) {
-    lastError = `Programmation : ${String((e as Error)?.message ?? e)}`;
+    recordError(`Programmation : ${errText(e)}`);
   }
 }
 
@@ -120,11 +167,12 @@ export interface NotificationStatus {
   permission: 'accordée' | 'refusée' | 'pas encore demandée';
   scheduled: number;
   next: Date | null;
-  error: string | null;
+  problems: NotifProblem[];
 }
 
 export async function notificationStatus(): Promise<NotificationStatus> {
-  if (!notificationsSupported) return { supported: false, permission: 'pas encore demandée', scheduled: 0, next: null, error: null };
+  if (!notificationsSupported) return { supported: false, permission: 'pas encore demandée', scheduled: 0, next: null, problems: [] };
+  await problemsLoaded;
   try {
     const perm = await Notifications.getPermissionsAsync();
     // Le rappel des Idées n'est pas un rappel du calendrier : on ne le compte pas ici.
@@ -141,10 +189,11 @@ export async function notificationStatus(): Promise<NotificationStatus> {
       permission: perm.status === 'granted' ? 'accordée' : perm.status === 'denied' ? 'refusée' : 'pas encore demandée',
       scheduled: all.length + alarmTimes.length,
       next: dates.length ? new Date(dates[0]) : null,
-      error: lastError,
+      problems,
     };
   } catch (e) {
-    return { supported: true, permission: 'pas encore demandée', scheduled: 0, next: null, error: String((e as Error)?.message ?? e) };
+    recordError(`État : ${errText(e)}`);
+    return { supported: true, permission: 'pas encore demandée', scheduled: 0, next: null, problems };
   }
 }
 
@@ -155,16 +204,17 @@ export async function sendTestNotification(alert: AlertKind): Promise<boolean> {
     if (alert === 'alarme') {
       if (!alarmsSupported) return false;
       const ok = await sendTestAlarm();
-      if (!ok) lastError = 'Essai : l’alarme n’a pas pu être programmée.';
+      if (!ok) recordError('Essai : l’alarme n’a pas pu être programmée.');
       return ok;
     }
-    await Notifications.scheduleNotificationAsync({
-      content: { title: 'Rappel d’essai', body: 'Si tu lis ceci, les rappels fonctionnent.' },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 10, channelId: channelIdFor(alert) },
-    });
+    await scheduleSafe(
+      { title: 'Rappel d’essai', body: 'Si tu lis ceci, les rappels fonctionnent.' },
+      { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 10, channelId: channelIdFor(alert) },
+      'Essai',
+    );
     return true;
   } catch (e) {
-    lastError = `Essai : ${String((e as Error)?.message ?? e)}`;
+    recordError(`Essai : ${errText(e)}`);
     return false;
   }
 }

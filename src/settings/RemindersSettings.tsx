@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { minutesToLabel, relativeLabel, toKey, labelDayShort } from '../calendar/dates';
 import { ALERTS } from '../calendar/model';
 import {
-  notificationsSupported, notificationStatus, NotificationStatus, openAppSettings, sendTestNotification,
+  clearProblems, notificationsSupported, notificationStatus, NotificationStatus, openAppSettings, sendTestNotification,
 } from '../calendar/notifications';
 import { colors, radius } from '../theme';
 import { Button, Chip, Txt } from '../ui';
@@ -30,6 +30,7 @@ export function RemindersSettings() {
     const ok = await sendTestNotification(settings.defaultAlert);
     setTestMsg(ok ? 'Rappel d’essai dans 10 secondes. Tu peux verrouiller le téléphone.' : 'Impossible d’envoyer le rappel : voir ci-dessous.');
     refresh();
+    setTimeout(refresh, 12000);
   };
 
   return (
@@ -59,7 +60,20 @@ export function RemindersSettings() {
                 Rappels programmés : <Txt bold size={14}>{status.scheduled}</Txt>
                 {status.next ? ` · prochain ${when(status.next)}` : ''}
               </Txt>
-              {status.error ? <Txt size={14} color={colors.danger}>Problème : {status.error}</Txt> : null}
+              {status.problems.length ? (
+                <View style={st.problems}>
+                  <Txt bold size={14} color={colors.danger}>Problèmes notés</Txt>
+                  {status.problems.slice().reverse().map((p) => (
+                    <Txt key={p.at} size={13} color={colors.danger} selectable style={{ lineHeight: 18 }}>
+                      {when(new Date(p.at))} : {p.msg}
+                    </Txt>
+                  ))}
+                  <Txt size={12} color={colors.muted} style={{ lineHeight: 17 }}>
+                    Fais une capture d'écran de ce cadre et envoie-la à Claude. Le rappel a quand même été envoyé avec le son standard.
+                  </Txt>
+                  <Button label="Effacer ces messages" kind="ghost" onPress={() => { void clearProblems().then(refresh); }} />
+                </View>
+              ) : null}
             </View>
           ) : null}
           {status && status.permission !== 'accordée' ? (
@@ -79,4 +93,5 @@ const st = StyleSheet.create({
   group: { backgroundColor: colors.card, borderRadius: radius.l, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
   block: { padding: 14, gap: 10, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  problems: { gap: 6, backgroundColor: '#FBE9E5', borderRadius: radius.m, padding: 12 },
 });
