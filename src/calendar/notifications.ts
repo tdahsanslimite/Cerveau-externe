@@ -26,9 +26,6 @@ const CHANNELS: Record<Exclude<AlertKind, 'alarme'>, Notifications.NotificationC
 /** Canal d'un type d'alerte. L'« alarme » (son en boucle) est gérée à part, dans alarm.ts : ici elle retombe sur la sonnerie. */
 export const channelIdFor = (alert: AlertKind) => CHANNELS[alert === 'alarme' ? 'sonnerie' : alert].id;
 
-/** Rappel récurrent de l'onglet Idées : la synchro du calendrier ne doit jamais l'effacer. */
-export const IDEAS_REMINDER_ID = 'idees-rappel';
-
 /**
  * Problèmes rencontrés, affichés dans Réglages › Rappels pour comprendre ce qui bloque.
  * Gardés (5 derniers, avec l'heure) et sauvegardés : une synchro réussie ne les efface plus,
@@ -138,11 +135,7 @@ async function doSync(events: CalendarEvent[], defaultAlert: AlertKind): Promise
   const wantsAny = events.some((e) => (e.reminders?.length ?? 0) > 0 || e.itemEveReminder);
   if (wantsAny && !(await ensureNotifications())) return;
   try {
-    // On efface seulement les rappels du calendrier : celui des Idées (identifiant fixe) reste en place.
-    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    for (const n of scheduled) {
-      if (n.identifier !== IDEAS_REMINDER_ID) await Notifications.cancelScheduledNotificationAsync(n.identifier);
-    }
+    await Notifications.cancelAllScheduledNotificationsAsync();
     let failed = 0;
     for (const p of plan) {
       try {
@@ -175,8 +168,7 @@ export async function notificationStatus(): Promise<NotificationStatus> {
   await problemsLoaded;
   try {
     const perm = await Notifications.getPermissionsAsync();
-    // Le rappel des Idées n'est pas un rappel du calendrier : on ne le compte pas ici.
-    const all = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier !== IDEAS_REMINDER_ID);
+    const all = await Notifications.getAllScheduledNotificationsAsync();
     const alarmTimes = await scheduledAlarmTimes();
     const dates = all
       .map((n) => (n.trigger as { value?: number; date?: number } | null))
