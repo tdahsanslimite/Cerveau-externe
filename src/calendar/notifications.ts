@@ -7,13 +7,14 @@
 import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { AlertKind, CalendarEvent } from './model';
-import { planReminders } from './reminders';
+import { planReminders, splitByAlarm } from './reminders';
+import { alarmsSupported, scheduleAlarms, scheduledAlarmTimes, sendTestAlarm } from './alarm';
 
 export const notificationsSupported = Platform.OS !== 'web';
 
 const VIBRATION = [0, 400, 200, 400];
 
-const CHANNELS: Record<AlertKind, Notifications.NotificationChannelInput & { id: string }> = {
+const CHANNELS: Record<Exclude<AlertKind, 'alarme'>, Notifications.NotificationChannelInput & { id: string }> = {
   sonnerie: { id: 'rappel-sonnerie', name: 'Rappels : sonnerie', importance: Notifications.AndroidImportance.HIGH, vibrationPattern: VIBRATION, enableVibrate: true },
   carillon: { id: 'rappel-carillon', name: 'Rappels : carillon', importance: Notifications.AndroidImportance.HIGH, sound: 'carillon.wav', vibrationPattern: VIBRATION, enableVibrate: true },
   cloche: { id: 'rappel-cloche', name: 'Rappels : cloche', importance: Notifications.AndroidImportance.HIGH, sound: 'cloche.wav', vibrationPattern: VIBRATION, enableVibrate: true },
@@ -21,7 +22,8 @@ const CHANNELS: Record<AlertKind, Notifications.NotificationChannelInput & { id:
   silencieux: { id: 'rappel-silencieux', name: 'Rappels : silencieux', importance: Notifications.AndroidImportance.DEFAULT, sound: null, enableVibrate: false },
 };
 
-export const channelIdFor = (alert: AlertKind) => CHANNELS[alert].id;
+/** Canal d'un type d'alerte. L'« alarme » (son en boucle) est gérée à part, dans alarm.ts : ici elle retombe sur la sonnerie. */
+export const channelIdFor = (alert: AlertKind) => CHANNELS[alert === 'alarme' ? 'sonnerie' : alert].id;
 
 /** Rappel récurrent de l'onglet Idées : la synchro du calendrier ne doit jamais l'effacer. */
 export const IDEAS_REMINDER_ID = 'idees-rappel';
@@ -90,7 +92,7 @@ export function syncReminders(events: CalendarEvent[], defaultAlert: AlertKind):
 
 async function doSync(events: CalendarEvent[], defaultAlert: AlertKind): Promise<void> {
   if (!notificationsSupported) return;
-  const plan = planReminders(events, new Date(), undefined, defaultAlert);
+  const { alarms, others: plan } = splitByAlarm(planReminders(events, new Date(), undefined, defaultAlert));
   const wantsAny = events.some((e) => (e.reminders?.length ?? 0) > 0 || e.itemEveReminder);
   if (wantsAny && !(await ensureNotifications())) return;
   try {
@@ -105,6 +107,8 @@ async function doSync(events: CalendarEvent[], defaultAlert: AlertKind): Promise
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.at, channelId: channelIdFor(p.alert) },
       });
     }
+    // Les alarmes (son en boucle) sont reprogrammées à part ; sans alarme, on efface celles d'avant.
+    await scheduleAlarms(alarms);
     lastError = null;
   } catch (e) {
     lastError = `Programmation : ${String((e as Error)?.message ?? e)}`;
@@ -125,15 +129,17 @@ export async function notificationStatus(): Promise<NotificationStatus> {
     const perm = await Notifications.getPermissionsAsync();
     // Le rappel des Idées n'est pas un rappel du calendrier : on ne le compte pas ici.
     const all = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier !== IDEAS_REMINDER_ID);
+    const alarmTimes = await scheduledAlarmTimes();
     const dates = all
       .map((n) => (n.trigger as { value?: number; date?: number } | null))
       .map((t) => (t?.value ?? t?.date ?? null))
       .filter((v): v is number => typeof v === 'number')
+      .concat(alarmTimes)
       .sort((a, b) => a - b);
     return {
       supported: true,
       permission: perm.status === 'granted' ? 'accordée' : perm.status === 'denied' ? 'refusée' : 'pas encore demandée',
-      scheduled: all.length,
+      scheduled: all.length + alarmTimes.length,
       next: dates.length ? new Date(dates[0]) : null,
       error: lastError,
     };
@@ -146,6 +152,12 @@ export async function notificationStatus(): Promise<NotificationStatus> {
 export async function sendTestNotification(alert: AlertKind): Promise<boolean> {
   if (!(await ensureNotifications())) return false;
   try {
+    if (alert === 'alarme') {
+      if (!alarmsSupported) return false;
+      const ok = await sendTestAlarm();
+      if (!ok) lastError = 'Essai : l’alarme n’a pas pu être programmée.';
+      return ok;
+    }
     await Notifications.scheduleNotificationAsync({
       content: { title: 'Rappel d’essai', body: 'Si tu lis ceci, les rappels fonctionnent.' },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 10, channelId: channelIdFor(alert) },

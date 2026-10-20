@@ -42,7 +42,7 @@ export function RemindersSettings() {
           ))}
         </View>
         <Txt size={13} color={colors.muted} style={{ lineHeight: 19 }}>
-          Chaque événement peut avoir le sien. Sonnerie = le son de notification de ton téléphone.
+          Chaque événement peut avoir le sien. Sonnerie = le son de notification de ton téléphone. Alarme = le son recommence jusqu'à ce que tu touches « Je m'en occupe ».
         </Txt>
       </View>
 

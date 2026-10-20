@@ -61,7 +61,7 @@ export interface Reminder {
 export const MAX_REMINDERS = 3;
 
 /** Comment le téléphone se manifeste au moment du rappel. */
-export type AlertKind = 'sonnerie' | 'vibreur' | 'silencieux' | 'carillon' | 'cloche';
+export type AlertKind = 'sonnerie' | 'vibreur' | 'silencieux' | 'carillon' | 'cloche' | 'alarme';
 
 export const ALERTS: { id: AlertKind; label: string }[] = [
   { id: 'sonnerie', label: 'Sonnerie' },
@@ -69,6 +69,8 @@ export const ALERTS: { id: AlertKind; label: string }[] = [
   { id: 'cloche', label: 'Cloche' },
   { id: 'vibreur', label: 'Vibreur' },
   { id: 'silencieux', label: 'Silencieux' },
+  // Comme un réveil : le son recommence jusqu'à ce qu'on touche « Je m'en occupe » (voir calendar/alarm.ts).
+  { id: 'alarme', label: 'Alarme (jusqu’à éteindre)' },
 ];
 export const REMINDER_UNITS: { id: ReminderUnit; label: string; minutes: number }[] = [
   { id: 'min', label: 'min', minutes: 1 },

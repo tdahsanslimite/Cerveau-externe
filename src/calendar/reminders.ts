@@ -65,3 +65,11 @@ export function planReminders(
     .slice(0, MAX_SCHEDULED);
 }
 
+
+/** Sépare les rappels « alarme » (son en boucle, gérés par calendar/alarm.ts) des autres notifications. */
+export function splitByAlarm(plan: Planned[]): { alarms: Planned[]; others: Planned[] } {
+  return {
+    alarms: plan.filter((p) => p.alert === 'alarme'),
+    others: plan.filter((p) => p.alert !== 'alarme'),
+  };
+}
