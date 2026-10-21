@@ -3,7 +3,7 @@ import React, { createContext, ReactNode, useContext, useMemo } from 'react';
 import type { AlertKind } from '../calendar/model';
 import { usePersistentState } from '../storage';
 
-export type CalendarView = 'jour' | 'semaine' | 'mois';
+export type CalendarView = 'jour' | 'semaine' | 'mois' | 'trimestre' | 'annee';
 
 export interface Settings {
   /** Nombre d'éléments par jour au-delà duquel la journée est signalée trop chargée. */

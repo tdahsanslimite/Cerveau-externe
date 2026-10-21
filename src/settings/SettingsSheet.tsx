@@ -10,6 +10,8 @@ const VIEWS: { id: CalendarView; label: string }[] = [
   { id: 'jour', label: 'Jour' },
   { id: 'semaine', label: 'Semaine' },
   { id: 'mois', label: 'Mois' },
+  { id: 'trimestre', label: 'Trimestre' },
+  { id: 'annee', label: 'Année' },
 ];
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
