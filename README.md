@@ -21,24 +21,17 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 - Domaines personnalisables (nom, couleur, création, suppression) dans les Réglages.
 - Données stockées sur le téléphone uniquement.
 
-## Module Tâches
+## Module « Trier mes idées » (ex-Tâches)
 
-- **Saisie rapide** : un champ toujours visible, tout ce qu'on écrit tombe dans **le sas**, sans aucune décision à prendre. On peut enchaîner les idées.
-- **Le sas** : la salle d'attente de la tête, c'est-à-dire tout ce qui n'a pas encore de priorité (important / urgent).
-- **Tri guidé** : un élément à la fois, deux questions (important ? urgent ?), plus « pour quand ? » seulement s'il n'a pas déjà un créneau.
-- **Matrice d'Eisenhower** : À faire en premier / À planifier / À déléguer ou alléger / À lâcher ? (icônes et texte, pas seulement des couleurs, pour ne pas se confondre avec les domaines).
-- **Aujourd'hui** : les tâches prévues, cochables, avec la charge du jour ; celles qui ont une heure passent d'abord.
-- **Retour au sas** : une tâche pas cochée un jour passé ne glisse pas au lendemain ; elle repasse par le sas (sans jour ni priorité) pour décider si elle vaut encore la peine. Pour un événement « Tâche », le créneau reste dans le calendrier et une tâche neuve part dans le sas. Après 3 retours, l'appli propose de la découper, de lui donner une heure ou de la lâcher.
-- **Lâcher** : une tâche lâchée disparaît partout mais reste en mémoire (pour un futur bilan).
-- Les tâches prévues apparaissent dans les vues **Jour** et **Semaine** du calendrier et **comptent dans la charge du jour** (nombre d'éléments : événements + tâches).
-- **Une seule liste, deux sources, jamais de copie** :
-  - un événement du calendrier coché **Tâche** (ponctuel) apparaît dans le sas, la matrice et Aujourd'hui, avec son créneau ; sa priorité (important / urgent) se règle dans sa fiche ou au tri guidé ; on le coche des deux côtés ;
-  - **Mettre au calendrier** (fiche d'une tâche) ouvre la fiche d'événement déjà remplie (intitulé, jour, domaine, note, priorité) : il ne reste qu'à choisir l'heure. À l'enregistrement la tâche devient cet événement (un seul exemplaire) et reste dans la matrice ;
-  - les séries (chaque jour, chaque semaine…), rendez-vous et objets restent dans le calendrier : pas de priorité à trier.
-- **Une seule chose à la fois** (méthode *The One Thing*) : une seule tâche peut être **importante ET urgente**. Si une deuxième veut cette place (au tri, dans une fiche, ou en la déplaçant), l'appli demande laquelle reste *la chose* et où l'autre attend (« important seulement » ou « urgent seulement »). Le reste attend dans ces deux cases.
-- **Déplacer dans la matrice** : sur chaque ligne de la matrice, le bouton ✥ ouvre les 4 cases ; un tap suffit (pas de glisser-déposer, qui demanderait une bibliothèque de gestes et serait moins fiable).
-- **Requalifier après une tâche cochée** : quand on coche une tâche et que la place de « la chose » devient libre, l'appli propose de choisir la prochaine parmi ce qui attend, ou de trier le sas.
-- Barre d'onglets en bas : Calendrier / Tâches / Routines (badge avec le nombre de tâches dans le sas).
+- **En tête de page** : on note une idée par son titre. Une fenêtre s'ouvre, en 3 étapes : 1) **la note** (texte libre, un retour à la ligne après un tiret continue la liste) ; 2) **le domaine** (Travail, Sport… : une simple étiquette pour les calculs, pas affichée dans cet onglet) ; 3) **la priorité en points** : important = 1, urgent = 1, aucun = 0, donc entre 0 et 2. Ce calcul ne sert pas au calendrier, c'est une première lecture. Fermer la fenêtre sans valider ne perd pas l'idée : elle attend dans « À classer ».
+- **4 listes** sous le champ (plus d'onglets) : *Urgent et important* (2 points), *Urgent* (1), *Important* (1), *Abandonner ?* (0). Une section « À classer » n'apparaît que s'il reste des idées sans priorité.
+- **Glisser-déposer** : appui long sur une idée, puis on la fait glisser vers une autre liste, ou plus haut / plus bas dans sa liste (trait vert = où elle tombera, la liste visée s'entoure). L'ordre choisi est gardé (`rank`). Pas de défilement automatique pendant le glissement : les listes tiennent sur un écran ou deux.
+- **Appui simple** sur une idée : fenêtre pour modifier le titre, la note, le domaine, l'importance et **le calendrier** : « Mettre au calendrier » déroule la date et l'heure juste en dessous (créneau libre vérifié) ; à la validation l'idée entre au calendrier et reste dans les listes avec son créneau.
+- **Une seule liste, deux sources, jamais de copie** : un événement du calendrier coché **Tâche** (ponctuel) apparaît aussi dans les listes ; sa priorité se règle dans sa fiche. Les séries, rendez-vous et objets restent dans le calendrier.
+- **Retour au sas** : une idée datée pas cochée un jour passé repasse dans « À classer » (sans jour ni priorité). Pour un événement « Tâche », le créneau reste dans le calendrier et une idée neuve repart dans « À classer ». Après 3 retours, l'appli propose de la découper ou de l'abandonner.
+- **Abandonner** : une idée abandonnée disparaît partout mais reste en mémoire (pour un futur bilan).
+- Les idées prévues un jour apparaissent dans les vues **Jour** et **Semaine** du calendrier et **comptent dans la charge du jour**.
+- Barre d'onglets en bas : Calendrier / Trier mes idées / Routines (badge avec le nombre d'idées à classer).
 
 ## Module Routines
 
@@ -72,13 +65,12 @@ src/calendar/CalendarContext    données du calendrier
 src/calendar/views.tsx          vues Jour / Semaine / Mois
 src/calendar/EventEditor.tsx    fiche d'événement
 src/calendar/CalendarScreen.tsx écran principal
-src/tasks/model.ts              tâches, liste unique (tâches + événements « Tâche »), sas, Eisenhower, glissement (testés)
+src/tasks/model.ts              idées, liste unique (tâches + événements « Tâche »), points, 4 listes, ordre, déplacement (testés)
 src/tasks/useTaskItems.ts       la liste unique pour les écrans
 src/tasks/TasksContext.tsx      données des tâches (ce.tasks.v1)
-src/tasks/TasksScreen.tsx       saisie rapide, Aujourd'hui, Sas, Matrice
-src/tasks/SortSheet.tsx         tri guidé du sas
-src/tasks/priority.tsx          règle « une seule chose », déplacement dans la matrice, requalification
-src/tasks/TaskEditor.tsx        fiche d'une tâche
+src/tasks/TasksScreen.tsx       « Trier mes idées » : saisie, 4 listes, glisser-déposer
+src/tasks/apply.ts              applique priorité / place à une idée, où qu'elle vive
+src/tasks/TaskEditor.tsx        fenêtre d'une idée (note, domaine, points, calendrier)
 src/tasks/DayTasks.tsx          tâches du jour dans le calendrier
 src/routines/model.ts           routines, jours prévus, cases cochées, bilan du mois (testés)
 src/routines/RoutinesContext    données des routines (ce.routines.v1)

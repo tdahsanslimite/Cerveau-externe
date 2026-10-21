@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   byQuadrant, eventFromTask, eventToItem, inSas, isStuck, itemsOf, newTask, quadrantOf, setDone, slideLabel, returnOverdueToSas, eventTasksToReturn, taskFromMissedEvent,
   sortEvent, sortTask, taskCountOn, taskToItem, tasksOn, whenToDay,
-  justCompleted, oneThing, priorityOf, shouldAdvance, waitingItems,
+  continueList, moveIdea, pointsOf, priorityOf,
 } from './model.ts';
 import type { Task, TaskItem } from './model.ts';
 import type { CalendarEvent } from '../calendar/model.ts';
@@ -285,45 +285,52 @@ test('la priorité de chaque case de la matrice', () => {
   for (const q of ['faire', 'planifier', 'alleger', 'lacher'] as const) assert.equal(quadrantOf(priorityOf(q)), q);
 });
 
-test('la chose du moment : la seule importante et urgente, pas faite', () => {
-  assert.equal(oneThing([it('a', true, false), it('b', false, true)]), null);
-  assert.equal(oneThing([it('a', true, true), it('b', true, false)])?.key, 'a');
-  assert.equal(oneThing([it('a', true, true, { status: 'done' })]), null);
-  assert.equal(oneThing([it('a', true, true, { status: 'dropped' })]), null);
+test('les points : important 1, urgent 1, entre 0 et 2', () => {
+  assert.equal(pointsOf({ important: true, urgent: true }), 2);
+  assert.equal(pointsOf({ important: true, urgent: false }), 1);
+  assert.equal(pointsOf({ important: false, urgent: true }), 1);
+  assert.equal(pointsOf({ important: false, urgent: false }), 0);
+  assert.equal(pointsOf({ important: null, urgent: null }), 0);
 });
 
-test('la chose du moment ignore la tâche qu’on est en train de régler', () => {
-  const items = [it('a', true, true), it('b', true, false)];
-  assert.equal(oneThing(items, ['a']), null);
-  assert.equal(oneThing(items, ['b'])?.key, 'a');
-  assert.equal(oneThing([it('a', true, true, { day: '2026-10-20' }), it('c', true, true, { day: '2026-10-17' })])?.key, 'c');
-});
-
-test('les candidats à la prochaine chose : urgent seulement d’abord, puis important seulement, du plus proche au plus lointain', () => {
+test('l’ordre choisi à la main passe avant le jour', () => {
   const items = [
-    it('plan-tard', true, false, { day: '2026-10-25' }),
-    it('plan-tot', true, false, { day: '2026-10-18' }),
-    it('urgent', false, true, { day: '2026-10-30' }),
-    it('lacher', false, false),
-    it('faite', true, false, { status: 'done' }),
-    it('sas', null, null),
+    it('c', true, false, { day: '2026-10-17' }),
+    it('b', true, false, { rank: 1, day: '2026-10-30' }),
+    it('a', true, false, { rank: 0, day: '2026-10-31' }),
+    it('d', true, false, { day: '2026-10-16' }),
   ];
-  assert.deepEqual(waitingItems(items).map((i) => i.key), ['urgent', 'plan-tot', 'plan-tard']);
+  assert.deepEqual(byQuadrant(items, 'planifier').map((i) => i.key), ['a', 'b', 'd', 'c']);
 });
 
-test('les tâches qui viennent d’être cochées', () => {
-  const before = [it('a', true, true), it('b', true, false), it('c', null, null, { status: 'done' })];
-  const after = [it('a', true, true, { status: 'done' }), it('b', true, false), it('c', null, null, { status: 'done' }), it('d', null, null)];
-  assert.deepEqual(justCompleted(before, after), ['a']);
-  assert.deepEqual(justCompleted(after, before), []); // décocher ne déclenche rien
-  assert.deepEqual(justCompleted(before, before), []);
+test('déplacer une idée vers une autre liste, à une place précise', () => {
+  const items = [
+    it('p1', true, false, { rank: 0 }), it('p2', true, false, { rank: 1 }),
+    it('f1', true, true, { rank: 0 }), it('u1', false, true),
+  ];
+  // u1 (urgent) → en haut de « urgent et important »
+  assert.deepEqual(moveIdea(items, 'u1', 'faire', 0), [
+    { key: 'u1', important: true, urgent: true, rank: 0 },
+    { key: 'f1', important: true, urgent: true, rank: 1 },
+  ]);
+  // à la fin
+  assert.deepEqual(moveIdea(items, 'u1', 'faire', 9), [{ key: 'u1', important: true, urgent: true, rank: 1 }]);
+  // monter p2 au-dessus de p1 dans la même liste
+  assert.deepEqual(moveIdea(items, 'p2', 'planifier', 0), [
+    { key: 'p2', important: true, urgent: false, rank: 0 },
+    { key: 'p1', important: true, urgent: false, rank: 1 },
+  ]);
+  // lâcher au même endroit : rien à écrire
+  assert.deepEqual(moveIdea(items, 'p1', 'planifier', 0), []);
+  assert.deepEqual(moveIdea(items, 'inconnue', 'faire', 0), []);
+  // vers une liste vide
+  assert.deepEqual(moveIdea(items, 'p1', 'lacher', 0), [{ key: 'p1', important: false, urgent: false, rank: 0 }]);
 });
 
-test('on propose de requalifier seulement si la place est libre et qu’il y a de quoi la prendre', () => {
-  assert.equal(shouldAdvance([it('a', true, false)]), true); // place libre + une tâche en attente
-  assert.equal(shouldAdvance([it('a', null, null)]), true); // place libre + du sas
-  assert.equal(shouldAdvance([it('a', true, true), it('b', true, false)]), false); // la place est prise
-  assert.equal(shouldAdvance([it('a', false, false)]), false); // rien à promouvoir (à lâcher)
-  assert.equal(shouldAdvance([]), false);
-  assert.equal(shouldAdvance([it('a', true, true, { status: 'done' }), it('b', false, true)]), true); // la chose vient d'être faite
+test('la note continue une liste à tirets', () => {
+  assert.equal(continueList('- un', '- un\n'), '- un\n- ');
+  assert.equal(continueList('- un\n- ', '- un\n- \n'), '- un\n'); // retour sur un tiret vide : fin de liste
+  assert.equal(continueList('texte', 'texte\n'), 'texte\n');
+  assert.equal(continueList('- un', '- un deux'), '- un deux');
+  assert.equal(continueList('', '\n'), '\n');
 });

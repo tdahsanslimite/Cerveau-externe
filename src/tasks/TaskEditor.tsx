@@ -1,85 +1,95 @@
-// Fiche d'une tâche : intitulé, priorité (important / urgent), jour, domaine, note,
-// et « Mettre au calendrier » pour lui réserver un créneau sans tout ressaisir.
+// Fiche d'une idée, en trois étapes : 1) la note, 2) le domaine, 3) la priorité (points).
+// Pour une idée existante, on peut aussi la mettre au calendrier : la date et l'heure se notent juste en dessous.
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { addDays, labelDayLong, relativeLabel, todayKey } from '../calendar/dates';
+import { addDays, durationLabel, labelDayLong, minutesToLabel, relativeLabel, todayKey } from '../calendar/dates';
 import type { DayKey } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
-import { EditorState, EventEditor } from '../calendar/EventEditor';
-import { useDayLoad } from '../load';
-import { useSettings } from '../settings/SettingsContext';
+import { findConflict, nextFreeStart } from '../calendar/model';
+import { TimeWheel } from '../calendar/TimeWheel';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
-import { eventFromTask, isStuck, quadrantInfo, quadrantOf, Task } from './model';
-import { useOneThing } from './priority';
+import { continueList, eventFromTask, isStuck, pointsOf, quadrantInfo, quadrantOf, Task } from './model';
 import { useTasks } from './TasksContext';
 
-export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () => void }) {
+const DURATIONS = [15, 30, 45, 60, 90, 120];
+
+export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null; onClose: () => void; isNew?: boolean }) {
   const { save, remove } = useTasks();
-  const { domains } = useCalendar();
-  const { settings } = useSettings();
-  const load = useDayLoad();
+  const { domains, events, saveEvent } = useCalendar();
   const [t, setT] = useState<Task | null>(task);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [scheduling, setScheduling] = useState<EditorState | null>(null);
-  const { ask, sheet: oneThingSheet } = useOneThing();
+  const [cal, setCal] = useState<{ day: DayKey; start: number; duration: number } | null>(null);
+  const [wheel, setWheel] = useState(false);
+  const [tried, setTried] = useState(false);
 
   useEffect(() => {
     setT(task);
     setConfirmDelete(false);
-    setScheduling(null);
+    setCal(null);
+    setWheel(false);
+    setTried(false);
   }, [task]);
 
   if (!task || !t) return null;
   const patch = (p: Partial<Task>) => setT({ ...t, ...p });
-  const canSave = t.title.trim().length > 0;
-  const q = quadrantOf(t);
   const today = todayKey();
+  const titleOk = t.title.trim().length > 0;
+  const important = t.important === true;
+  const urgent = t.urgent === true;
+  const points = pointsOf(t);
+  const q = quadrantOf({ important, urgent });
 
-  const after = t.day ? load(t.day, { taskId: t.id }) + 1 : 0;
-  const overLimit = t.day !== null && after > settings.dailyLimit;
+  const clean = (next: Task): Task => ({ ...next, title: next.title.trim(), note: next.note?.trim() || undefined });
 
-  /** Ouvre la fiche d'événement déjà remplie avec cette tâche (intitulé, jour, domaine, note, priorité). */
-  const schedule = () =>
-    setScheduling({ event: eventFromTask(t, today, domains.map((d) => d.id)), isNew: true, day: t.day ?? today });
+  // ---- Créneau choisi (idée existante) ----
+  const candidate = cal ? { ...eventFromTask({ ...t, day: cal.day }, today, domains.map((d) => d.id)), start: cal.start, durationMin: cal.duration } : null;
+  const conflict = candidate ? findConflict(events, candidate) : null;
+  const suggestion = candidate && conflict ? nextFreeStart(events, { ...candidate, date: conflict.day }, cal!.start) : null;
 
-  const commit = (next: Task) => {
-    if (!next.title.trim()) return;
-    save({ ...next, title: next.title.trim(), note: next.note?.trim() || undefined });
+  const validate = () => {
+    setTried(true);
+    if (!titleOk) return;
+    // Une nouvelle idée validée est classée (oui ou non). Une idée du « à classer » dont on ne touche pas la priorité le reste.
+    const imp = isNew ? important : t.important;
+    const urg = isNew ? urgent : t.urgent;
+    const done = clean({ ...t, important: imp, urgent: urg });
+    if (cal && candidate) {
+      if (conflict) return;
+      saveEvent({ ...candidate, title: done.title, important: imp, urgent: urg, note: done.note });
+      remove(t.id); // un seul exemplaire : l'événement du calendrier, qui reste dans les listes
+    } else {
+      save(done);
+    }
     onClose();
   };
 
-  /** Une seule chose importante ET urgente : s'il y en a déjà une, on demande laquelle reste. */
-  const onSave = () => {
-    if (!canSave) return;
-    if (t.status === 'todo' && t.important === true && t.urgent === true) {
-      ask({ key: `task:${t.id}`, title: t.title.trim() }, (p) => commit({ ...t, ...p }));
-    } else commit(t);
+  /** Fermer sans valider : une nouvelle idée n'est pas perdue, elle attend d'être classée. */
+  const close = () => {
+    if (isNew && titleOk) save(clean(t));
+    onClose();
+  };
+
+  const toggleCal = () => {
+    setWheel(false);
+    setCal(cal ? null : { day: t.day ?? today, start: 9 * 60, duration: 60 });
   };
 
   const footer = (
     <>
-      <Button label="Enregistrer" kind="dark" onPress={onSave} style={!canSave && { opacity: 0.4 }} />
-      {t.status !== 'dropped' && !confirmDelete ? (
-        <Button label="Lâcher cette tâche" kind="ghost" icon="wind" onPress={() => commit({ ...t, status: 'dropped' })} />
+      {tried && !titleOk ? <Txt size={14} color={colors.danger} style={{ textAlign: 'center' }}>Donne un titre à l’idée.</Txt> : null}
+      {tried && conflict ? (
+        <Txt size={14} color={colors.danger} style={{ textAlign: 'center' }}>Ce créneau est déjà pris par « {conflict.event.title} ».</Txt>
       ) : null}
-      {!confirmDelete ? (
-        <Button label="Supprimer" kind="danger" icon="trash-2" onPress={() => setConfirmDelete(true)} />
-      ) : (
-        <View style={{ gap: 8 }}>
-          <Button label="Oui, supprimer" kind="danger" onPress={() => { remove(t.id); onClose(); }} />
-          <Button label="Annuler" kind="ghost" onPress={() => setConfirmDelete(false)} />
-        </View>
-      )}
+      <Button label="Valider" kind="dark" onPress={validate} style={(!titleOk || !!conflict) && { opacity: 0.45 }} />
     </>
   );
 
   return (
-    <>
-    <Sheet visible={!scheduling} onClose={onClose} title="Modifier la tâche" footer={footer}>
-      <Field label="Intitulé">
+    <Sheet visible onClose={close} title={isNew ? 'Nouvelle idée' : 'Modifier l’idée'} footer={footer}>
+      <Field label="Titre">
         <TextInput
-          accessibilityLabel="Intitulé"
+          accessibilityLabel="Titre"
           value={t.title}
           onChangeText={(title) => patch({ title })}
           placeholder="Ex. Appeler la banque"
@@ -92,52 +102,25 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
         <View style={st.warn}>
           <Icon name="refresh-cw" size={18} color={colors.warnDark} />
           <Txt size={14} color={colors.warnDark} style={{ flex: 1, lineHeight: 20 }}>
-            Elle a glissé {t.slides} fois. Ce n’est pas un défaut de ta part : c’est peut-être trop gros. Tu peux la découper en une première petite étape, lui donner un jour et une heure précis dans le calendrier, ou la lâcher.
+            Elle est revenue {t.slides} fois. Ce n’est pas un défaut de ta part : c’est peut-être trop gros. Découpe-la en une première petite étape, ou abandonne-la.
           </Txt>
         </View>
       ) : null}
 
-      <Field label="Important ?">
-        <View style={st.wrap}>
-          <Chip label="Oui" selected={t.important === true} onPress={() => patch({ important: t.important === true ? null : true })} />
-          <Chip label="Non" selected={t.important === false} onPress={() => patch({ important: t.important === false ? null : false })} />
-        </View>
+      <Field label="1 · Développe ton idée" hint="Une note libre. Un retour à la ligne après un tiret continue la liste.">
+        <TextInput
+          accessibilityLabel="Note"
+          value={t.note ?? ''}
+          onChangeText={(note) => patch({ note: continueList(t.note ?? '', note) })}
+          placeholder={'- première étape\n- ce qu’il faut prévoir'}
+          placeholderTextColor={colors.faint}
+          multiline
+          style={[st.input, { minHeight: 110, paddingTop: 12, textAlignVertical: 'top' }]}
+        />
+        <Button label="Ajouter un tiret" kind="ghost" icon="minus" onPress={() => patch({ note: `${t.note ? `${t.note.replace(/\n?$/, '\n')}` : ''}- ` })} />
       </Field>
 
-      <Field
-        label="Urgent ?"
-        hint={q ? `Rangée dans « ${quadrantInfo(q).label} ».` : 'Tant que ce n’est pas tranché, la tâche reste dans le sas (si elle n’a pas de jour).'}
-      >
-        <View style={st.wrap}>
-          <Chip label="Oui" selected={t.urgent === true} onPress={() => patch({ urgent: t.urgent === true ? null : true })} />
-          <Chip label="Non" selected={t.urgent === false} onPress={() => patch({ urgent: t.urgent === false ? null : false })} />
-        </View>
-      </Field>
-
-      <Field label="Quand ?">
-        <View style={st.wrap}>
-          <Chip label="Aujourd’hui" selected={t.day === today} onPress={() => patch({ day: today })} />
-          <Chip label="Demain" selected={t.day === addDays(today, 1)} onPress={() => patch({ day: addDays(today, 1) })} />
-          <Chip label="Un jour" selected={t.day === null} onPress={() => patch({ day: null })} />
-        </View>
-        {t.day ? (
-          <DayStepper day={t.day} onChange={(day) => patch({ day })} />
-        ) : null}
-        {overLimit ? (
-          <View style={st.warn}>
-            <Icon name="alert-circle" size={18} color={colors.warnDark} />
-            <Txt size={14} color={colors.warnDark} style={{ flex: 1, lineHeight: 20 }}>
-              Avec celle-ci, ce jour passe à {after} pour une limite de {settings.dailyLimit}. Un autre jour serait peut-être plus doux ?
-            </Txt>
-          </View>
-        ) : null}
-      </Field>
-
-      <Field label="Calendrier" hint="Choisis une heure : la tâche passe dans ton calendrier avec son intitulé, son jour, son domaine et sa priorité. Elle reste dans la matrice.">
-        <Button label="Mettre au calendrier" kind="ghost" icon="calendar" onPress={schedule} />
-      </Field>
-
-      <Field label="Domaine">
+      <Field label="2 · Domaine" hint="Une simple étiquette, pour les calculs.">
         <View style={st.wrap}>
           <Chip label="Aucun" selected={!t.category} color={colors.ink} onPress={() => patch({ category: undefined })} />
           {domains.map((c) => (
@@ -146,39 +129,71 @@ export function TaskEditor({ task, onClose }: { task: Task | null; onClose: () =
         </View>
       </Field>
 
-      <Field label="Note">
-        <TextInput
-          accessibilityLabel="Note"
-          value={t.note ?? ''}
-          onChangeText={(note) => patch({ note })}
-          placeholder="Numéro, détail, première étape…"
-          placeholderTextColor={colors.faint}
-          multiline
-          style={[st.input, { minHeight: 80, paddingTop: 12, textAlignVertical: 'top' }]}
-        />
+      <Field
+        label="3 · Priorité"
+        hint={`Important = 1 point, urgent = 1 point. ${points} point${points > 1 ? 's' : ''} · rangée dans « ${quadrantInfo(q ?? 'lacher').label} ».`}
+      >
+        <View style={st.wrap}>
+          <Chip label="Important (1)" selected={important} onPress={() => patch({ important: !important })} />
+          <Chip label="Urgent (1)" selected={urgent} onPress={() => patch({ urgent: !urgent })} />
+        </View>
       </Field>
-    </Sheet>
-    {/* La tâche est retirée du module une fois l'événement enregistré : un seul exemplaire, dans le calendrier. */}
-    <EventEditor state={scheduling} ignoreKey={`task:${t.id}`} onClose={() => setScheduling(null)} onSaved={() => { remove(t.id); onClose(); }} />
-    {oneThingSheet}
-    </>
-  );
-}
 
-function DayStepper({ day, onChange }: { day: DayKey; onChange: (d: DayKey) => void }) {
-  return (
-    <View style={st.stepper}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Jour précédent" onPress={() => onChange(addDays(day, -1))} style={({ pressed }) => [st.stepBtn, pressed && { opacity: 0.6 }]}>
-        <Icon name="chevron-left" />
-      </Pressable>
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <Txt bold size={16}>{labelDayLong(day)}</Txt>
-        {relativeLabel(day) ? <Txt size={13} color={colors.accent}>{relativeLabel(day)}</Txt> : null}
-      </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Jour suivant" onPress={() => onChange(addDays(day, 1))} style={({ pressed }) => [st.stepBtn, pressed && { opacity: 0.6 }]}>
-        <Icon name="chevron-right" />
-      </Pressable>
-    </View>
+      {!isNew ? (
+        <Field label="Calendrier" hint="Choisis la date et l’heure : à la validation, l’idée entre au calendrier.">
+          <Button label={cal ? 'Pas de calendrier' : 'Mettre au calendrier'} kind="ghost" icon="calendar" onPress={toggleCal} />
+          {cal ? (
+            <View style={{ gap: 10 }}>
+              <View style={st.stepper}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Jour précédent" onPress={() => setCal({ ...cal, day: addDays(cal.day, -1) })} style={({ pressed }) => [st.stepBtn, pressed && { opacity: 0.6 }]}>
+                  <Icon name="chevron-left" />
+                </Pressable>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Txt bold size={16}>{labelDayLong(cal.day)}</Txt>
+                  {relativeLabel(cal.day) ? <Txt size={13} color={colors.accent}>{relativeLabel(cal.day)}</Txt> : null}
+                </View>
+                <Pressable accessibilityRole="button" accessibilityLabel="Jour suivant" onPress={() => setCal({ ...cal, day: addDays(cal.day, 1) })} style={({ pressed }) => [st.stepBtn, pressed && { opacity: 0.6 }]}>
+                  <Icon name="chevron-right" />
+                </Pressable>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Heure de début ${minutesToLabel(cal.start)}`}
+                onPress={() => setWheel(!wheel)}
+                style={({ pressed }) => [st.timeRow, pressed && { opacity: 0.7 }]}
+              >
+                <Txt size={15} color={colors.muted}>Début</Txt>
+                <Txt bold size={18}>{minutesToLabel(cal.start)}</Txt>
+              </Pressable>
+              {wheel ? <TimeWheel value={cal.start} onChange={(start) => setCal({ ...cal, start })} /> : null}
+              <View style={st.wrap}>
+                {DURATIONS.map((d) => (
+                  <Chip key={d} label={durationLabel(d)} selected={cal.duration === d} onPress={() => setCal({ ...cal, duration: d })} />
+                ))}
+              </View>
+              {conflict && suggestion !== null ? (
+                <Button label={`Décaler à ${minutesToLabel(suggestion)}`} kind="ghost" onPress={() => setCal({ ...cal, start: suggestion })} />
+              ) : null}
+            </View>
+          ) : null}
+        </Field>
+      ) : null}
+
+      {!isNew ? (
+        <View style={{ gap: 8, marginTop: 4 }}>
+        {!isNew && t.status !== 'dropped' && !confirmDelete ? (
+          <Button label="Abandonner cette idée" kind="ghost" icon="wind" onPress={() => { save(clean({ ...t, status: 'dropped' })); onClose(); }} />
+        ) : null}
+        {!isNew && !confirmDelete ? <Button label="Supprimer" kind="danger" icon="trash-2" onPress={() => setConfirmDelete(true)} /> : null}
+        {!isNew && confirmDelete ? (
+          <View style={{ gap: 8 }}>
+            <Button label="Oui, supprimer" kind="danger" onPress={() => { remove(t.id); onClose(); }} />
+            <Button label="Annuler" kind="ghost" onPress={() => setConfirmDelete(false)} />
+          </View>
+        ) : null}
+        </View>
+      ) : null}
+    </Sheet>
   );
 }
 
@@ -189,6 +204,10 @@ const st = StyleSheet.create({
   },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.card, borderRadius: radius.m, borderWidth: 1, borderColor: colors.line, padding: 6 },
   stepBtn: { minWidth: TOUCH, height: TOUCH, borderRadius: radius.s, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  timeRow: {
+    minHeight: 52, borderRadius: radius.m, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14,
+  },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   warn: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', backgroundColor: colors.warnSoft, borderRadius: radius.m, padding: 12 },
 });

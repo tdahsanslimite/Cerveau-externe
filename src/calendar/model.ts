@@ -106,6 +106,8 @@ export interface CalendarEvent {
    */
   important?: boolean | null;
   urgent?: boolean | null;
+  /** Place dans sa liste d'idées (0 = tout en haut). */
+  rank?: number;
   /** Tâche pas cochée le jour prévu : le créneau reste (historique) et une nouvelle tâche est repartie dans le sas. */
   sentToSas?: boolean;
   /** Jours où une occurrence d'une série a été supprimée. */

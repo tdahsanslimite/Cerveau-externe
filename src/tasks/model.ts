@@ -27,6 +27,8 @@ export interface Task {
   /** Identifiant d'un domaine du calendrier (personnalisable). */
   category?: string;
   note?: string;
+  /** Place dans sa liste (0 = tout en haut). Absent = pas encore placée à la main. */
+  rank?: number;
 }
 
 // ---- Matrice d'Eisenhower ----
@@ -34,15 +36,15 @@ export interface Task {
 export type QuadrantId = 'faire' | 'planifier' | 'alleger' | 'lacher';
 
 export const QUADRANTS: { id: QuadrantId; label: string; hint: string; icon: 'zap' | 'calendar' | 'users' | 'wind' }[] = [
-  { id: 'faire', label: 'À faire en premier', hint: 'Important et urgent · une seule à la fois', icon: 'zap' },
-  { id: 'planifier', label: 'À planifier', hint: 'Important, pas urgent', icon: 'calendar' },
-  { id: 'alleger', label: 'À déléguer ou alléger', hint: 'Urgent, pas important', icon: 'users' },
-  { id: 'lacher', label: 'À lâcher ?', hint: 'Ni important, ni urgent', icon: 'wind' },
+  { id: 'faire', label: 'Urgent et important', hint: '2 points · à faire en premier', icon: 'zap' },
+  { id: 'alleger', label: 'Urgent', hint: '1 point · pas important', icon: 'users' },
+  { id: 'planifier', label: 'Important', hint: '1 point · pas urgent', icon: 'calendar' },
+  { id: 'lacher', label: 'Abandonner ?', hint: '0 point · ni important, ni urgent', icon: 'wind' },
 ];
 
 export const quadrantInfo = (id: QuadrantId) => QUADRANTS.find((q) => q.id === id) ?? QUADRANTS[0];
 
-const QUADRANT_RANK: Record<QuadrantId, number> = { faire: 0, planifier: 1, alleger: 2, lacher: 3 };
+const QUADRANT_RANK: Record<QuadrantId, number> = { faire: 0, alleger: 1, planifier: 2, lacher: 3 };
 
 /** Ce qui sert à trier : commun aux tâches du module et aux événements « Tâche ». */
 export interface Triable {
@@ -50,6 +52,7 @@ export interface Triable {
   urgent: boolean | null;
   status: TaskStatus;
   day: DayKey | null;
+  rank?: number;
 }
 
 export function quadrantOf(t: Pick<Triable, 'important' | 'urgent'>): QuadrantId | null {
@@ -73,12 +76,14 @@ export interface TaskItem extends Triable {
   durationMin: number;
   slides: number;
   category?: string;
+  note?: string;
 }
 
 export function taskToItem(t: Task): TaskItem {
   return {
     key: `task:${t.id}`, source: 'task', id: t.id, title: t.title, day: t.day, start: null, durationMin: 0,
     important: t.important, urgent: t.urgent, status: t.status, slides: t.slides, category: t.category,
+    rank: t.rank, note: t.note,
   };
 }
 
@@ -93,7 +98,7 @@ export function eventToItem(e: CalendarEvent): TaskItem | null {
     start: e.start, durationMin: e.durationMin,
     important: e.important ?? null, urgent: e.urgent ?? null,
     status: e.doneDays?.includes(e.date) ? 'done' : 'todo',
-    slides: 0, category: e.category,
+    slides: 0, category: e.category, rank: e.rank, note: e.note,
   };
 }
 
@@ -116,48 +121,69 @@ export function inSas<T extends Triable>(items: T[]): T[] {
   return items.filter((t) => t.status === 'todo' && !isSorted(t));
 }
 
-/** Éléments triés (Eisenhower), pas encore faits, groupés par quadrant, du plus proche au plus lointain. */
+/**
+ * Éléments d'une liste, pas encore faits, dans l'ordre choisi à la main (`rank`, 0 = tout en haut) ;
+ * ceux qui n'ont jamais été placés viennent ensuite, du plus proche au plus lointain.
+ */
 export function byQuadrant<T extends Triable>(items: T[], id: QuadrantId): T[] {
   return items
     .filter((t) => t.status === 'todo' && quadrantOf(t) === id)
-    .sort((a, b) => (a.day ?? '9999').localeCompare(b.day ?? '9999'));
+    .sort((a, b) => {
+      if (a.rank !== undefined && b.rank !== undefined) return a.rank - b.rank;
+      if (a.rank !== undefined) return -1;
+      if (b.rank !== undefined) return 1;
+      return (a.day ?? '9999').localeCompare(b.day ?? '9999');
+    });
 }
 
-// ---- Une seule chose à la fois (comme « The One Thing ») ----
+// ---- Points : une première lecture de la priorité ----
 
-/**
- * Une seule tâche peut être à la fois importante ET urgente. Les autres attendent :
- * « important seulement » (à planifier) ou « urgent seulement » (à déléguer ou alléger).
- */
-export const ONE_THING_MAX = 1;
+/** Important = 1, urgent = 1, ni l'un ni l'autre = 0. Entre 0 et 2. Ne sert pas au calendrier. */
+export function pointsOf(t: Pick<Triable, 'important' | 'urgent'>): 0 | 1 | 2 {
+  return ((t.important ? 1 : 0) + (t.urgent ? 1 : 0)) as 0 | 1 | 2;
+}
 
-/** Priorité (important, urgent) qui correspond à une case de la matrice. */
+/** Priorité (important, urgent) qui correspond à une liste. */
 export function priorityOf(q: QuadrantId): { important: boolean; urgent: boolean } {
   return { important: q === 'faire' || q === 'planifier', urgent: q === 'faire' || q === 'alleger' };
 }
 
-/** La chose importante ET urgente du moment (pas faite), hors `exceptKeys`. S'il y en a plusieurs (anciennes données), la plus proche. */
-export function oneThing<T extends Triable & { key: string }>(items: T[], exceptKeys: string[] = []): T | null {
-  return byQuadrant(items.filter((i) => !exceptKeys.includes(i.key)), 'faire')[0] ?? null;
-}
-
-/** Ce qui attend dans « urgent seulement » puis « important seulement », du plus proche au plus lointain : les candidats à devenir la prochaine chose. */
-export function waitingItems<T extends Triable>(items: T[]): T[] {
-  return [...byQuadrant(items, 'alleger'), ...byQuadrant(items, 'planifier')];
-}
-
-/** Clés des éléments qui viennent d'être cochés (pas faits avant, faits maintenant). */
-export function justCompleted(before: Pick<TaskItem, 'key' | 'status'>[], after: Pick<TaskItem, 'key' | 'status'>[]): string[] {
-  const was = new Map(before.map((i) => [i.key, i.status]));
-  return after.filter((i) => i.status === 'done' && was.get(i.key) === 'todo').map((i) => i.key);
+export interface PriorityUpdate {
+  key: string;
+  important: boolean;
+  urgent: boolean;
+  rank: number;
 }
 
 /**
- * Faut-il proposer de requalifier la matrice ? Oui quand la place de « la chose » est libre
- * et qu'il y a quelque chose pour la prendre : une tâche en attente, ou du sas à trier.
+ * Déplace une idée dans une liste, à la position `index` (0 = tout en haut).
+ * Renvoie seulement ce qui change : l'idée déplacée (nouvelle liste, nouvelle place) et les voisins dont la place bouge.
  */
-export function shouldAdvance(items: TaskItem[]): boolean {
-  return oneThing(items) === null && (waitingItems(items).length > 0 || inSas(items).length > 0);
+export function moveIdea(items: TaskItem[], key: string, target: QuadrantId, index: number): PriorityUpdate[] {
+  const moved = items.find((i) => i.key === key);
+  if (!moved) return [];
+  const others = byQuadrant(items, target).filter((i) => i.key !== key);
+  const at = Math.max(0, Math.min(index, others.length));
+  const next = [...others.slice(0, at), moved, ...others.slice(at)];
+  const p = priorityOf(target);
+  const updates: PriorityUpdate[] = [];
+  next.forEach((i, n) => {
+    const same = i.rank === n && (i.key !== key || quadrantOf(i) === target);
+    if (!same) updates.push({ key: i.key, ...p, rank: n });
+  });
+  return updates;
+}
+
+/**
+ * Dans une note, un retour à la ligne après une ligne « - texte » ouvre la ligne suivante par « - » ;
+ * un retour à la ligne après un « - » vide ferme la liste.
+ */
+export function continueList(before: string, after: string): string {
+  if (after.length !== before.length + 1 || !after.endsWith('\n') || !after.startsWith(before)) return after;
+  const last = before.split('\n').pop() ?? '';
+  if (last === '- ') return before.slice(0, before.length - 2);
+  if (last.startsWith('- ')) return `${after}- `;
+  return after;
 }
 
 // ---- Jour ----
@@ -258,7 +284,7 @@ export function eventFromTask(t: Task, today: DayKey, domainIds: string[]): Cale
   return {
     id: newId(), title: t.title.trim(), date: t.day ?? today, start: 9 * 60, durationMin: 60, category,
     repeat: 'none', kinds: ['tache'], reminders: [{ amount: 30, unit: 'min' }],
-    important: t.important, urgent: t.urgent, note: t.note,
+    important: t.important, urgent: t.urgent, note: t.note, rank: t.rank,
   };
 }
 
