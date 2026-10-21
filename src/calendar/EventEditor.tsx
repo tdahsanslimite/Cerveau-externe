@@ -6,7 +6,8 @@ import { useSettings } from '../settings/SettingsContext';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
-import { addDays, DayKey, durationLabel, labelDayLong, labelDayShort, minutesToLabel, relativeLabel } from './dates';
+import { addDays, DayKey, diffDays, durationLabel, labelDayLong, labelDayShort, minutesToLabel, relativeLabel } from './dates';
+import { DayPreview } from './DayPreview';
 import {
   ALERTS, CalendarEvent, EventKind, findConflict, KINDS, kindsOf, MAX_REMINDERS, newId, nextFreeStart,
   Reminder, REMINDER_UNITS, REPEATS,
@@ -57,6 +58,8 @@ export function EventEditor({ state, onClose, onSaved }: {
   const kinds = kindsOf(e);
   const reminders = e.reminders ?? [];
   const recurring = e.repeat !== 'none';
+  // Dernier jour d'un événement « journée » sur plusieurs jours (jamais avant le premier).
+  const lastDay = e.endDate && e.endDate > e.date ? e.endDate : e.date;
   const hasItem = kinds.includes('objet');
   /** Une tâche ponctuelle peut être triée dans le sas et la matrice d'Eisenhower du module Tâches. */
   const inMatrix = kinds.includes('tache') && !recurring;
@@ -76,7 +79,9 @@ export function EventEditor({ state, onClose, onSaved }: {
   // ---- Vérifications ----
   const titleOk = e.title.trim().length > 0;
   const itemOk = !hasItem || (e.item ?? '').trim().length > 0;
-  const conflict = findConflict(events, e);
+  // Version « telle qu'elle sera enregistrée » (fin sur plusieurs jours seulement si journée entière, sans répétition).
+  const asSaved: CalendarEvent = { ...e, endDate: e.start === null && !recurring && lastDay > e.date ? lastDay : undefined };
+  const conflict = findConflict(events, asSaved);
   const suggestion = conflict ? nextFreeStart(events, { ...e, date: conflict.day }, start) : null;
   const canSave = titleOk && itemOk && !conflict;
 
@@ -103,6 +108,8 @@ export function EventEditor({ state, onClose, onSaved }: {
       // La priorité ne sert qu'aux tâches ponctuelles (sas et matrice) : on ne garde pas une valeur oubliée.
       important: inMatrix ? e.important ?? null : undefined,
       urgent: inMatrix ? e.urgent ?? null : undefined,
+      // Plusieurs jours : seulement pour un événement « toute la journée » qui ne se répète pas.
+      endDate: e.start === null && !recurring && lastDay > e.date ? lastDay : undefined,
     });
     onSaved?.();
     onClose();
@@ -218,18 +225,37 @@ export function EventEditor({ state, onClose, onSaved }: {
             <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4 }}>Durée : {durationLabel(e.durationMin)}</Txt>
           </View>
         ) : null}
+        {e.start === null && !recurring ? (
+          <View style={{ gap: 4 }}>
+            <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4 }}>Jusqu'au (vacances, déplacement…)</Txt>
+            <View style={st.stepper}>
+              <StepBtn icon="chevron-left" label="Finir un jour plus tôt" onPress={() => patch({ endDate: lastDay <= e.date ? undefined : addDays(lastDay, -1) })} />
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Txt bold size={16}>{lastDay === e.date ? 'Un seul jour' : labelDayLong(lastDay)}</Txt>
+                {lastDay !== e.date ? <Txt size={13} color={colors.accent}>{diffDays(e.date, lastDay) + 1} jours</Txt> : null}
+              </View>
+              <StepBtn icon="chevron-right" label="Finir un jour plus tard" onPress={() => patch({ endDate: addDays(lastDay, 1) })} />
+            </View>
+          </View>
+        ) : null}
         {conflict ? (
           <View style={{ gap: 8 }}>
             <Notice
               tone="danger"
-              text={`Déjà pris ${conflict.day === e.date ? 'ce jour-là' : `le ${labelDayShort(conflict.day)}`} : « ${conflict.event.title} » de ${minutesToLabel(conflict.event.start ?? 0)} à ${minutesToLabel((conflict.event.start ?? 0) + conflict.event.durationMin)}.`}
+              text={`Tu as déjà un événement ${conflict.day === e.date ? 'ce jour-là' : `le ${labelDayShort(conflict.day)}`} : « ${conflict.event.title} » ${
+                conflict.event.start === null
+                  ? (conflict.event.endDate ? `du ${labelDayShort(conflict.event.date)} au ${labelDayShort(conflict.event.endDate)}` : 'toute la journée')
+                  : `de ${minutesToLabel(conflict.event.start)} à ${minutesToLabel(conflict.event.start + conflict.event.durationMin)}`
+              }. Tu ne peux pas être à deux endroits : choisis un autre moment, ou fais-en une tâche.`}
             />
-            {suggestion !== null && conflict.day === e.date ? (
+            {suggestion !== null && conflict.day === e.date && conflict.event.start !== null ? (
               <Button label={`Décaler à ${minutesToLabel(suggestion)}`} kind="ghost" icon="corner-down-right" onPress={() => patch({ start: suggestion })} />
             ) : null}
           </View>
         ) : null}
       </Field>
+
+      <DayPreview day={conflict?.day ?? e.date} candidate={asSaved} blockingId={conflict?.event.id ?? null} />
 
       <Field
         label="Rappels"

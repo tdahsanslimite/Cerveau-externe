@@ -99,7 +99,7 @@ test('créneaux libres, avec chevauchement', () => {
 test('chevauchements : bloque, ignore la journée entière et l’événement lui-même', () => {
   const dentist = ev({ id: 'd', start: 10 * 60, durationMin: 60 });           // 10h-11h
   const trampo = ev({ id: 't', date: '2026-10-07', start: 17 * 60, durationMin: 120, repeat: 'weekly' }); // mer. 17h-19h
-  const allDay = ev({ id: 'a', start: null });
+  const allDay = ev({ id: 'a', start: null, kinds: ['objet'], item: 'cadeau' }); // un objet « journée » ne bloque rien
   const events = [dentist, trampo, allDay];
   assert.equal(findConflict(events, ev({ id: 'n', start: 10 * 60 + 30, durationMin: 30 }))?.event.id, 'd');
   assert.equal(findConflict(events, ev({ id: 'n', start: 11 * 60, durationMin: 30 })), null); // bout à bout : OK
@@ -170,4 +170,36 @@ test('bilan des heures par domaine : passé, prévu, tâches non faites', () => 
   const r = hoursByDomain(events, '2026-10-19', '2026-10-25', '2026-10-20');
   assert.deepEqual(r.travail, { done: 150, planned: 60 });
   assert.deepEqual(r.sport, { done: 120, planned: 300 });
+});
+
+test('règle du 21 oct. : seul un événement bloque un événement', () => {
+  const dentist = ev({ id: 'd', start: 10 * 60, durationMin: 60 }); // événement (rdv par défaut)
+  const task = ev({ id: 't', start: 10 * 60 + 15, durationMin: 30, kinds: ['tache'] });
+  const object = ev({ id: 'o', start: 10 * 60, durationMin: 60, kinds: ['objet'], item: 'devis' });
+  assert.equal(findConflict([dentist], task), null);        // une tâche se pose sur un événement
+  assert.equal(findConflict([dentist], object), null);      // un objet aussi
+  assert.equal(findConflict([task], ev({ id: 'n', start: 10 * 60, durationMin: 60 })), null); // un événement sur une tâche : OK
+  assert.equal(findConflict([dentist], ev({ id: 'n', start: 10 * 60 + 30, durationMin: 60, kinds: ['rdv', 'objet'] }))?.event.id, 'd'); // IRM (événement + objet) : bloqué
+});
+
+test('vacances sur une semaine : tâches et objets oui, autre événement non', () => {
+  const vacances = ev({ id: 'v', date: '2026-11-02', start: null, endDate: '2026-11-08' });
+  assert.ok(occursOn(vacances, '2026-11-05'));
+  assert.ok(!occursOn(vacances, '2026-11-09'));
+  assert.equal(occurrencesOn([vacances], '2026-11-08').length, 1);
+  const rdvPendant = ev({ id: 'r', date: '2026-11-05', start: 15 * 60, durationMin: 60 });
+  assert.deepEqual([findConflict([vacances], rdvPendant)?.event.id], ['v']);
+  assert.equal(findConflict([vacances], { ...rdvPendant, kinds: ['tache'] }), null);
+  assert.equal(findConflict([vacances], ev({ id: 'r2', date: '2026-11-09', start: 9 * 60 })), null); // après les vacances
+  // Poser les vacances par-dessus un rendez-vous déjà prévu au milieu de la semaine : bloqué aussi
+  const conflict = findConflict([rdvPendant], vacances);
+  assert.deepEqual([conflict?.event.id, conflict?.day], ['r', '2026-11-05']);
+});
+
+test('événement sur plusieurs jours : un seul rappel, le premier jour', () => {
+  const now = new Date(2026, 9, 21, 12, 0);
+  const vacances = ev({ id: 'v', title: 'Vacances', date: '2026-10-26', start: null, endDate: '2026-10-30', reminders: [{ amount: 1, unit: 'j' }] });
+  const plan = planReminders([vacances], now, '2026-10-21');
+  assert.equal(plan.length, 1);
+  assert.equal(plan[0].at.getDate(), 25);
 });

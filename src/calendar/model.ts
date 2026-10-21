@@ -46,7 +46,7 @@ export const REPEATS: { id: Repeat; label: string }[] = [
 export type EventKind = 'rdv' | 'tache' | 'objet';
 
 export const KINDS: { id: EventKind; label: string; hint: string }[] = [
-  { id: 'rdv', label: 'Rendez-vous', hint: 'Un lieu, une heure, quelqu’un t’attend.' },
+  { id: 'rdv', label: 'Événement', hint: 'Tu y es en personne : deux événements ne peuvent pas se chevaucher.' },
   { id: 'tache', label: 'Tâche', hint: 'Un créneau bloqué pour faire quelque chose, à cocher une fois fait.' },
   { id: 'objet', label: 'Objet à prendre', hint: 'Une chose à ne pas oublier d’emporter.' },
 ];
@@ -89,6 +89,8 @@ export interface CalendarEvent {
   /** Identifiant du domaine (Travail, Sport…). */
   category: string;
   repeat: Repeat;
+  /** Dernier jour d'un événement « toute la journée » sur plusieurs jours (vacances…). Absent = un seul jour. */
+  endDate?: DayKey;
   /** Absent sur les événements créés avant la v1.1 : traité comme ['rdv']. */
   kinds?: EventKind[];
   /** Ce qu'il faut emporter (type « objet »). */
@@ -143,7 +145,7 @@ export function occursOn(e: CalendarEvent, day: DayKey): boolean {
   if (n < 0) return false;
   switch (e.repeat) {
     case 'none':
-      return n === 0;
+      return n === 0 || (!!e.endDate && diffDays(day, e.endDate) >= 0);
     case 'daily':
       return true;
     case 'weekdays':
@@ -206,19 +208,29 @@ export function freeSlots(occs: Occurrence[], dayStart = 8 * 60, dayEnd = 21 * 6
 const overlaps = (a: CalendarEvent, b: CalendarEvent) =>
   a.start !== null && b.start !== null && a.start < endOf(b) && b.start < endOf(a);
 
+/** « Événement » = on y est en personne (ex-Rendez-vous). Tâches et objets seuls ne réservent pas le créneau. */
+export const isPresence = (e: CalendarEvent) => kindsOf(e).includes('rdv');
+
+/** Deux occurrences du même jour se chevauchent-elles ? « Toute la journée » occupe le jour entier. */
+const overlapsOnDay = (a: CalendarEvent, b: CalendarEvent) => a.start === null || b.start === null || overlaps(a, b);
+
+/** Jours occupés par `e` à vérifier : la période d'un événement sur plusieurs jours, ou les prochaines semaines d'une série. */
+function daysToCheck(e: CalendarEvent, horizonDays: number): DayKey[] {
+  const count = e.repeat === 'none' ? (e.endDate ? Math.max(0, diffDays(e.date, e.endDate)) + 1 : 1) : horizonDays;
+  return Array.from({ length: count }, (_, i) => addDays(e.date, i)).filter((d) => occursOn(e, d));
+}
+
 /**
- * Premier événement déjà prévu qui chevauche `candidate`.
- * Pour une série, vérifie les `horizonDays` prochains jours.
- * Les événements « toute la journée » ne bloquent rien.
+ * Premier événement déjà prévu qui bloque `candidate` (règle de Valentin, 21 oct.) :
+ * seul un ÉVÉNEMENT bloque un autre ÉVÉNEMENT (on ne peut pas être à deux endroits) ;
+ * une tâche ou un objet peut se poser sur n'importe quoi (ex. une tâche pendant une semaine de vacances).
+ * Un événement « toute la journée » occupe tout le jour (vacances, déplacement…).
  */
 export function findConflict(events: CalendarEvent[], candidate: CalendarEvent, horizonDays = 56): Occurrence | null {
-  if (candidate.start === null) return null;
-  const others = events.filter((e) => e.id !== candidate.id && e.start !== null);
-  const days = candidate.repeat === 'none' ? 1 : horizonDays;
-  for (let i = 0; i < days; i++) {
-    const day = addDays(candidate.date, i);
-    if (!occursOn(candidate, day)) continue;
-    const hit = others.find((o) => occursOn(o, day) && overlaps(candidate, o));
+  if (!isPresence(candidate)) return null;
+  const others = events.filter((e) => e.id !== candidate.id && isPresence(e));
+  for (const day of daysToCheck(candidate, horizonDays)) {
+    const hit = others.find((o) => occursOn(o, day) && overlapsOnDay(candidate, o));
     if (hit) return { event: hit, day };
   }
   return null;

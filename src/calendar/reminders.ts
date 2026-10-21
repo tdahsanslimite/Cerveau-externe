@@ -32,6 +32,7 @@ export function planReminders(
     const day = addDays(first, i);
     for (const e of events) {
       if (!occursOn(e, day)) continue;
+      if (e.endDate && day !== e.date) continue; // plusieurs jours : rappels du premier jour seulement
       const base = e.start ?? ALL_DAY_BASE;
       const when = e.start === null ? 'Aujourd’hui' : `${minutesToLabel(e.start)} – ${minutesToLabel(base + e.durationMin)}`;
       const kinds = kindsOf(e);
