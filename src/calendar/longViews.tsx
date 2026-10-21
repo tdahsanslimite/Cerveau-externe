@@ -4,11 +4,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useDayLoad } from '../load';
 import { useSettings } from '../settings/SettingsContext';
 import { colors, radius } from '../theme';
-import { Card, SectionLabel, Txt } from '../ui';
+import { Card, Icon, SectionLabel, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
 import { LOAD_COLOR } from './components';
 import { DAY_SHORT, DayKey, fromKey, labelDayShort, minutesToLabel, MONTHS, monthGrid, relativeLabel, todayKey, weekDays } from './dates';
-import { loadLevel, occurrencesOn } from './model';
+import { endOf, isDoneOn, isTask, loadLevel, occurrencesOn } from './model';
+import { tasksOn } from '../tasks/model';
+import { useTaskItems } from '../tasks/useTaskItems';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -169,6 +171,7 @@ export function YearView({ day, onOpenMonth }: { day: DayKey; onOpenMonth: (d: D
 
 export function WeekStrip({ day, onSelect }: { day: DayKey; onSelect: (d: DayKey) => void }) {
   const { events, domain } = useCalendar();
+  const items = useTaskItems();
   const { settings } = useSettings();
   const load = useDayLoad();
   const today = todayKey();
@@ -183,7 +186,9 @@ export function WeekStrip({ day, onSelect }: { day: DayKey; onSelect: (d: DayKey
           const isSel = d === day;
           const isToday = d === today;
           const past = d < today;
-          const shown = occs.slice(0, 2);
+          // Toute la journée, sans coupe : événements puis idées prévues ce jour (sans heure).
+          const dayTasks = tasksOn(items, d).filter((t) => t.source === 'task');
+          const empty = occs.length === 0 && dayTasks.length === 0;
           return (
             <Pressable
               key={d}
@@ -198,19 +203,40 @@ export function WeekStrip({ day, onSelect }: { day: DayKey; onSelect: (d: DayKey
                 {isToday ? <Txt size={11} color={colors.accent}>{relativeLabel(d, today)}</Txt> : null}
               </View>
               <View style={{ flex: 1, gap: 2 }}>
-                {shown.length === 0 ? (
-                  <Txt size={13} color={colors.faint}>Libre</Txt>
-                ) : (
-                  shown.map((o) => (
-                    <View key={o.event.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {empty ? <Txt size={13} color={colors.faint}>Libre</Txt> : null}
+                {occs.map((o) => {
+                  const done = isTask(o.event) && isDoneOn(o.event, d);
+                  return (
+                    <View key={o.event.id} style={st.line}>
                       <View style={[st.dot, { backgroundColor: domain(o.event.category).color }]} />
-                      <Txt size={13} numberOfLines={1} style={{ flex: 1 }} color={past && !isSel ? colors.muted : colors.ink}>
-                        {o.event.start === null ? '' : `${minutesToLabel(o.event.start)} `}{o.event.title}
+                      <Txt size={12} color={colors.muted} style={st.time}>
+                        {o.event.start === null ? 'Journée' : `${minutesToLabel(o.event.start)}–${minutesToLabel(endOf(o.event))}`}
+                      </Txt>
+                      <Txt
+                        size={13}
+                        numberOfLines={2}
+                        style={[{ flex: 1 }, done && { textDecorationLine: 'line-through' }]}
+                        color={done || (past && !isSel) ? colors.muted : colors.ink}
+                      >
+                        {o.event.title}
                       </Txt>
                     </View>
-                  ))
-                )}
-                {occs.length > 2 ? <Txt size={12} color={colors.muted}>+ {occs.length - 2} autre(s)</Txt> : null}
+                  );
+                })}
+                {dayTasks.map((t) => (
+                  <View key={t.key} style={st.line}>
+                    <Icon name={t.status === 'done' ? 'check-square' : 'square'} size={12} color={colors.muted} />
+                    <Txt size={12} color={colors.muted} style={st.time}>Idée</Txt>
+                    <Txt
+                      size={13}
+                      numberOfLines={2}
+                      style={[{ flex: 1 }, t.status === 'done' && { textDecorationLine: 'line-through' }]}
+                      color={t.status === 'done' || (past && !isSel) ? colors.muted : colors.ink}
+                    >
+                      {t.title}
+                    </Txt>
+                  </View>
+                ))}
               </View>
               <View style={st.stripLoad}>
                 <View style={[st.loadDot, { backgroundColor: count ? LOAD_COLOR[level] : colors.border }]} />
@@ -238,10 +264,12 @@ const st = StyleSheet.create({
     padding: 6, gap: 4,
   },
   stripRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, minHeight: 52,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 14, paddingVertical: 10, minHeight: 52,
     borderBottomWidth: 1, borderBottomColor: colors.lineSoft,
   },
   stripSel: { backgroundColor: colors.accentSoft },
+  line: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  time: { width: 76, fontVariant: ['tabular-nums'] },
   stripLoad: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   loadDot: { width: 8, height: 8, borderRadius: 4 },
 });
