@@ -1,4 +1,4 @@
-// Écran du Journal : le jour choisi (2 notes de 1 à 10 + une note libre), puis de quoi comprendre et relativiser :
+// Écran du Journal : le jour choisi (3 notes de 1 à 10, chacune avec son commentaire), puis de quoi comprendre et relativiser :
 // moyennes, les 14 derniers jours d'un coup d'œil, et les jours à relire (difficiles / bons moments).
 import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -8,14 +8,39 @@ import { Card, Chip, IconButton, SectionLabel, Txt } from '../ui';
 import { addDays, DAY_SHORT, DayKey, fromKey, isoWeek, labelDayLong, labelDayShort, relativeLabel, todayKey, weekdayIndex } from '../calendar/dates';
 import { useJournal } from './JournalContext';
 import {
-  average, baseline, FIELD_LABEL, formatScore, historyDays, HistoryKind, isScore, JournalEntry, recentDays, relativeTo, ScoreField,
-  SCORE_MAX,
+  average, baseline, FIELD_LABEL, FIELDS, formatScore, historyDays, HistoryKind, isScore, JournalEntry, noteOf, recentDays, relativeTo,
+  ScoreField, SCORE_MAX,
 } from './model';
 
 const CHART_DAYS = 14;
 const BAR_MAX = 64;
 
-/** Couleur d'une note : basse = orange, milieu = ambre, haute = vert-bleu (le chiffre reste toujours écrit). */
+/** Une couleur par note dans le graphique (la légende les nomme). */
+const FIELD_COLOR: Record<ScoreField, string> = { mood: colors.accent, mind: '#5B6FA8', body: colors.amber };
+
+/** Texte propre à chaque note : question posée, repères 1 et 10, aide du commentaire. */
+const COPY: Record<ScoreField, { hint: string; low: string; high: string; placeholder: string }> = {
+  mood: {
+    hint: "Est-ce que j'ai passé une bonne journée ?",
+    low: 'mauvaise journée',
+    high: 'très bonne journée',
+    placeholder: "Ce que j'ai fait… ou pas fait.",
+  },
+  mind: {
+    hint: 'Est-ce que je me sens bien dans ma tête ?',
+    low: 'pas bien du tout',
+    high: 'très bien',
+    placeholder: 'Ce que je pense, ce que je ressens.',
+  },
+  body: {
+    hint: 'Est-ce que je me sens en forme ?',
+    low: 'pas en forme',
+    high: 'en pleine forme',
+    placeholder: 'Fatigue, douleurs, sommeil, énergie…',
+  },
+};
+
+/** Couleur d'une note sélectionnée : basse = orange, milieu = ambre, haute = vert-bleu (le chiffre reste toujours écrit). */
 function tone(n: number): string {
   if (n <= 4) return colors.warn;
   if (n <= 7) return colors.amber;
@@ -24,14 +49,16 @@ function tone(n: number): string {
 
 const SCORE_ROWS = [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]];
 
-function ScoreRow({ field, title, hint, low, high, value, base, onPick }: {
-  field: ScoreField; title: string; hint: string; low: string; high: string; value: number | undefined; base: number | null; onPick: (n: number) => void;
+function ScoreBlock({ field, value, base, note, onPick, onNote }: {
+  field: ScoreField; value: number | undefined; base: number | null; note: string;
+  onPick: (n: number) => void; onNote: (text: string) => void;
 }) {
+  const copy = COPY[field];
   return (
-    <View style={{ gap: 10 }}>
+    <Card style={{ padding: 16, gap: 12 }}>
       <View style={{ gap: 2 }}>
-        <Txt bold size={17}>{title}</Txt>
-        <Txt size={13} color={colors.muted}>{hint}</Txt>
+        <Txt bold size={18}>{FIELD_LABEL[field]}</Txt>
+        <Txt size={13} color={colors.muted}>{copy.hint}</Txt>
       </View>
       <View style={{ gap: 8 }}>
         {SCORE_ROWS.map((row, i) => (
@@ -42,7 +69,7 @@ function ScoreRow({ field, title, hint, low, high, value, base, onPick }: {
                 <Pressable
                   key={n}
                   accessibilityRole="button"
-                  accessibilityLabel={`${FIELD_LABEL[field]} ${n} sur ${SCORE_MAX}`}
+                  accessibilityLabel={`${FIELD_LABEL[field]} : ${n} sur ${SCORE_MAX}`}
                   accessibilityState={{ selected: on }}
                   onPress={() => onPick(n)}
                   style={({ pressed }) => [
@@ -59,11 +86,21 @@ function ScoreRow({ field, title, hint, low, high, value, base, onPick }: {
         ))}
       </View>
       <View style={st.scoreEnds}>
-        <Txt size={12} color={colors.muted}>{`1 = ${low}`}</Txt>
-        <Txt size={12} color={colors.muted}>{`10 = ${high}`}</Txt>
+        <Txt size={12} color={colors.muted}>{`1 = ${copy.low}`}</Txt>
+        <Txt size={12} color={colors.muted}>{`10 = ${copy.high}`}</Txt>
       </View>
       <Relative value={value} base={base} />
-    </View>
+      <TextInput
+        accessibilityLabel={`Commentaire : ${FIELD_LABEL[field]}`}
+        value={note}
+        onChangeText={onNote}
+        multiline
+        placeholder={copy.placeholder}
+        placeholderTextColor={colors.faint}
+        textAlignVertical="top"
+        style={st.noteInput}
+      />
+    </Card>
   );
 }
 
@@ -85,7 +122,7 @@ function Relative({ value, base }: { value: number | undefined; base: number | n
 function Stat({ label, value }: { label: string; value: number | null }) {
   return (
     <View style={st.stat}>
-      <Txt size={12} color={colors.muted}>{label}</Txt>
+      <Txt size={12} color={colors.muted} numberOfLines={2}>{label}</Txt>
       <Txt bold size={26} color={value === null ? colors.faint : tone(Math.round(value))}>
         {value === null ? '–' : formatScore(value)}
       </Txt>
@@ -97,11 +134,10 @@ function Bar({ value, color }: { value: number | undefined; color: string }) {
   return <View style={[st.bar, { height: isScore(value) ? Math.max(4, (value / SCORE_MAX) * BAR_MAX) : 3, backgroundColor: isScore(value) ? color : colors.line }]} />;
 }
 
+const SHORT: Record<ScoreField, string> = { mood: 'Journée', mind: 'Tête', body: 'Corps' };
+
 function summary(e: JournalEntry): string {
-  const parts: string[] = [];
-  if (isScore(e.mood)) parts.push(`Psy ${e.mood}`);
-  if (isScore(e.body)) parts.push(`Physique ${e.body}`);
-  return parts.join(' · ');
+  return FIELDS.filter((f) => isScore(e[f])).map((f) => `${SHORT[f]} ${e[f]}`).join(' · ');
 }
 
 export function JournalScreen() {
@@ -143,51 +179,24 @@ export function JournalScreen() {
       </View>
 
       <ScrollView ref={scroller} contentContainerStyle={[st.content, { paddingBottom: 40 }]} keyboardShouldPersistTaps="handled">
-        <Card style={{ padding: 16, gap: 22 }}>
-          <ScoreRow
-            field="mood"
-            title="Mon état psychologique"
-            hint="Est-ce que j'ai passé une bonne journée ?"
-            low="mauvaise journée"
-            high="très bonne journée"
-            value={entry.mood}
-            base={baseline(entries, day, 'mood')}
-            onPick={(n) => score(day, 'mood', n)}
+        {FIELDS.map((f) => (
+          <ScoreBlock
+            key={f}
+            field={f}
+            value={entry[f]}
+            base={baseline(entries, day, f)}
+            note={noteOf(entry, f)}
+            onPick={(n) => score(day, f, n)}
+            onNote={(t) => note(day, f, t)}
           />
-          <View style={st.sep} />
-          <ScoreRow
-            field="body"
-            title="Mon état physique"
-            hint="Est-ce que je me sens en forme ?"
-            low="pas en forme"
-            high="en pleine forme"
-            value={entry.body}
-            base={baseline(entries, day, 'body')}
-            onPick={(n) => score(day, 'body', n)}
-          />
-        </Card>
-
-        <View style={{ gap: 8 }}>
-          <SectionLabel>Ma note du jour</SectionLabel>
-          <TextInput
-            accessibilityLabel="Note libre du jour"
-            value={entry.note ?? ''}
-            onChangeText={(t) => note(day, t)}
-            multiline
-            placeholder={"Ce que je pense, ce que je ressens.\nCe que j'ai fait… ou pas fait."}
-            placeholderTextColor={colors.faint}
-            textAlignVertical="top"
-            style={st.noteInput}
-          />
-          <Txt size={12} color={colors.faint}>Enregistré automatiquement, uniquement sur ce téléphone.</Txt>
-        </View>
+        ))}
+        <Txt size={12} color={colors.faint}>Enregistré automatiquement, uniquement sur ce téléphone.</Txt>
 
         {anyHistory ? (
           <View style={{ gap: 8 }}>
             <SectionLabel>7 derniers jours</SectionLabel>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Stat label="Psychologique" value={average(entries, week, 'mood')} />
-              <Stat label="Physique" value={average(entries, week, 'body')} />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {FIELDS.map((f) => <Stat key={f} label={FIELD_LABEL[f]} value={average(entries, week, f)} />)}
             </View>
           </View>
         ) : null}
@@ -209,8 +218,7 @@ export function JournalScreen() {
                       style={[st.chartCol, selected && { backgroundColor: colors.accentSoft }]}
                     >
                       <View style={st.bars}>
-                        <Bar value={e?.mood} color={colors.accent} />
-                        <Bar value={e?.body} color={colors.amber} />
+                        {FIELDS.map((f) => <Bar key={f} value={e?.[f]} color={FIELD_COLOR[f]} />)}
                       </View>
                       <Txt size={11} color={selected ? colors.accent : colors.muted} bold={selected}>
                         {DAY_SHORT[weekdayIndex(d)].charAt(0)}
@@ -221,9 +229,14 @@ export function JournalScreen() {
                 })}
               </View>
               <View style={st.legend}>
-                <View style={st.legendItem}><View style={[st.legendDot, { backgroundColor: colors.accent }]} /><Txt size={12} color={colors.muted}>Psychologique (à gauche)</Txt></View>
-                <View style={st.legendItem}><View style={[st.legendDot, { backgroundColor: colors.amber }]} /><Txt size={12} color={colors.muted}>Physique (à droite)</Txt></View>
+                {FIELDS.map((f) => (
+                  <View key={f} style={st.legendItem}>
+                    <View style={[st.legendDot, { backgroundColor: FIELD_COLOR[f] }]} />
+                    <Txt size={12} color={colors.muted}>{FIELD_LABEL[f]}</Txt>
+                  </View>
+                ))}
               </View>
+              <Txt size={12} color={colors.faint}>Dans l'ordre : journée, tête, corps.</Txt>
             </Card>
           </View>
         ) : null}
@@ -238,12 +251,13 @@ export function JournalScreen() {
             </View>
             {history.length === 0 ? (
               <Txt size={14} color={colors.muted}>
-                {kind === 'hard' ? 'Aucun jour difficile noté (note de 4 ou moins) pour l\'instant.' : 'Aucun bon moment noté (note de 8 ou plus) pour l\'instant.'}
+                {kind === 'hard' ? "Aucun jour difficile noté (note de 4 ou moins) pour l'instant." : "Aucun bon moment noté (note de 8 ou plus) pour l'instant."}
               </Txt>
             ) : (
               <Card>
                 {history.map((d) => {
                   const e = entries[d];
+                  const comments = FIELDS.filter((f) => noteOf(e, f).trim());
                   return (
                     <Pressable
                       key={d}
@@ -252,11 +266,14 @@ export function JournalScreen() {
                       onPress={() => openDay(d)}
                       style={({ pressed }) => [st.histRow, pressed && { backgroundColor: colors.lineSoft }]}
                     >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-                        <Txt bold size={15}>{labelDayShort(d)}</Txt>
-                        <Txt size={13} color={colors.muted}>{summary(e)}</Txt>
-                      </View>
-                      {e.note ? <Txt size={14} color={colors.muted} numberOfLines={2}>{e.note}</Txt> : null}
+                      <Txt bold size={15}>{labelDayShort(d)}</Txt>
+                      {summary(e) ? <Txt size={13} color={colors.muted}>{summary(e)}</Txt> : null}
+                      {comments.map((f) => (
+                        <Txt key={f} size={14} color={colors.muted} numberOfLines={2}>
+                          <Txt bold size={14} color={colors.muted}>{`${FIELD_LABEL[f]} : `}</Txt>
+                          {noteOf(e, f)}
+                        </Txt>
+                      ))}
                     </Pressable>
                   );
                 })}
@@ -280,17 +297,16 @@ const st = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   scoreEnds: { flexDirection: 'row', justifyContent: 'space-between' },
-  sep: { height: 1, backgroundColor: colors.lineSoft },
   noteInput: {
-    minHeight: 150, borderRadius: radius.l, borderWidth: 1, borderColor: colors.paperLine, backgroundColor: colors.paper,
-    padding: 14, fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink,
+    minHeight: 96, borderRadius: radius.m, borderWidth: 1, borderColor: colors.paperLine, backgroundColor: colors.paper,
+    padding: 12, fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink,
   },
-  stat: { flex: 1, backgroundColor: colors.card, borderRadius: radius.l, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 2 },
+  stat: { flex: 1, backgroundColor: colors.card, borderRadius: radius.l, borderWidth: 1, borderColor: colors.line, padding: 12, gap: 2 },
   chartRow: { flexDirection: 'row', gap: 2 },
   chartCol: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 4, borderRadius: radius.s },
   bars: { height: BAR_MAX, flexDirection: 'row', alignItems: 'flex-end', gap: 1 },
-  bar: { width: 6, borderRadius: 3 },
-  legend: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
+  bar: { width: 5, borderRadius: 3 },
+  legend: { flexDirection: 'row', gap: 14, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   histRow: { gap: 4, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },

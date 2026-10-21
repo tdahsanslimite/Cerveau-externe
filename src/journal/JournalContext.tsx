@@ -13,8 +13,8 @@ interface Ctx {
   loaded: boolean;
   /** Pose (ou retire, si on retouche la même) la note 1-10 d'un jour. */
   score: (day: DayKey, field: ScoreField, value: number) => void;
-  /** Enregistre la note libre d'un jour. */
-  note: (day: DayKey, text: string) => void;
+  /** Enregistre le commentaire d'une des 3 notes d'un jour. */
+  note: (day: DayKey, field: ScoreField, text: string) => void;
 }
 
 const JournalCtx = createContext<Ctx | null>(null);
@@ -26,7 +26,7 @@ export function JournalProvider({ children }: { children: ReactNode }) {
     entries: data.entries,
     loaded,
     score: (day, field, v) => setData((d) => ({ ...d, entries: setScore(d.entries, day, field, v) })),
-    note: (day, text) => setData((d) => ({ ...d, entries: setNote(d.entries, day, text) })),
+    note: (day, field, text) => setData((d) => ({ ...d, entries: setNote(d.entries, day, field, text) })),
   }), [data, loaded, setData]);
 
   return <JournalCtx.Provider value={value}>{children}</JournalCtx.Provider>;
