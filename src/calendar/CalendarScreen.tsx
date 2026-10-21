@@ -55,7 +55,7 @@ export function CalendarScreen() {
 
   const [kicker, title] =
     view === 'jour'
-      ? [relativeLabel(day, today) ?? String(fromKey(day).getFullYear()), labelDayLong(day)]
+      ? [relativeLabel(day, today) ?? 'Calendrier', labelDayLong(day)]
       : view === 'semaine'
         ? [`Semaine ${isoWeek(day)}`, labelWeekRange(day)]
         : view === 'mois'
@@ -76,10 +76,9 @@ export function CalendarScreen() {
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       <View style={st.header}>
-        <View style={{ flex: 1 }}>
-          <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>{kicker}</Txt>
-          <Txt bold size={24} numberOfLines={1}>{title}</Txt>
-        </View>
+        {/* En haut : seulement le repère (Aujourd'hui, Semaine 43…), le bilan et les réglages.
+            La date elle-même descend juste au-dessus du contenu (décision de Valentin, 21 oct.). */}
+        <Txt bold size={22} numberOfLines={1} style={{ flex: 1 }}>{kicker}</Txt>
         {!isCurrent ? (
           <Pressable accessibilityRole="button" onPress={() => setDay(today)} style={st.todayBtn}>
             <Txt bold size={14} color={colors.accent}>Aujourd'hui</Txt>
@@ -112,6 +111,7 @@ export function CalendarScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[st.content, { paddingBottom: 110 + insets.bottom }]} keyboardShouldPersistTaps="handled">
+        <Txt bold size={20} style={{ paddingHorizontal: 4, marginBottom: -4 }} accessibilityRole="header">{title}</Txt>
         {view === 'jour' && (
           <>
             <DayView {...viewProps} />

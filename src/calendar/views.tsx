@@ -1,6 +1,6 @@
 // Les trois vues du calendrier : Jour, Semaine, Mois.
-import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useDayLoad } from '../load';
 import { useSettings } from '../settings/SettingsContext';
 import { DayTaskRows, DayTasks } from '../tasks/DayTasks';
@@ -42,16 +42,13 @@ export function DayView({ day, onEdit }: ViewProps) {
         </View>
       )}
 
-      <View style={{ gap: 8 }}>
-        <SectionLabel>Agenda</SectionLabel>
-        <Card>
-          {timed.length === 0 ? (
-            <EmptyState text="Rien de prévu." />
-          ) : (
-            timed.map((o) => <EventRow key={o.event.id} occ={o} onPress={() => onEdit(o)} />)
-          )}
-        </Card>
-      </View>
+      <Card>
+        {timed.length === 0 ? (
+          <EmptyState text="Rien de prévu." />
+        ) : (
+          timed.map((o) => <EventRow key={o.event.id} occ={o} onPress={() => onEdit(o)} />)
+        )}
+      </Card>
 
       {/* Charge du jour : une ligne discrète, sous la journée, avant la semaine. */}
       <LoadLine level={level} count={count} limit={settings.dailyLimit} />
@@ -62,11 +59,10 @@ export function DayView({ day, onEdit }: ViewProps) {
 // ---------------- SEMAINE ----------------
 
 export function WeekView({ day, onEdit, onOpenDay }: ViewProps) {
-  const { events, weekNote, setWeekNote } = useCalendar();
+  const { events } = useCalendar();
   const { settings } = useSettings();
   const load = useDayLoad();
   const today = todayKey();
-  const weekStart = startOfWeek(day);
 
   return (
     <View style={{ gap: 14 }}>
@@ -102,32 +98,6 @@ export function WeekView({ day, onEdit, onOpenDay }: ViewProps) {
         );
       })}
 
-      <WeekNotes key={weekStart} initial={weekNote(weekStart)} onChange={(t) => setWeekNote(weekStart, t)} />
-    </View>
-  );
-}
-
-/** Page libre de la semaine, façon feuille lignée de l'agenda papier. */
-function WeekNotes({ initial, onChange }: { initial: string; onChange: (t: string) => void }) {
-  const [text, setText] = useState(initial);
-  useEffect(() => {
-    const t = setTimeout(() => text !== initial && onChange(text), 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
-  return (
-    <View style={st.paper}>
-      <Txt bold>Page libre de la semaine</Txt>
-      <TextInput
-        accessibilityLabel="Page libre de la semaine"
-        multiline
-        value={text}
-        onChangeText={setText}
-        placeholder="Idées, choses à ne pas oublier, vrac…"
-        placeholderTextColor={colors.faint}
-        style={st.paperInput}
-        textAlignVertical="top"
-      />
     </View>
   );
 }
@@ -232,8 +202,6 @@ const st = StyleSheet.create({
   weekHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, minHeight: 52, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
   loadPill: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   loadDot: { width: 10, height: 10, borderRadius: 5 },
-  paper: { backgroundColor: colors.paper, borderRadius: radius.l, borderWidth: 1, borderColor: '#E8DFC4', padding: 16, gap: 8 },
-  paperInput: { minHeight: 168, fontFamily: fonts.regular, fontSize: 15, lineHeight: 28, color: colors.ink, padding: 0 },
   gridRow: { flexDirection: 'row', gap: 4 },
   gridHead: { flex: 1, textAlign: 'center' },
   cell: {
