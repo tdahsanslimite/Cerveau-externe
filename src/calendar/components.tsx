@@ -43,6 +43,26 @@ export function LoadGauge({ level, count, limit }: { level: LoadLevel; count: nu
   );
 }
 
+/** Charge du jour en une ligne discrète (la version carte était trop présente). */
+export function LoadLine({ level, count, limit }: { level: LoadLevel; count: number; limit: number }) {
+  const color = LOAD_COLOR[level];
+  const filled = LOAD_SEGMENTS[level];
+  const over = level === 'trop';
+  return (
+    <View style={s.loadLine} accessibilityLabel={`Charge du jour : ${LOAD_LABEL[level]}, ${count} sur ${limit}`}>
+      <Txt size={13} color={colors.muted}>Charge</Txt>
+      <View style={{ flexDirection: 'row', gap: 3 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <View key={i} style={[s.miniSeg, { backgroundColor: i <= filled ? color : colors.lineSoft }]} />
+        ))}
+      </View>
+      <Txt size={13} bold color={color}>{LOAD_LABEL[level]}</Txt>
+      <Txt size={13} color={colors.muted}>· {count}/{limit}</Txt>
+      {over ? <Txt size={13} color={colors.warnDark} style={{ flex: 1 }} numberOfLines={1}>· que peut-on décaler ?</Txt> : null}
+    </View>
+  );
+}
+
 const REPEAT_HINT = { none: '', daily: 'chaque jour', weekdays: 'lun – ven', weekly: 'chaque semaine' } as const;
 
 export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: () => void; compact?: boolean }) {
@@ -143,6 +163,8 @@ export function EmptyState({ text }: { text: string }) {
 export const s = StyleSheet.create({
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   segment: { flex: 1, height: 10, borderRadius: 5 },
+  loadLine: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, minHeight: 28 },
+  miniSeg: { width: 14, height: 6, borderRadius: 3 },
   eventRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16,
     borderBottomWidth: 1, borderBottomColor: colors.lineSoft, minHeight: 60,

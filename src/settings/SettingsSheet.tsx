@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, radius, TOUCH } from '../theme';
 import { Chip, Sheet, Txt } from '../ui';
 import { DomainsEditor } from './DomainsEditor';
@@ -36,27 +36,13 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
           </View>
         </View>
 
-        <View style={[st.row, { flexDirection: 'column', alignItems: 'stretch', gap: 10 }]}>
+        <View style={[st.row, { flexDirection: 'column', alignItems: 'stretch', gap: 10, borderBottomWidth: 0 }]}>
           <Txt bold>Vue à l'ouverture</Txt>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {VIEWS.map((v) => (
               <Chip key={v.id} label={v.label} selected={settings.startView === v.id} onPress={() => update({ startView: v.id })} />
             ))}
           </View>
-        </View>
-
-        <View style={[st.row, { borderBottomWidth: 0 }]}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Txt bold>Afficher les créneaux libres</Txt>
-            <Txt size={13} color={colors.muted}>Dans la vue Jour, entre 8 h et 21 h.</Txt>
-          </View>
-          <Switch
-            accessibilityLabel="Afficher les créneaux libres"
-            value={settings.showFreeSlots}
-            onValueChange={(v) => update({ showFreeSlots: v })}
-            trackColor={{ true: colors.accent, false: '#C9C5BB' }}
-            thumbColor="#FFFFFF"
-          />
         </View>
       </View>
       <View style={{ gap: 8 }}>

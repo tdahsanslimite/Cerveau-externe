@@ -7,9 +7,9 @@ import { DayTaskRows, DayTasks } from '../tasks/DayTasks';
 import { colors, fonts, radius } from '../theme';
 import { Card, Icon, SectionLabel, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
-import { EmptyState, EventRow, FreeSlotRow, LOAD_COLOR, LoadGauge } from './components';
+import { EmptyState, EventRow, LOAD_COLOR, LoadLine } from './components';
 import { DAY_SHORT, DayKey, fromKey, labelDayShort, monthGrid, relativeLabel, startOfWeek, todayKey, weekDays } from './dates';
-import { freeSlots, loadLevel, Occurrence, occurrencesOn } from './model';
+import { loadLevel, Occurrence, occurrencesOn } from './model';
 
 export interface ViewProps {
   day: DayKey;
@@ -20,7 +20,7 @@ export interface ViewProps {
 
 // ---------------- JOUR ----------------
 
-export function DayView({ day, onEdit, onAdd }: ViewProps) {
+export function DayView({ day, onEdit }: ViewProps) {
   const { events } = useCalendar();
   const { settings } = useSettings();
   const load = useDayLoad();
@@ -30,19 +30,9 @@ export function DayView({ day, onEdit, onAdd }: ViewProps) {
   const timed = occs.filter((o) => o.event.start !== null);
   const level = loadLevel(count, settings.dailyLimit);
 
-  // Fusion chronologique des rendez-vous et des créneaux libres.
-  type Row = { kind: 'event'; occ: Occurrence; at: number } | { kind: 'free'; from: number; to: number; at: number };
-  const rows: Row[] = [
-    ...timed.map((occ) => ({ kind: 'event' as const, occ, at: occ.event.start as number })),
-    ...(settings.showFreeSlots ? freeSlots(timed).map((f) => ({ kind: 'free' as const, ...f, at: f.from })) : []),
-  ].sort((a, b) => a.at - b.at || (a.kind === 'free' ? 1 : -1));
-
+  // Un seul moyen d'ajouter : le bouton flottant « Ajouter » (décision de Valentin).
   return (
     <View style={{ gap: 14 }}>
-      <Card style={{ padding: 16 }}>
-        <LoadGauge level={level} count={count} limit={settings.dailyLimit} />
-      </Card>
-
       <DayTasks day={day} />
 
       {allDay.length > 0 && (
@@ -55,19 +45,16 @@ export function DayView({ day, onEdit, onAdd }: ViewProps) {
       <View style={{ gap: 8 }}>
         <SectionLabel>Agenda</SectionLabel>
         <Card>
-          {rows.length === 0 ? (
-            <EmptyState text="Rien de prévu. Touche + pour ajouter un rendez-vous." />
+          {timed.length === 0 ? (
+            <EmptyState text="Rien de prévu." />
           ) : (
-            rows.map((r) =>
-              r.kind === 'event' ? (
-                <EventRow key={r.occ.event.id} occ={r.occ} onPress={() => onEdit(r.occ)} />
-              ) : (
-                <FreeSlotRow key={`free-${r.from}`} from={r.from} to={r.to} onPress={() => onAdd(day, r.from)} />
-              ),
-            )
+            timed.map((o) => <EventRow key={o.event.id} occ={o} onPress={() => onEdit(o)} />)
           )}
         </Card>
       </View>
+
+      {/* Charge du jour : une ligne discrète, sous la journée, avant la semaine. */}
+      <LoadLine level={level} count={count} limit={settings.dailyLimit} />
     </View>
   );
 }
