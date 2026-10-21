@@ -13,7 +13,7 @@ import { colors, fonts, radius } from '../theme';
 import { Card, Icon, IconButton, SectionLabel, Txt } from '../ui';
 import { useApplyUpdates } from './apply';
 import { TaskRow } from './components';
-import { byQuadrant, inSas, moveIdea, pointsOf, QuadrantId, QUADRANTS, newTask, Task, TaskItem } from './model';
+import { byQuadrant, inSas, moveIdea, QuadrantId, QUADRANTS, newTask, Task, TaskItem } from './model';
 import { TaskEditor } from './TaskEditor';
 import { useTasks } from './TasksContext';
 import { useTaskItems } from './useTaskItems';
@@ -21,7 +21,6 @@ import { useTaskItems } from './useTaskItems';
 interface Drag {
   key: string;
   title: string;
-  points: number;
   h: number;
   /** Haut de la ligne au moment où on la saisit (dans la zone des listes). */
   startTop: number;
@@ -87,7 +86,7 @@ export function TasksScreen() {
     const box = rows.current[item.key];
     if (top === null || !box) return;
     captured.current = false;
-    const d: Drag = { key: item.key, title: item.title, points: pointsOf(item), h: box.h, startTop: top, startPageY: pageY, dy: 0 };
+    const d: Drag = { key: item.key, title: item.title, h: box.h, startTop: top, startPageY: pageY, dy: 0 };
     dragRef.current = d;
     setDrag(d);
   };
@@ -207,7 +206,7 @@ export function TasksScreen() {
                   <Icon name={q.icon} size={18} color={colors.accentDark} />
                   <View style={{ flex: 1 }}>
                     <Txt bold size={16}>{q.label}</Txt>
-                    <Txt size={13} color={colors.muted}>{q.hint}</Txt>
+                    {q.hint ? <Txt size={13} color={colors.muted}>{q.hint}</Txt> : null}
                   </View>
                   <Txt bold size={14} color={colors.muted}>{list.length}</Txt>
                 </View>
@@ -245,7 +244,6 @@ export function TasksScreen() {
               <View pointerEvents="none" style={[st.line, { top: target.lineY - 1 }]} />
               <View pointerEvents="none" style={[st.ghost, { top: drag.startTop + drag.dy, height: drag.h }]}>
                 <Txt bold size={15} numberOfLines={1} style={{ flex: 1 }}>{drag.title}</Txt>
-                {drag.points > 0 ? <Txt bold size={12} color={colors.accentDark}>{drag.points} pt{drag.points > 1 ? 's' : ''}</Txt> : null}
               </View>
             </>
           ) : null}

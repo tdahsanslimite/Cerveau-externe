@@ -285,12 +285,19 @@ test('la priorité de chaque case de la matrice', () => {
   for (const q of ['faire', 'planifier', 'alleger', 'lacher'] as const) assert.equal(quadrantOf(priorityOf(q)), q);
 });
 
-test('les points : important 1, urgent 1, entre 0 et 2', () => {
-  assert.equal(pointsOf({ important: true, urgent: true }), 2);
-  assert.equal(pointsOf({ important: true, urgent: false }), 1);
+test('les points : important 2, urgent 1, entre 0 et 3', () => {
+  assert.equal(pointsOf({ important: true, urgent: true }), 3);
+  assert.equal(pointsOf({ important: true, urgent: false }), 2);
   assert.equal(pointsOf({ important: false, urgent: true }), 1);
   assert.equal(pointsOf({ important: false, urgent: false }), 0);
   assert.equal(pointsOf({ important: null, urgent: null }), 0);
+});
+
+test('The One Thing : seulement si l’idée y a été placée, et importante ET urgente', () => {
+  assert.equal(quadrantOf({ important: true, urgent: true, oneThing: true }), 'one');
+  assert.equal(quadrantOf({ important: true, urgent: true }), 'faire');
+  assert.equal(quadrantOf({ important: true, urgent: false, oneThing: true }), 'planifier');
+  assert.deepEqual(priorityOf('one'), { important: true, urgent: true });
 });
 
 test('l’ordre choisi à la main passe avant le jour', () => {
@@ -308,23 +315,34 @@ test('déplacer une idée vers une autre liste, à une place précise', () => {
     it('p1', true, false, { rank: 0 }), it('p2', true, false, { rank: 1 }),
     it('f1', true, true, { rank: 0 }), it('u1', false, true),
   ];
-  // u1 (urgent) → en haut de « urgent et important »
-  assert.deepEqual(moveIdea(items, 'u1', 'faire', 0), [
-    { key: 'u1', important: true, urgent: true, rank: 0 },
-    { key: 'f1', important: true, urgent: true, rank: 1 },
-  ]);
-  // à la fin
-  assert.deepEqual(moveIdea(items, 'u1', 'faire', 9), [{ key: 'u1', important: true, urgent: true, rank: 1 }]);
-  // monter p2 au-dessus de p1 dans la même liste
-  assert.deepEqual(moveIdea(items, 'p2', 'planifier', 0), [
-    { key: 'p2', important: true, urgent: false, rank: 0 },
-    { key: 'p1', important: true, urgent: false, rank: 1 },
-  ]);
-  // lâcher au même endroit : rien à écrire
+  const f = (key: string, rank: number) => ({ key, important: true, urgent: true, rank, oneThing: false });
+  const pl = (key: string, rank: number) => ({ key, important: true, urgent: false, rank, oneThing: false });
+  assert.deepEqual(moveIdea(items, 'u1', 'faire', 0), [f('u1', 0), f('f1', 1)]);
+  assert.deepEqual(moveIdea(items, 'u1', 'faire', 9), [f('u1', 1)]);
+  assert.deepEqual(moveIdea(items, 'p2', 'planifier', 0), [pl('p2', 0), pl('p1', 1)]);
   assert.deepEqual(moveIdea(items, 'p1', 'planifier', 0), []);
   assert.deepEqual(moveIdea(items, 'inconnue', 'faire', 0), []);
-  // vers une liste vide
-  assert.deepEqual(moveIdea(items, 'p1', 'lacher', 0), [{ key: 'p1', important: false, urgent: false, rank: 0 }]);
+  assert.deepEqual(moveIdea(items, 'p1', 'lacher', 0), [{ key: 'p1', important: false, urgent: false, rank: 0, oneThing: false }]);
+});
+
+test('The One Thing ne contient qu’une idée : l’ancienne retourne en haut de « urgent et important »', () => {
+  const items = [
+    it('one', true, true, { rank: 0, oneThing: true }),
+    it('f1', true, true, { rank: 0 }), it('f2', true, true, { rank: 1 }), it('p', true, false),
+  ];
+  const f = (key: string, rank: number) => ({ key, important: true, urgent: true, rank, oneThing: false });
+  // case libre : l'idée y entre (f1 garde déjà sa place)
+  const free = [it('f1', true, true, { rank: 0 }), it('f2', true, true, { rank: 1 })];
+  assert.deepEqual(moveIdea(free, 'f2', 'one', 0), [{ key: 'f2', important: true, urgent: true, rank: 0, oneThing: true }]);
+  // case occupée : on remplace
+  assert.deepEqual(moveIdea(items, 'p', 'one', 0), [
+    { key: 'p', important: true, urgent: true, rank: 0, oneThing: true },
+    f('one', 0), f('f1', 1), f('f2', 2),
+  ]);
+  // en sortir : retour dans une liste normale, le drapeau tombe
+  assert.deepEqual(moveIdea(items, 'one', 'planifier', 0), [{ key: 'one', important: true, urgent: false, rank: 0, oneThing: false }, { key: 'p', important: true, urgent: false, rank: 1, oneThing: false }]);
+  assert.deepEqual(byQuadrant(items, 'one').map((i) => i.key), ['one']);
+  assert.deepEqual(byQuadrant(items, 'faire').map((i) => i.key), ['f1', 'f2']);
 });
 
 test('la note continue une liste à tirets', () => {

@@ -14,10 +14,10 @@ export function useApplyUpdates() {
         const id = u.key.slice(u.key.indexOf(':') + 1);
         if (u.key.startsWith('task:')) {
           const t = tasks.find((x) => x.id === id);
-          if (t) save({ ...t, important: u.important, urgent: u.urgent, rank: u.rank });
+          if (t) save({ ...t, important: u.important, urgent: u.urgent, rank: u.rank, oneThing: u.oneThing || undefined });
         } else {
           const e = events.find((x) => x.id === id);
-          if (e) saveEvent({ ...e, important: u.important, urgent: u.urgent, rank: u.rank });
+          if (e) saveEvent({ ...e, important: u.important, urgent: u.urgent, rank: u.rank, oneThing: u.oneThing || undefined });
         }
       }
     },

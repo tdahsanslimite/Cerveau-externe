@@ -5,7 +5,7 @@ import { labelDayShort, minutesToLabel, relativeLabel } from '../calendar/dates'
 import { useCalendar } from '../calendar/CalendarContext';
 import { colors, radius, TOUCH } from '../theme';
 import { Icon, Txt } from '../ui';
-import { isStuck, pointsOf, quadrantInfo, quadrantOf, slideLabel, TaskItem } from './model';
+import { isStuck, quadrantInfo, quadrantOf, slideLabel, TaskItem } from './model';
 
 export function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
   return (
@@ -25,7 +25,7 @@ export function Checkbox({ checked, onToggle, label }: { checked: boolean; onTog
 /** Une ligne de tâche. `task.source === 'event'` : posée dans le calendrier, avec son créneau. */
 export function TaskRow({ task, onPress, onToggle, showDay = false, listed = false, onLongPress, onPressOut, onLayout, dim = false }: {
   task: TaskItem; onPress: () => void; onToggle: (done: boolean) => void; showDay?: boolean;
-  /** Dans une des listes de priorité : la liste et le domaine sont déjà connus, on montre les points à la place. */
+  /** Dans une des listes de priorité : la liste et le domaine sont déjà connus, on ne les répète pas. */
   listed?: boolean;
   /** Appui long (début d'un déplacement), fin d'appui, mesure de la ligne, et ligne grisée pendant qu'on la déplace. */
   onLongPress?: (pageY: number) => void;
@@ -39,7 +39,6 @@ export function TaskRow({ task, onPress, onToggle, showDay = false, listed = fal
   const slide = slideLabel(task);
   const stuck = isStuck(task);
   const slot = task.start === null ? null : `${minutesToLabel(task.start)}–${minutesToLabel(task.start + task.durationMin)}`;
-  const points = pointsOf(task);
   const meta = [
     !listed && q ? quadrantInfo(q).label : null,
     showDay && task.day ? (relativeLabel(task.day) ?? labelDayShort(task.day)) : null,
@@ -70,7 +69,6 @@ export function TaskRow({ task, onPress, onToggle, showDay = false, listed = fal
             </Txt>
           ) : null}
         </View>
-        {listed && points > 0 ? <Txt bold size={12} color={colors.accentDark} style={st.points}>{points} pt{points > 1 ? 's' : ''}</Txt> : null}
         {task.source === 'event' ? <Icon name="calendar" size={16} color={colors.faint} /> : null}
         <Icon name="chevron-right" size={18} color={colors.faint} />
       </Pressable>
@@ -83,6 +81,5 @@ const st = StyleSheet.create({
   checkZone: { width: TOUCH + 12, minHeight: 60, alignItems: 'center', justifyContent: 'center' },
   box: { width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   boxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  points: { backgroundColor: colors.accentSoft, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
   body: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingRight: 14, minHeight: 60, borderRadius: radius.s },
 });

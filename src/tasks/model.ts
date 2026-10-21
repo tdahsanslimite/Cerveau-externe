@@ -29,22 +29,25 @@ export interface Task {
   note?: string;
   /** Place dans sa liste (0 = tout en haut). Absent = pas encore placée à la main. */
   rank?: number;
+  /** Placée dans « The One Thing » (seulement en la déplaçant à la main) : à faire tout de suite. */
+  oneThing?: boolean;
 }
 
 // ---- Matrice d'Eisenhower ----
 
-export type QuadrantId = 'faire' | 'planifier' | 'alleger' | 'lacher';
+export type QuadrantId = 'one' | 'faire' | 'planifier' | 'alleger' | 'lacher';
 
-export const QUADRANTS: { id: QuadrantId; label: string; hint: string; icon: 'zap' | 'calendar' | 'users' | 'wind' }[] = [
-  { id: 'faire', label: 'Urgent et important', hint: '2 points · à faire en premier', icon: 'zap' },
-  { id: 'alleger', label: 'Urgent', hint: '1 point · pas important', icon: 'users' },
-  { id: 'planifier', label: 'Important', hint: '1 point · pas urgent', icon: 'calendar' },
-  { id: 'lacher', label: 'Abandonner ?', hint: '0 point · ni important, ni urgent', icon: 'wind' },
+export const QUADRANTS: { id: QuadrantId; label: string; hint: string; icon: 'star' | 'zap' | 'calendar' | 'users' | 'wind' }[] = [
+  { id: 'one', label: 'The One Thing', hint: 'Réussir sa journée !', icon: 'star' },
+  { id: 'faire', label: 'Urgent et important', hint: 'À faire maintenant !', icon: 'zap' },
+  { id: 'planifier', label: 'Important', hint: 'Il faut que tu programmes cette idée', icon: 'calendar' },
+  { id: 'alleger', label: 'Urgent', hint: '', icon: 'users' },
+  { id: 'lacher', label: 'Abandonner ?', hint: 'Si une idée tombe ici c’est pas bon...', icon: 'wind' },
 ];
 
 export const quadrantInfo = (id: QuadrantId) => QUADRANTS.find((q) => q.id === id) ?? QUADRANTS[0];
 
-const QUADRANT_RANK: Record<QuadrantId, number> = { faire: 0, alleger: 1, planifier: 2, lacher: 3 };
+const QUADRANT_RANK: Record<QuadrantId, number> = { one: 0, faire: 1, planifier: 2, alleger: 3, lacher: 4 };
 
 /** Ce qui sert à trier : commun aux tâches du module et aux événements « Tâche ». */
 export interface Triable {
@@ -53,15 +56,17 @@ export interface Triable {
   status: TaskStatus;
   day: DayKey | null;
   rank?: number;
+  oneThing?: boolean;
 }
 
-export function quadrantOf(t: Pick<Triable, 'important' | 'urgent'>): QuadrantId | null {
+export function quadrantOf(t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>): QuadrantId | null {
   if (t.important === null || t.urgent === null) return null;
+  if (t.oneThing && t.important && t.urgent) return 'one';
   if (t.important) return t.urgent ? 'faire' : 'planifier';
   return t.urgent ? 'alleger' : 'lacher';
 }
 
-export const isSorted = (t: Pick<Triable, 'important' | 'urgent'>) => quadrantOf(t) !== null;
+export const isSorted = (t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>) => quadrantOf(t) !== null;
 
 // ---- Une seule liste : tâches du module + événements « Tâche » ----
 
@@ -83,7 +88,7 @@ export function taskToItem(t: Task): TaskItem {
   return {
     key: `task:${t.id}`, source: 'task', id: t.id, title: t.title, day: t.day, start: null, durationMin: 0,
     important: t.important, urgent: t.urgent, status: t.status, slides: t.slides, category: t.category,
-    rank: t.rank, note: t.note,
+    rank: t.rank, note: t.note, oneThing: t.oneThing,
   };
 }
 
@@ -98,7 +103,7 @@ export function eventToItem(e: CalendarEvent): TaskItem | null {
     start: e.start, durationMin: e.durationMin,
     important: e.important ?? null, urgent: e.urgent ?? null,
     status: e.doneDays?.includes(e.date) ? 'done' : 'todo',
-    slides: 0, category: e.category, rank: e.rank, note: e.note,
+    slides: 0, category: e.category, rank: e.rank, note: e.note, oneThing: e.oneThing,
   };
 }
 
@@ -136,16 +141,16 @@ export function byQuadrant<T extends Triable>(items: T[], id: QuadrantId): T[] {
     });
 }
 
-// ---- Points : une première lecture de la priorité ----
+// ---- Points : le tri automatique ----
 
-/** Important = 1, urgent = 1, ni l'un ni l'autre = 0. Entre 0 et 2. Ne sert pas au calendrier. */
-export function pointsOf(t: Pick<Triable, 'important' | 'urgent'>): 0 | 1 | 2 {
-  return ((t.important ? 1 : 0) + (t.urgent ? 1 : 0)) as 0 | 1 | 2;
+/** Important = 2, urgent = 1 (donc 0 à 3). Pas affiché : sert seulement à ranger. */
+export function pointsOf(t: Pick<Triable, 'important' | 'urgent'>): 0 | 1 | 2 | 3 {
+  return ((t.important ? 2 : 0) + (t.urgent ? 1 : 0)) as 0 | 1 | 2 | 3;
 }
 
 /** Priorité (important, urgent) qui correspond à une liste. */
 export function priorityOf(q: QuadrantId): { important: boolean; urgent: boolean } {
-  return { important: q === 'faire' || q === 'planifier', urgent: q === 'faire' || q === 'alleger' };
+  return { important: q === 'one' || q === 'faire' || q === 'planifier', urgent: q === 'one' || q === 'faire' || q === 'alleger' };
 }
 
 export interface PriorityUpdate {
@@ -153,24 +158,34 @@ export interface PriorityUpdate {
   important: boolean;
   urgent: boolean;
   rank: number;
+  oneThing: boolean;
 }
 
 /**
  * Déplace une idée dans une liste, à la position `index` (0 = tout en haut).
  * Renvoie seulement ce qui change : l'idée déplacée (nouvelle liste, nouvelle place) et les voisins dont la place bouge.
+ * « The One Thing » ne contient qu'une idée : celle qui y était retourne tout en haut de « Urgent et important ».
  */
 export function moveIdea(items: TaskItem[], key: string, target: QuadrantId, index: number): PriorityUpdate[] {
   const moved = items.find((i) => i.key === key);
   if (!moved) return [];
-  const others = byQuadrant(items, target).filter((i) => i.key !== key);
-  const at = Math.max(0, Math.min(index, others.length));
-  const next = [...others.slice(0, at), moved, ...others.slice(at)];
-  const p = priorityOf(target);
   const updates: PriorityUpdate[] = [];
-  next.forEach((i, n) => {
-    const same = i.rank === n && (i.key !== key || quadrantOf(i) === target);
-    if (!same) updates.push({ key: i.key, ...p, rank: n });
-  });
+  const place = (list: TaskItem[], q: QuadrantId) => {
+    const p = priorityOf(q);
+    list.forEach((i, n) => {
+      if (i.rank === n && quadrantOf(i) === q) return;
+      updates.push({ key: i.key, ...p, rank: n, oneThing: q === 'one' });
+    });
+  };
+  const others = byQuadrant(items, target).filter((i) => i.key !== key);
+  if (target === 'one') {
+    const faire = [...others, ...byQuadrant(items, 'faire').filter((i) => i.key !== key)];
+    place([moved], 'one');
+    place(faire, 'faire');
+    return updates;
+  }
+  const at = Math.max(0, Math.min(index, others.length));
+  place([...others.slice(0, at), moved, ...others.slice(at)], target);
   return updates;
 }
 
@@ -264,7 +279,7 @@ export function sortTask(t: Task, important: boolean, urgent: boolean, day: DayK
 }
 
 export function setDone(t: Task, done: boolean, today: DayKey): Task {
-  return done ? { ...t, status: 'done', doneAt: today } : { ...t, status: 'todo', doneAt: undefined };
+  return done ? { ...t, status: 'done', doneAt: today, oneThing: undefined } : { ...t, status: 'todo', doneAt: undefined };
 }
 
 export type WhenChoice = 'aujourdhui' | 'demain' | 'un-jour';
@@ -284,7 +299,7 @@ export function eventFromTask(t: Task, today: DayKey, domainIds: string[]): Cale
   return {
     id: newId(), title: t.title.trim(), date: t.day ?? today, start: 9 * 60, durationMin: 60, category,
     repeat: 'none', kinds: ['tache'], reminders: [{ amount: 30, unit: 'min' }],
-    important: t.important, urgent: t.urgent, note: t.note, rank: t.rank,
+    important: t.important, urgent: t.urgent, note: t.note, rank: t.rank, oneThing: t.oneThing,
   };
 }
 

@@ -9,7 +9,7 @@ import { findConflict, nextFreeStart } from '../calendar/model';
 import { TimeWheel } from '../calendar/TimeWheel';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
-import { continueList, eventFromTask, isStuck, pointsOf, quadrantInfo, quadrantOf, Task } from './model';
+import { continueList, eventFromTask, isStuck, quadrantInfo, quadrantOf, Task } from './model';
 import { useTasks } from './TasksContext';
 
 const DURATIONS = [15, 30, 45, 60, 90, 120];
@@ -37,8 +37,7 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
   const titleOk = t.title.trim().length > 0;
   const important = t.important === true;
   const urgent = t.urgent === true;
-  const points = pointsOf(t);
-  const q = quadrantOf({ important, urgent });
+  const q = quadrantOf({ important, urgent, oneThing: t.oneThing });
 
   const clean = (next: Task): Task => ({ ...next, title: next.title.trim(), note: next.note?.trim() || undefined });
 
@@ -53,7 +52,7 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
     // Une nouvelle idée validée est classée (oui ou non). Une idée du « à classer » dont on ne touche pas la priorité le reste.
     const imp = isNew ? important : t.important;
     const urg = isNew ? urgent : t.urgent;
-    const done = clean({ ...t, important: imp, urgent: urg });
+    const done = clean({ ...t, important: imp, urgent: urg, oneThing: imp && urg ? t.oneThing : undefined });
     if (cal && candidate) {
       if (conflict) return;
       saveEvent({ ...candidate, title: done.title, important: imp, urgent: urg, note: done.note });
@@ -117,7 +116,6 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
           multiline
           style={[st.input, { minHeight: 110, paddingTop: 12, textAlignVertical: 'top' }]}
         />
-        <Button label="Ajouter un tiret" kind="ghost" icon="minus" onPress={() => patch({ note: `${t.note ? `${t.note.replace(/\n?$/, '\n')}` : ''}- ` })} />
       </Field>
 
       <Field label="2 · Domaine" hint="Une simple étiquette, pour les calculs.">
@@ -131,11 +129,11 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
 
       <Field
         label="3 · Priorité"
-        hint={`Important = 1 point, urgent = 1 point. ${points} point${points > 1 ? 's' : ''} · rangée dans « ${quadrantInfo(q ?? 'lacher').label} ».`}
+        hint={`Rangée dans « ${quadrantInfo(q ?? 'lacher').label} ».`}
       >
         <View style={st.wrap}>
-          <Chip label="Important (1)" selected={important} onPress={() => patch({ important: !important })} />
-          <Chip label="Urgent (1)" selected={urgent} onPress={() => patch({ urgent: !urgent })} />
+          <Chip label="Important" selected={important} onPress={() => patch({ important: !important })} />
+          <Chip label="Urgent" selected={urgent} onPress={() => patch({ urgent: !urgent })} />
         </View>
       </Field>
 

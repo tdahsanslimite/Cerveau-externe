@@ -108,6 +108,8 @@ export interface CalendarEvent {
   urgent?: boolean | null;
   /** Place dans sa liste d'idées (0 = tout en haut). */
   rank?: number;
+  /** Placé dans « The One Thing » des idées. */
+  oneThing?: boolean;
   /** Tâche pas cochée le jour prévu : le créneau reste (historique) et une nouvelle tâche est repartie dans le sas. */
   sentToSas?: boolean;
   /** Jours où une occurrence d'une série a été supprimée. */
