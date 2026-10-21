@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AtkinsonHyperlegible_400Regular, AtkinsonHyperlegible_700Bold, useFonts } from '@expo-google-fonts/atkinson-hyperlegible';
 import { CalendarProvider, useCalendar } from './src/calendar/CalendarContext';
 import { AppTabs } from './src/AppTabs';
+import { JournalProvider, useJournal } from './src/journal/JournalContext';
 import { RoutinesProvider, useRoutines } from './src/routines/RoutinesContext';
 import { SettingsProvider, useSettings } from './src/settings/SettingsContext';
 import { TasksProvider, useTasks } from './src/tasks/TasksContext';
@@ -15,7 +16,8 @@ function Gate() {
   const { loaded: calendarLoaded } = useCalendar();
   const { loaded: tasksLoaded } = useTasks();
   const { loaded: routinesLoaded } = useRoutines();
-  if (!settingsLoaded || !calendarLoaded || !tasksLoaded || !routinesLoaded) return <Splash />;
+  const { loaded: journalLoaded } = useJournal();
+  if (!settingsLoaded || !calendarLoaded || !tasksLoaded || !routinesLoaded || !journalLoaded) return <Splash />;
   return <AppTabs />;
 }
 
@@ -37,7 +39,9 @@ export default function App() {
           <CalendarProvider>
             <TasksProvider>
               <RoutinesProvider>
-                <Gate />
+                <JournalProvider>
+                  <Gate />
+                </JournalProvider>
               </RoutinesProvider>
             </TasksProvider>
           </CalendarProvider>
