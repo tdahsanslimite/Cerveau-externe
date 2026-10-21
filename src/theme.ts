@@ -15,6 +15,7 @@ export const colors = {
   warnSoft: '#FFF1E6',
   warnDark: '#8A3E10',
   danger: '#9E2B19',
+  alert: '#D92D20', // pastille « à remplir »
   ok: '#2E8B57',
   amber: '#9A6A00',
   paper: '#FFFDF6',

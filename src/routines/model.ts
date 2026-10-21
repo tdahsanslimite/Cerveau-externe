@@ -89,6 +89,23 @@ export function dayProgress(routines: Routine[], done: DoneMap, day: DayKey): { 
   return { total: due.length, done: due.filter((r) => isDone(done, day, r.id)).length };
 }
 
+// ---------------- Pastille « à remplir » ----------------
+
+/**
+ * Heure (minutes depuis minuit) à partir de laquelle une routine non cochée d'un moment
+ * donné est signalée sur l'onglet : le matin après midi, la journée après 18 h, le soir après 22 h.
+ */
+export const ALERT_AFTER: Record<Moment, number> = { matin: 12 * 60, journee: 18 * 60, soir: 22 * 60 };
+
+/**
+ * Routines d'aujourd'hui à signaler : prévues ce jour, pas cochées, et dont l'heure limite est passée.
+ * Les retards s'additionnent : à 18 h, une routine du matin toujours pas cochée compte encore.
+ * La pastille peut donc apparaître jusqu'à trois fois par jour (midi, 18 h, 22 h).
+ */
+export function overdueRoutines(routines: Routine[], done: DoneMap, day: DayKey, nowMin: number): Routine[] {
+  return routinesOn(routines, day).filter((r) => nowMin >= ALERT_AFTER[r.moment] && !isDone(done, day, r.id));
+}
+
 // ---------------- Bilan du mois ----------------
 
 /**

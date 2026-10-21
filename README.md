@@ -36,7 +36,8 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 ## Module Routines
 
 - Onglet **Routines** : le jour choisi (bande de la semaine pour revenir sur un jour passé), les routines à cocher, groupées Matin / Journée / Soir.
-- Les mêmes cases à cocher sont aussi en bas de la vue **Jour** du calendrier (« cochables partout »).
+- Les routines **n'existent que dans l'onglet Routines** : le calendrier n'en affiche aucune (décision de Valentin, 21 oct.).
+- **Pastille rouge** à droite du mot « Routines » dans la barre d'onglets quand il reste des routines d'aujourd'hui à cocher : celles du **matin après midi**, celles de la **journée après 18 h**, celles du **soir après 22 h**. Les retards s'additionnent (à 18 h, un matin pas coché compte encore) ; elle disparaît dès que tout est coché et peut donc revenir jusqu'à 3 fois par jour. Elle se met à jour toute seule (vérification toutes les 30 s et au retour dans l'appli). Ce n'est pas une notification du téléphone : il faut ouvrir l'appli pour la voir.
 - Chaque routine a ses jours de la semaine (tous les jours, lun–ven, lun/mer/ven…). Elle revient **toute seule chaque mois** : rien à recopier.
 - On ne coche pas à l'avance ; on peut compléter un jour passé.
 - **Retirer** une routine la fait disparaître des listes à partir d'aujourd'hui, mais son passé reste dans le bilan.
@@ -75,7 +76,8 @@ src/tasks/DayTasks.tsx          tâches du jour dans le calendrier
 src/routines/model.ts           routines, jours prévus, cases cochées, bilan du mois (testés)
 src/routines/RoutinesContext    données des routines (ce.routines.v1)
 src/routines/RoutinesScreen.tsx écran Routines
-src/routines/components.tsx     liste cochable (partagée avec la vue Jour)
+src/routines/components.tsx     liste cochable du jour
+src/routines/useRoutineAlert.ts nombre de routines à remplir (pastille de l'onglet)
 src/routines/RoutineEditor.tsx  fiche d'une routine
 src/routines/BilanScreen.tsx    bilan : tableau unique du mois, plein écran
 src/routines/tableLayout.ts     tailles du tableau de bilan (testées)

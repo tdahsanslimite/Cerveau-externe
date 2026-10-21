@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { monthDays } from '../calendar/dates.ts';
 import { fitColWidth, fitRowHeight } from './tableLayout.ts';
-import { ALL_WEEK, canCheck, dayProgress, daysLabel, isDone, isDue, monthReport, routineMonth, routinesOn, toggleDone } from './model.ts';
+import { ALERT_AFTER, ALL_WEEK, overdueRoutines, canCheck, dayProgress, daysLabel, isDone, isDue, monthReport, routineMonth, routinesOn, toggleDone } from './model.ts';
 import type { DoneMap, Routine } from './model.ts';
 
 const routine = (over: Partial<Routine> = {}): Routine => ({
@@ -149,4 +149,48 @@ test('tableau : largeur de colonne ; s’il faut défiler, une demi-colonne dép
     assert.ok(cols * w > 300, 'il faut défiler');
     assert.ok(Math.abs((300 / w) % 1 - 0.5) < 0.1, 'une demi-colonne est visible à droite');
   }
+});
+
+test('pastille : matin après midi, journée après 18 h, soir après 22 h', () => {
+  const list = [
+    routine({ id: 'm', moment: 'matin' }),
+    routine({ id: 'j', moment: 'journee' }),
+    routine({ id: 's', moment: 'soir' }),
+  ];
+  const day = '2026-10-21';
+  const at = (h: number, min = 0, done: DoneMap = {}) => overdueRoutines(list, done, day, h * 60 + min).map((r) => r.id);
+  assert.deepEqual(ALERT_AFTER, { matin: 720, journee: 1080, soir: 1320 });
+  assert.deepEqual(at(8), []);
+  assert.deepEqual(at(11, 59), []);
+  assert.deepEqual(at(12), ['m']);
+  assert.deepEqual(at(17, 59), ['m']);
+  assert.deepEqual(at(18), ['m', 'j']); // les retards s'additionnent
+  assert.deepEqual(at(22), ['m', 'j', 's']);
+  assert.deepEqual(at(23, 59), ['m', 'j', 's']);
+});
+
+test('pastille : elle disparaît quand c’est coché, et revient au moment suivant', () => {
+  const list = [routine({ id: 'm', moment: 'matin' }), routine({ id: 'j', moment: 'journee' }), routine({ id: 's', moment: 'soir' })];
+  const day = '2026-10-21';
+  let done: DoneMap = toggleDone({}, day, 'm');
+  assert.equal(overdueRoutines(list, done, day, 13 * 60).length, 0); // matin fait : plus de pastille à 13 h
+  assert.deepEqual(overdueRoutines(list, done, day, 18 * 60).map((r) => r.id), ['j']); // elle revient à 18 h
+  done = toggleDone(done, day, 'j');
+  assert.equal(overdueRoutines(list, done, day, 20 * 60).length, 0);
+  assert.deepEqual(overdueRoutines(list, done, day, 22 * 60).map((r) => r.id), ['s']); // et à 22 h
+  done = toggleDone(done, day, 's');
+  assert.equal(overdueRoutines(list, done, day, 23 * 60).length, 0);
+});
+
+test('pastille : seulement les routines réellement prévues aujourd’hui', () => {
+  const day = '2026-10-21'; // mercredi
+  const list = [
+    routine({ id: 'lun', days: [0] }), // pas un mercredi
+    routine({ id: 'demain', start: '2026-10-22' }), // commence demain
+    routine({ id: 'retiree', end: '2026-10-20' }), // retirée hier
+    routine({ id: 'ok', days: [2] }),
+  ];
+  assert.deepEqual(overdueRoutines(list, {}, day, 13 * 60).map((r) => r.id), ['ok']);
+  // Une coche faite un autre jour ne compte pas pour aujourd'hui.
+  assert.deepEqual(overdueRoutines(list, toggleDone({}, '2026-10-20', 'ok'), day, 13 * 60).map((r) => r.id), ['ok']);
 });

@@ -1,4 +1,4 @@
-// Briques d'affichage des routines, partagées par l'écran Routines et la vue Jour du calendrier.
+// Briques d'affichage des routines (liste cochable de l'écran Routines).
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, radius, TOUCH } from '../theme';
@@ -29,14 +29,13 @@ function RoutineRow({ routine, checked, disabled, onToggle, onEdit }: {
 }
 
 /**
- * Liste cochable des routines d'un jour. Utilisée dans l'onglet Routines et dans la vue Jour.
- * `quiet` : n'affiche rien s'il n'y a rien à cocher (vue Jour du calendrier).
+ * Liste cochable des routines d'un jour. Uniquement dans l'onglet Routines :
+ * le calendrier n'affiche aucune routine.
  */
-export function RoutineChecklist({ day, onEdit, quiet }: { day: DayKey; onEdit?: (r: Routine) => void; quiet?: boolean }) {
+export function RoutineChecklist({ day, onEdit }: { day: DayKey; onEdit?: (r: Routine) => void }) {
   const { routines, done, toggle } = useRoutines();
   const due = routinesOn(routines, day);
   if (due.length === 0) {
-    if (quiet) return null;
     return (
       <View style={{ gap: 8 }}>
         <SectionLabel>Routines</SectionLabel>

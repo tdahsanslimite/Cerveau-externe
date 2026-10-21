@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarScreen } from './calendar/CalendarScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
+import { useRoutineAlert } from './routines/useRoutineAlert';
 import { inSas } from './tasks/model';
 import { TasksScreen } from './tasks/TasksScreen';
 import { useTaskItems } from './tasks/useTaskItems';
@@ -25,6 +26,7 @@ export function AppTabs() {
   const items = useTaskItems();
   const [active, setActive] = useState<TabId>('calendrier');
   const sasCount = inSas(items).length;
+  const routinesToFill = useRoutineAlert();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -43,12 +45,13 @@ export function AppTabs() {
         {TABS.map((t) => {
           const on = active === t.id;
           const badge = t.id === 'taches' && sasCount > 0 ? sasCount : 0;
+          const dot = t.id === 'routines' && routinesToFill > 0;
           return (
             <Pressable
               key={t.id}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
-              accessibilityLabel={badge ? `${t.label}, ${badge} à classer` : t.label}
+              accessibilityLabel={badge ? `${t.label}, ${badge} à classer` : dot ? `${t.label}, à remplir` : t.label}
               onPress={() => setActive(t.id)}
               style={({ pressed }) => [st.tab, pressed && { opacity: 0.6 }]}
             >
@@ -60,7 +63,10 @@ export function AppTabs() {
                   </View>
                 ) : null}
               </View>
-              <Txt bold={on} size={12} color={on ? colors.accent : colors.muted}>{t.label}</Txt>
+              <View style={st.labelRow}>
+                <Txt bold={on} size={12} color={on ? colors.accent : colors.muted}>{t.label}</Txt>
+                {dot ? <View testID="routines-dot" style={st.dot} /> : null}
+              </View>
             </Pressable>
           );
         })}
@@ -70,6 +76,8 @@ export function AppTabs() {
 }
 
 const st = StyleSheet.create({
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.alert },
   bar: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.card, paddingTop: 6 },
   tab: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 3 },
   badge: {

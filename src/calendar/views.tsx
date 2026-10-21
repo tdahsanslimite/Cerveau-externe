@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useDayLoad } from '../load';
-import { RoutineChecklist } from '../routines/components';
 import { useSettings } from '../settings/SettingsContext';
 import { DayTaskRows, DayTasks } from '../tasks/DayTasks';
 import { colors, fonts, radius } from '../theme';
@@ -69,8 +68,6 @@ export function DayView({ day, onEdit, onAdd }: ViewProps) {
           )}
         </Card>
       </View>
-
-      <RoutineChecklist day={day} quiet />
     </View>
   );
 }
