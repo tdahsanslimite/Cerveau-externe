@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { monthDays } from '../calendar/dates.ts';
 import { fitColWidth, fitRowHeight } from './tableLayout.ts';
-import { ALERT_AFTER, ALL_WEEK, overdueRoutines, canCheck, dayProgress, daysLabel, isDone, isDue, monthReport, routineMonth, routinesOn, toggleDone } from './model.ts';
+import { alertOn, ALERT_AFTER, ALL_WEEK, latestAlertTime, overdueRoutines, canCheck, dayProgress, daysLabel, isDone, isDue, monthReport, routineMonth, routinesOn, toggleDone } from './model.ts';
 import type { DoneMap, Routine } from './model.ts';
 
 const routine = (over: Partial<Routine> = {}): Routine => ({
@@ -193,4 +193,59 @@ test('pastille : seulement les routines réellement prévues aujourd’hui', () 
   assert.deepEqual(overdueRoutines(list, {}, day, 13 * 60).map((r) => r.id), ['ok']);
   // Une coche faite un autre jour ne compte pas pour aujourd'hui.
   assert.deepEqual(overdueRoutines(list, toggleDone({}, '2026-10-20', 'ok'), day, 13 * 60).map((r) => r.id), ['ok']);
+});
+
+test('pastille : dernière heure d’alerte passée', () => {
+  assert.equal(latestAlertTime(11 * 60 + 59), null);
+  assert.equal(latestAlertTime(12 * 60), 12 * 60);
+  assert.equal(latestAlertTime(17 * 60 + 59), 12 * 60);
+  assert.equal(latestAlertTime(18 * 60), 18 * 60);
+  assert.equal(latestAlertTime(23 * 60), 22 * 60);
+});
+
+test('pastille : un seul geste l’éteint jusqu’à l’heure d’alerte suivante', () => {
+  const list = [
+    routine({ id: 'm1', moment: 'matin' }),
+    routine({ id: 'm2', moment: 'matin' }),
+    routine({ id: 'j', moment: 'journee' }),
+    routine({ id: 's', moment: 'soir' }),
+  ];
+  const day = '2026-10-21';
+  const t = (h: number, min = 0) => h * 60 + min;
+  let done: DoneMap = {};
+
+  assert.equal(alertOn(list, done, day, t(11, 59), null), false); // avant midi
+  assert.equal(alertOn(list, done, day, t(12, 5), null), true); // midi passé, rien coché
+
+  // Il coche UN matin sur deux à 12 h 10 : la pastille s'éteint, même s'il en reste un.
+  done = toggleDone(done, day, 'm1');
+  assert.equal(alertOn(list, done, day, t(12, 10), t(12, 10)), false);
+  assert.equal(alertOn(list, done, day, t(15), t(12, 10)), false); // reste éteinte l'après-midi : pas de H24
+
+  // 18 h : une nouvelle heure d'alerte, la coche de midi ne compte plus
+  assert.equal(alertOn(list, done, day, t(18, 1), t(12, 10)), true);
+  done = toggleDone(done, day, 'j');
+  assert.equal(alertOn(list, done, day, t(18, 20), t(18, 20)), false);
+  assert.equal(alertOn(list, done, day, t(21, 59), t(18, 20)), false);
+
+  // 22 h : elle revient (le soir, et le matin oublié)
+  assert.equal(alertOn(list, done, day, t(22, 1), t(18, 20)), true);
+  // Rien coché : elle reste allumée
+  assert.equal(alertOn(list, done, day, t(23, 30), t(18, 20)), true);
+  // Un geste à 23 h 10 l'éteint pour la nuit
+  assert.equal(alertOn(list, done, day, t(23, 30), t(23, 10)), false);
+});
+
+test('pastille : une coche faite AVANT l’heure d’alerte ne l’éteint pas', () => {
+  const list = [routine({ id: 'm1', moment: 'matin' }), routine({ id: 'm2', moment: 'matin' })];
+  const day = '2026-10-21';
+  const done = toggleDone({}, day, 'm1'); // coché à 11 h 00
+  assert.equal(alertOn(list, done, day, 12 * 60 + 5, 11 * 60), true); // m2 reste en retard, rien coché depuis midi
+});
+
+test('pastille : tout est fait → rien à signaler, même sans coche récente', () => {
+  const list = [routine({ id: 'm', moment: 'matin' })];
+  const day = '2026-10-21';
+  const done = toggleDone({}, day, 'm');
+  assert.equal(alertOn(list, done, day, 13 * 60, null), false);
 });

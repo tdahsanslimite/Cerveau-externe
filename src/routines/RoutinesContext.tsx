@@ -2,16 +2,19 @@
 import React, { createContext, ReactNode, useContext, useMemo } from 'react';
 import { usePersistentState } from '../storage';
 import type { DayKey } from '../calendar/dates';
-import { DoneMap, Routine, toggleDone } from './model';
+import { DoneMap, isDone, Routine, toggleDone } from './model';
 
 interface RoutinesData {
   routines: Routine[];
   done: DoneMap;
+  /** Moment (ms) de la dernière case cochée : sert à éteindre la pastille de l'onglet. Facultatif. */
+  lastCheckAt?: number;
 }
 
 interface Ctx {
   routines: Routine[];
   done: DoneMap;
+  lastCheckAt: number | null;
   loaded: boolean;
   saveRoutine: (r: Routine) => void;
   /** Retire une routine à partir de `lastDay` (inclus) : le passé et le bilan restent intacts. */
@@ -27,6 +30,7 @@ export function RoutinesProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(() => ({
     routines: data.routines,
     done: data.done,
+    lastCheckAt: data.lastCheckAt ?? null,
     loaded,
     saveRoutine: (r) =>
       setData((d) => {
@@ -41,7 +45,13 @@ export function RoutinesProvider({ children }: { children: ReactNode }) {
           .filter((x) => x.id !== id || lastDay >= x.start)
           .map((x) => (x.id === id ? { ...x, end: lastDay } : x)),
       })),
-    toggle: (day, id) => setData((d) => ({ ...d, done: toggleDone(d.done, day, id) })),
+    toggle: (day, id) =>
+      setData((d) => ({
+        ...d,
+        done: toggleDone(d.done, day, id),
+        // Cocher (pas décocher) compte comme « j'ai fait quelque chose ».
+        lastCheckAt: isDone(d.done, day, id) ? d.lastCheckAt : Date.now(),
+      })),
   }), [data, loaded, setData]);
 
   return <RoutinesCtx.Provider value={value}>{children}</RoutinesCtx.Provider>;

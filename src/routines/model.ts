@@ -100,10 +100,29 @@ export const ALERT_AFTER: Record<Moment, number> = { matin: 12 * 60, journee: 18
 /**
  * Routines d'aujourd'hui à signaler : prévues ce jour, pas cochées, et dont l'heure limite est passée.
  * Les retards s'additionnent : à 18 h, une routine du matin toujours pas cochée compte encore.
- * La pastille peut donc apparaître jusqu'à trois fois par jour (midi, 18 h, 22 h).
+ * La pastille peut donc apparaître jusqu'à trois fois par jour (midi, 18 h, 22 h) ; voir `alertOn`.
  */
 export function overdueRoutines(routines: Routine[], done: DoneMap, day: DayKey, nowMin: number): Routine[] {
   return routinesOn(routines, day).filter((r) => nowMin >= ALERT_AFTER[r.moment] && !isDone(done, day, r.id));
+}
+
+/** La plus récente des heures d'alerte déjà passées (midi, 18 h ou 22 h), ou null avant midi. */
+export function latestAlertTime(nowMin: number): number | null {
+  const passed = Object.values(ALERT_AFTER).filter((t) => nowMin >= t);
+  return passed.length ? Math.max(...passed) : null;
+}
+
+/**
+ * La pastille est-elle allumée ? Oui si une heure d'alerte est passée, qu'il reste une routine en retard,
+ * et que rien n'a été coché depuis cette heure-là : un seul geste suffit à l'éteindre, jusqu'à l'heure
+ * d'alerte suivante. Sans cela, un matin oublié la laisserait allumée jusqu'à minuit.
+ * `lastCheckMin` : heure (minutes depuis minuit) de la dernière coche d'aujourd'hui, null s'il n'y en a pas.
+ */
+export function alertOn(routines: Routine[], done: DoneMap, day: DayKey, nowMin: number, lastCheckMin: number | null): boolean {
+  const since = latestAlertTime(nowMin);
+  if (since === null) return false;
+  if (lastCheckMin !== null && lastCheckMin >= since) return false;
+  return overdueRoutines(routines, done, day, nowMin).length > 0;
 }
 
 // ---------------- Bilan du mois ----------------

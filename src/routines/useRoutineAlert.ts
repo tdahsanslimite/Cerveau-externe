@@ -1,23 +1,30 @@
-// Nombre de routines d'aujourd'hui à remplir (pour la pastille rouge de l'onglet Routines).
+// La pastille rouge de l'onglet Routines est-elle allumée ? (règle : `alertOn` dans model.ts)
 // Se met à jour toute seule quand l'heure passe midi / 18 h / 22 h, quand on coche,
 // et quand on revient dans l'appli après l'avoir laissée en arrière-plan.
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { toKey } from '../calendar/dates';
 import { useRoutines } from './RoutinesContext';
-import { overdueRoutines } from './model';
+import { alertOn } from './model';
 
 const CHECK_EVERY_MS = 30_000;
 
-export function useRoutineAlert(): number {
-  const { routines, done } = useRoutines();
-  const [count, setCount] = useState(0);
+export function useRoutineAlert(): boolean {
+  const { routines, done, lastCheckAt } = useRoutines();
+  const [on, setOn] = useState(false);
 
   useEffect(() => {
     const compute = () => {
       const now = new Date();
-      // On ne garde que le nombre : s'il ne change pas, rien ne se redessine.
-      setCount(overdueRoutines(routines, done, toKey(now), now.getHours() * 60 + now.getMinutes()).length);
+      const today = toKey(now);
+      // Dernière coche : seule celle d'aujourd'hui compte.
+      let lastCheckMin: number | null = null;
+      if (lastCheckAt !== null) {
+        const last = new Date(lastCheckAt);
+        if (toKey(last) === today) lastCheckMin = last.getHours() * 60 + last.getMinutes();
+      }
+      // On ne garde qu'un booléen : s'il ne change pas, rien ne se redessine.
+      setOn(alertOn(routines, done, today, now.getHours() * 60 + now.getMinutes(), lastCheckMin));
     };
     compute();
     const timer = setInterval(compute, CHECK_EVERY_MS);
@@ -26,7 +33,7 @@ export function useRoutineAlert(): number {
       clearInterval(timer);
       sub.remove();
     };
-  }, [routines, done]);
+  }, [routines, done, lastCheckAt]);
 
-  return count;
+  return on;
 }

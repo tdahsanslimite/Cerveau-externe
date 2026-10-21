@@ -26,7 +26,7 @@ export function AppTabs() {
   const items = useTaskItems();
   const [active, setActive] = useState<TabId>('calendrier');
   const sasCount = inSas(items).length;
-  const routinesToFill = useRoutineAlert();
+  const routinesAlert = useRoutineAlert();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -45,7 +45,7 @@ export function AppTabs() {
         {TABS.map((t) => {
           const on = active === t.id;
           const badge = t.id === 'taches' && sasCount > 0 ? sasCount : 0;
-          const dot = t.id === 'routines' && routinesToFill > 0;
+          const dot = t.id === 'routines' && routinesAlert;
           return (
             <Pressable
               key={t.id}
