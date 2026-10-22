@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ALARM_PHRASES, pickPhrase } from './phrases.ts';
 import { planReminders, splitByAlarm } from './reminders.ts';
+import { ALARM_VIBRATION, isValidVibrationPattern } from './alarmConfig.ts';
 import type { CalendarEvent } from './model.ts';
 
 test('pickPhrase : tire dans la liste selon le hasard donné', () => {
@@ -34,4 +35,10 @@ test('splitByAlarm : les rappels « alarme » sont séparés des autres', () => 
   assert.equal(others.length, 1);
   assert.match(alarms[0].title, /Rdv médical/);
   assert.equal(others[0].alert, 'carillon');
+});
+
+test('vibration de l’alarme : nombre pair de valeurs positives (sinon la bibliothèque refuse le canal)', () => {
+  assert.ok(isValidVibrationPattern(ALARM_VIBRATION));
+  assert.ok(!isValidVibrationPattern([0, 600, 300, 600]), 'un motif commençant par 0 est refusé');
+  assert.ok(!isValidVibrationPattern([600, 300, 600]), 'un nombre impair de valeurs est refusé');
 });

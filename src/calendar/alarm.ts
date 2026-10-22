@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import type { Notification } from 'react-native-notify-kit';
 import type { Planned } from './reminders';
 import { ALARM_PHRASES, pickPhrase } from './phrases';
+import { ALARM_VIBRATION } from './alarmConfig';
 
 export const ALARM_CHANNEL_ID = 'rappel-alarme';
 const ALARM_KIND = 'alarme';
@@ -30,7 +31,7 @@ async function ensureChannel(): Promise<void> {
     importance: AndroidImportance.HIGH,
     sound: 'default',
     vibration: true,
-    vibrationPattern: [0, 600, 300, 600],
+    vibrationPattern: ALARM_VIBRATION,
     bypassDnd: true,
     visibility: AndroidVisibility.PUBLIC,
   });
