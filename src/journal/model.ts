@@ -132,6 +132,24 @@ export function historyDays(entries: EntryMap, kind: HistoryKind, today: DayKey,
     .slice(0, limit);
 }
 
+/** Total des 3 notes : de 3 (1+1+1) à 30 (10+10+10). */
+export const TOTAL_MIN = SCORE_MIN * FIELDS.length;
+export const TOTAL_MAX = SCORE_MAX * FIELDS.length;
+
+/** Repères fins des graphiques : sur une note (1-10) et sur le total (3-30). */
+export const SCORE_LEVELS = [2.5, 5, 7.5];
+export const TOTAL_LEVELS = [5, 10, 15, 20, 25];
+
+/**
+ * Total des 3 notes d'un jour. Seulement si les 3 sont posées : avec une note manquante,
+ * le total serait plus bas sans que la journée ait été plus dure (null = pas de total).
+ */
+export function totalScore(e: JournalEntry | undefined): number | null {
+  if (!e) return null;
+  const scores = FIELDS.map((f) => e[f]);
+  return scores.every(isScore) ? (scores as number[]).reduce((a, b) => a + b, 0) : null;
+}
+
 /** « 6,5 » : virgule française. */
 export function formatScore(n: number): string {
   return String(n).replace('.', ',');

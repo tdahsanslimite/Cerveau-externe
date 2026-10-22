@@ -5,17 +5,17 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, radius } from '../theme';
 import { Card, Chip, IconButton, SectionLabel, Txt } from '../ui';
-import { addDays, DAY_SHORT, DayKey, fromKey, isoWeek, labelDayLong, labelDayShort, relativeLabel, todayKey, weekdayIndex } from '../calendar/dates';
+import { addDays, DayKey, isoWeek, labelDayLong, labelDayShort, relativeLabel, todayKey } from '../calendar/dates';
 import { useJournal } from './JournalContext';
+import { describeDay, LineChart } from './LineChart';
 import {
   average, baseline, FIELD_LABEL, FIELDS, formatScore, historyDays, HistoryKind, isScore, JournalEntry, noteOf, recentDays, relativeTo,
-  ScoreField, SCORE_MAX,
+  ScoreField, SCORE_LEVELS, SCORE_MAX, SCORE_MIN, totalScore, TOTAL_LEVELS, TOTAL_MAX, TOTAL_MIN,
 } from './model';
 
 const CHART_DAYS = 14;
-const BAR_MAX = 64;
 
-/** Une couleur par note dans le graphique (la légende les nomme). */
+/** Une couleur par courbe (la légende les nomme). */
 const FIELD_COLOR: Record<ScoreField, string> = { mood: colors.accent, mind: '#5B6FA8', body: colors.amber };
 
 /** Texte propre à chaque note : question posée, repères 1 et 10, aide du commentaire. */
@@ -130,10 +130,6 @@ function Stat({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-function Bar({ value, color }: { value: number | undefined; color: string }) {
-  return <View style={[st.bar, { height: isScore(value) ? Math.max(4, (value / SCORE_MAX) * BAR_MAX) : 3, backgroundColor: isScore(value) ? color : colors.line }]} />;
-}
-
 const SHORT: Record<ScoreField, string> = { mood: 'Journée', mind: 'Tête', body: 'Corps' };
 
 function summary(e: JournalEntry): string {
@@ -152,6 +148,9 @@ export function JournalScreen() {
   const week = recentDays(today, 7);
   const chart = recentDays(today, CHART_DAYS);
   const chartHasData = chart.some((d) => entries[d]);
+  const totals = chart.map((d) => totalScore(entries[d]));
+  const totalDays = totals.filter((t) => t !== null).length;
+  const describe = (d: DayKey) => describeDay(d, entries[d] ? summary(entries[d]) : '');
   const history = historyDays(entries, kind, today);
   const anyHistory = historyDays(entries, 'all', today, 1).length > 0;
 
@@ -205,29 +204,16 @@ export function JournalScreen() {
           <View style={{ gap: 8 }}>
             <SectionLabel>{`Les ${CHART_DAYS} derniers jours`}</SectionLabel>
             <Card style={{ padding: 12, gap: 10 }}>
-              <View style={st.chartRow}>
-                {chart.map((d) => {
-                  const e = entries[d];
-                  const selected = d === day;
-                  return (
-                    <Pressable
-                      key={d}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${labelDayLong(d)}${e && summary(e) ? ` : ${summary(e)}` : ''}`}
-                      onPress={() => openDay(d)}
-                      style={[st.chartCol, selected && { backgroundColor: colors.accentSoft }]}
-                    >
-                      <View style={st.bars}>
-                        {FIELDS.map((f) => <Bar key={f} value={e?.[f]} color={FIELD_COLOR[f]} />)}
-                      </View>
-                      <Txt size={11} color={selected ? colors.accent : colors.muted} bold={selected}>
-                        {DAY_SHORT[weekdayIndex(d)].charAt(0)}
-                      </Txt>
-                      <Txt size={11} color={selected ? colors.accent : colors.muted} bold={selected}>{fromKey(d).getDate()}</Txt>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <LineChart
+                days={chart}
+                series={FIELDS.map((f) => ({ key: f, color: FIELD_COLOR[f], values: chart.map((d) => entries[d]?.[f] ?? null) }))}
+                min={SCORE_MIN}
+                max={SCORE_MAX}
+                levels={SCORE_LEVELS}
+                selected={day}
+                onPickDay={openDay}
+                describe={describe}
+              />
               <View style={st.legend}>
                 {FIELDS.map((f) => (
                   <View key={f} style={st.legendItem}>
@@ -236,7 +222,31 @@ export function JournalScreen() {
                   </View>
                 ))}
               </View>
-              <Txt size={12} color={colors.faint}>Dans l'ordre : journée, tête, corps.</Txt>
+              <Txt size={12} color={colors.faint}>Lignes fines : 2,5 · 5 · 7,5. Un jour sans note coupe la courbe.</Txt>
+            </Card>
+
+            <SectionLabel>{`Total des 3 notes (de ${TOTAL_MIN} à ${TOTAL_MAX})`}</SectionLabel>
+            <Card style={{ padding: 12, gap: 10 }}>
+              {totalDays === 0 ? (
+                <Txt size={14} color={colors.muted}>Pose les 3 notes d'une même journée pour voir son total.</Txt>
+              ) : (
+                <>
+                  <LineChart
+                    days={chart}
+                    series={[{ key: 'total', color: colors.ink, values: totals }]}
+                    min={TOTAL_MIN}
+                    max={TOTAL_MAX}
+                    levels={TOTAL_LEVELS}
+                    selected={day}
+                    onPickDay={openDay}
+                    describe={(d) => {
+                      const t = totalScore(entries[d]);
+                      return describeDay(d, t === null ? '' : `total ${t} sur ${TOTAL_MAX}`);
+                    }}
+                  />
+                  <Txt size={12} color={colors.faint}>Lignes fines : 5 · 10 · 15 · 20 · 25. Seuls les jours avec les 3 notes comptent.</Txt>
+                </>
+              )}
             </Card>
           </View>
         ) : null}
@@ -302,10 +312,6 @@ const st = StyleSheet.create({
     padding: 12, fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink,
   },
   stat: { flex: 1, backgroundColor: colors.card, borderRadius: radius.l, borderWidth: 1, borderColor: colors.line, padding: 12, gap: 2 },
-  chartRow: { flexDirection: 'row', gap: 2 },
-  chartCol: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 4, borderRadius: radius.s },
-  bars: { height: BAR_MAX, flexDirection: 'row', alignItems: 'flex-end', gap: 1 },
-  bar: { width: 5, borderRadius: 3 },
   legend: { flexDirection: 'row', gap: 14, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },

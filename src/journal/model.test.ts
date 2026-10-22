@@ -1,7 +1,10 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { average, baseline, formatScore, historyDays, isEmptyEntry, isScore, noteOf, recentDays, relativeTo, setNote, setScore } from './model.ts';
+import {
+  average, baseline, formatScore, historyDays, isEmptyEntry, isScore, noteOf, recentDays, relativeTo, setNote, setScore,
+  SCORE_LEVELS, TOTAL_LEVELS, TOTAL_MAX, TOTAL_MIN, totalScore,
+} from './model.ts';
 import type { EntryMap } from './model.ts';
 
 test('seuls les entiers de 1 à 10 sont des notes', () => {
@@ -111,6 +114,22 @@ test('historique : récent d’abord, filtres Difficiles (≤ 4) et Bons moments
   assert.deepEqual(historyDays(e, 'hard', '2026-10-21'), ['2026-10-19', '2026-10-15']);
   assert.deepEqual(historyDays(e, 'good', '2026-10-21'), ['2026-10-18', '2026-10-15']); // un jour peut être dans les deux
   assert.deepEqual(historyDays(e, 'all', '2026-10-21', 2), ['2026-10-19', '2026-10-18']);
+});
+
+test('total des 3 notes : de 3 à 30, seulement si les 3 sont posées', () => {
+  assert.equal(totalScore({ mood: 1, mind: 1, body: 1 }), TOTAL_MIN);
+  assert.equal(TOTAL_MIN, 3);
+  assert.equal(totalScore({ mood: 10, mind: 10, body: 10 }), TOTAL_MAX);
+  assert.equal(TOTAL_MAX, 30);
+  assert.equal(totalScore({ mood: 6, mind: 7, body: 4, note: 'x' }), 17);
+  assert.equal(totalScore({ mood: 6, mind: 7 }), null); // une note manque : pas de total trompeur
+  assert.equal(totalScore({ note: 'juste un commentaire' }), null);
+  assert.equal(totalScore(undefined), null);
+});
+
+test('repères des graphiques', () => {
+  assert.deepEqual(SCORE_LEVELS, [2.5, 5, 7.5]);
+  assert.deepEqual(TOTAL_LEVELS, [5, 10, 15, 20, 25]);
 });
 
 test('virgule française', () => {
