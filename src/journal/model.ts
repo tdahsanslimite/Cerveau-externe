@@ -150,6 +150,13 @@ export function totalScore(e: JournalEntry | undefined): number | null {
   return scores.every(isScore) ? (scores as number[]).reduce((a, b) => a + b, 0) : null;
 }
 
+const FIELD_SHORT: Record<ScoreField, string> = { mood: 'Journée', mind: 'Tête', body: 'Corps' };
+
+/** « Journée 9 · Tête 8 · Corps 6 » (seulement les notes posées). */
+export function shortSummary(e: JournalEntry): string {
+  return FIELDS.filter((f) => isScore(e[f])).map((f) => `${FIELD_SHORT[f]} ${e[f]}`).join(' · ');
+}
+
 /** « 6,5 » : virgule française. */
 export function formatScore(n: number): string {
   return String(n).replace('.', ',');

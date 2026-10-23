@@ -4,14 +4,15 @@ import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, radius } from '../theme';
-import { Card, Chip, IconButton, SectionLabel, Txt } from '../ui';
+import { Card, Chip, Icon, IconButton, SectionLabel, Txt } from '../ui';
 import { addDays, DayKey, isoWeek, labelDayLong, labelDayShort, relativeLabel, todayKey } from '../calendar/dates';
 import { useJournal } from './JournalContext';
 import { describeDay, LineChart } from './LineChart';
 import {
-  average, baseline, FIELD_LABEL, FIELDS, formatScore, historyDays, HistoryKind, isScore, JournalEntry, noteOf, recentDays, relativeTo,
-  ScoreField, SCORE_LEVELS, SCORE_MAX, SCORE_MIN, totalScore, TOTAL_LEVELS, TOTAL_MAX, TOTAL_MIN,
+  average, baseline, FIELD_LABEL, FIELDS, formatScore, historyDays, HistoryKind, isScore, noteOf, recentDays, relativeTo,
+  ScoreField, SCORE_LEVELS, SCORE_MAX, SCORE_MIN, shortSummary, totalScore, TOTAL_LEVELS, TOTAL_MAX, TOTAL_MIN,
 } from './model';
+import { RecapScreen } from './RecapScreen';
 
 const CHART_DAYS = 14;
 
@@ -130,17 +131,14 @@ function Stat({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-const SHORT: Record<ScoreField, string> = { mood: 'Journée', mind: 'Tête', body: 'Corps' };
-
-function summary(e: JournalEntry): string {
-  return FIELDS.filter((f) => isScore(e[f])).map((f) => `${SHORT[f]} ${e[f]}`).join(' · ');
-}
+const summary = shortSummary;
 
 export function JournalScreen() {
   const insets = useSafeAreaInsets();
   const { entries, score, note } = useJournal();
   const [day, setDay] = useState<DayKey>(todayKey());
   const [kind, setKind] = useState<HistoryKind>('all');
+  const [recapOpen, setRecapOpen] = useState(false);
   const scroller = useRef<ScrollView>(null);
 
   const today = todayKey();
@@ -177,7 +175,7 @@ export function JournalScreen() {
         {day < today ? <IconButton icon="chevron-right" label="Jour suivant" onPress={() => setDay((d) => addDays(d, 1))} /> : <View style={{ width: 44 }} />}
       </View>
 
-      <ScrollView ref={scroller} contentContainerStyle={[st.content, { paddingBottom: 40 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scroller} contentContainerStyle={[st.content, { paddingBottom: 110 }]} keyboardShouldPersistTaps="handled">
         {FIELDS.map((f) => (
           <ScoreBlock
             key={f}
@@ -292,11 +290,35 @@ export function JournalScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Ouvrir le recap de l'année"
+        onPress={() => setRecapOpen(true)}
+        style={({ pressed }) => [st.fab, pressed && { opacity: 0.85 }]}
+      >
+        <Icon name="calendar" size={22} color="#FFFFFF" />
+        <Txt bold size={15} color="#FFFFFF">Recap</Txt>
+      </Pressable>
+
+      <RecapScreen
+        visible={recapOpen}
+        onClose={() => setRecapOpen(false)}
+        onOpenDay={(d) => {
+          setRecapOpen(false);
+          openDay(d);
+        }}
+      />
     </View>
   );
 }
 
 const st = StyleSheet.create({
+  fab: {
+    position: 'absolute', right: 18, bottom: 24, height: 56, paddingHorizontal: 20, borderRadius: 28, backgroundColor: colors.accent,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
+  },
   root: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 },
   todayBtn: { minHeight: 44, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.accentSoft, justifyContent: 'center' },
