@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarScreen } from './calendar/CalendarScreen';
+import { GoalsScreen } from './goals/GoalsScreen';
 import { JournalScreen } from './journal/JournalScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
 import { useRoutineAlert } from './routines/useRoutineAlert';
@@ -14,13 +15,14 @@ import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
 
-type TabId = 'calendrier' | 'taches' | 'routines' | 'journal';
+type TabId = 'calendrier' | 'taches' | 'routines' | 'journal' | 'objectifs';
 
 const TABS: { id: TabId; label: string; icon: IconName; screen: () => React.ReactElement }[] = [
   { id: 'calendrier', label: 'Calendrier', icon: 'calendar', screen: () => <CalendarScreen /> },
   { id: 'taches', label: 'Trier mes idées', icon: 'check-square', screen: () => <TasksScreen /> },
   { id: 'routines', label: 'Routines', icon: 'repeat', screen: () => <RoutinesScreen /> },
   { id: 'journal', label: 'Journal', icon: 'book-open', screen: () => <JournalScreen /> },
+  { id: 'objectifs', label: 'Objectifs', icon: 'target', screen: () => <GoalsScreen /> },
 ];
 
 export function AppTabs() {

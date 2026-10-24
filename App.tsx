@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AtkinsonHyperlegible_400Regular, AtkinsonHyperlegible_700Bold, useFonts } from '@expo-google-fonts/atkinson-hyperlegible';
 import { CalendarProvider, useCalendar } from './src/calendar/CalendarContext';
 import { AppTabs } from './src/AppTabs';
+import { GoalsProvider, useGoals } from './src/goals/GoalsContext';
 import { JournalProvider, useJournal } from './src/journal/JournalContext';
 import { RoutinesProvider, useRoutines } from './src/routines/RoutinesContext';
 import { SettingsProvider, useSettings } from './src/settings/SettingsContext';
@@ -17,7 +18,8 @@ function Gate() {
   const { loaded: tasksLoaded } = useTasks();
   const { loaded: routinesLoaded } = useRoutines();
   const { loaded: journalLoaded } = useJournal();
-  if (!settingsLoaded || !calendarLoaded || !tasksLoaded || !routinesLoaded || !journalLoaded) return <Splash />;
+  const { loaded: goalsLoaded } = useGoals();
+  if (!settingsLoaded || !calendarLoaded || !tasksLoaded || !routinesLoaded || !journalLoaded || !goalsLoaded) return <Splash />;
   return <AppTabs />;
 }
 
@@ -40,7 +42,9 @@ export default function App() {
             <TasksProvider>
               <RoutinesProvider>
                 <JournalProvider>
-                  <Gate />
+                  <GoalsProvider>
+                    <Gate />
+                  </GoalsProvider>
                 </JournalProvider>
               </RoutinesProvider>
             </TasksProvider>

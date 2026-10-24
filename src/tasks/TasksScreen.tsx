@@ -8,6 +8,7 @@ import { useCalendar } from '../calendar/CalendarContext';
 import { EmptyState } from '../calendar/components';
 import { labelDayLong, todayKey } from '../calendar/dates';
 import { EditorState, EventEditor } from '../calendar/EventEditor';
+import { AnnualOneThingLine } from '../goals/GoalLines';
 import { SettingsSheet } from '../settings/SettingsSheet';
 import { colors, fonts, radius } from '../theme';
 import { Card, Icon, IconButton, SectionLabel, Txt } from '../ui';
@@ -210,6 +211,7 @@ export function TasksScreen() {
                   </View>
                   <Txt bold size={14} color={colors.muted}>{list.length}</Txt>
                 </View>
+                {q.id === 'one' ? <AnnualOneThingLine day={todayKey()} /> : null}
                 <View onLayout={measure(cards, q.id)}>
                   <Card style={hot ? st.cardHot : undefined}>
                     {list.length === 0 ? (

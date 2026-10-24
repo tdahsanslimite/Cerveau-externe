@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PeriodLine } from '../goals/GoalLines';
 import { CalendarView, useSettings } from '../settings/SettingsContext';
 import { SettingsSheet } from '../settings/SettingsSheet';
 import { HoursBilan } from './HoursBilan';
@@ -112,6 +113,7 @@ export function CalendarScreen() {
 
       <ScrollView contentContainerStyle={[st.content, { paddingBottom: 110 + insets.bottom }]} keyboardShouldPersistTaps="handled">
         <Txt bold size={20} style={{ paddingHorizontal: 4, marginBottom: -4 }} accessibilityRole="header">{title}</Txt>
+        {(view === 'semaine' || view === 'mois' || view === 'trimestre') && <PeriodLine kind={view} day={day} />}
         {view === 'jour' && (
           <>
             <DayView {...viewProps} />
