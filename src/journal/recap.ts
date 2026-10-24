@@ -47,13 +47,10 @@ export function relation(value: number | null, avg: number | null): Rel | null {
   return 'usual';
 }
 
-/** Années proposées : celles où il y a des notes, plus l'année en cours, de la plus récente à la plus ancienne. */
-export function recapYears(entries: EntryMap, today: DayKey): number[] {
-  const years = new Set<number>([Number(today.slice(0, 4))]);
-  for (const d of Object.keys(entries)) {
-    if (d <= today && !isEmptyEntry(entries[d])) years.add(Number(d.slice(0, 4)));
-  }
-  return [...years].sort((a, b) => b - a);
+/** Les 3 années proposées en haut du Recap : n-1, n (l'année en cours) et n+1, de la plus ancienne à la plus récente. */
+export function recapYearTabs(today: DayKey): number[] {
+  const year = Number(today.slice(0, 4));
+  return [year - 1, year, year + 1];
 }
 
 export interface RecapDay {

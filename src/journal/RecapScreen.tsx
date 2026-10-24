@@ -1,15 +1,17 @@
-// Le « Recap » du Journal : l'année en 12 mois, chacun dépliable (on ne voit pas les 365 jours d'un coup).
-// Toucher un mois ouvre la liste de ses jours ; toucher un jour l'ouvre dans le Journal.
-// Le bouton « Filtre » choisit l'année, le mois, bon / mauvais (au-dessus / en dessous de la moyenne) et la note comparée.
+// Le « Recap » du Journal : on choisit l'année en haut (n-1, n, n+1), puis ses 12 mois, chacun dépliable
+// (on ne voit pas les 365 jours d'un coup). Toucher un mois ouvre la liste de ses jours ; toucher un jour ouvre sa fiche
+// (les 3 notes et leurs commentaires), modifiable, avec un retour à la liste là où on l'a laissée.
+// Le bouton « Filtre » choisit le mois, bon / mauvais (au-dessus / en dessous de la moyenne) et la note comparée.
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DAY_SHORT, DayKey, fromKey, MONTHS, todayKey, weekdayIndex } from '../calendar/dates';
+import { DAY_SHORT, DayKey, fromKey, isoWeek, labelDayLong, MONTHS, relativeLabel, todayKey, weekdayIndex } from '../calendar/dates';
 import { colors, radius } from '../theme';
 import { Button, Card, Chip, Field, Icon, IconButton, Sheet, Txt } from '../ui';
+import { DayEditor } from './DayEditor';
 import { useJournal } from './JournalContext';
-import { FIELD_LABEL, FIELDS, formatScore, noteOf, shortSummary } from './model';
-import { DayFilter, Metric, METRICS, overallAverage, RecapDay, recapMonths, recapYears, Rel } from './recap';
+import { FIELDS, formatScore, noteOf, shortSummary } from './model';
+import { DayFilter, Metric, METRICS, overallAverage, RecapDay, recapMonths, recapYearTabs, Rel } from './recap';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
@@ -19,13 +21,12 @@ function relColor(rel: Rel | null): string {
   return rel === 'good' ? colors.accent : rel === 'bad' ? colors.warn : colors.ink;
 }
 
-export function RecapScreen({ visible, onClose, onOpenDay }: {
-  visible: boolean; onClose: () => void; onOpenDay: (d: DayKey) => void;
-}) {
+export function RecapScreen({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const { entries } = useJournal();
   const today = todayKey();
   const currentYear = Number(today.slice(0, 4));
+  const yearTabs = recapYearTabs(today);
 
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | null>(null);
@@ -34,24 +35,25 @@ export function RecapScreen({ visible, onClose, onOpenDay }: {
   /** Mois dont l'état est inversé par rapport à l'état par défaut (fermé, ou ouvert quand un filtre est actif). */
   const [toggled, setToggled] = useState<number[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
+  /** Jour dont la fiche est ouverte par-dessus la liste (la liste reste en place dessous : on y revient au même endroit). */
+  const [openDay, setOpenDay] = useState<DayKey | null>(null);
 
   // Les écrans reçoivent un bas de zone de sécurité à 0 (la barre d'onglets le gère) : on le retrouve ici.
   const bottom = Math.max(insets.bottom, initialWindowMetrics?.insets.bottom ?? 0, 12);
 
   const avg = overallAverage(entries, metric, today);
   const months = recapMonths(entries, year, month, today, metric, avg, filter);
-  const years = recapYears(entries, today);
   const metricLabel = METRICS.find((m) => m.id === metric)!.label;
   const openByDefault = filter !== 'all' || month !== null;
   const isOpen = (m: number) => openByDefault !== toggled.includes(m);
 
-  const activeCount = (year !== currentYear ? 1 : 0) + (month !== null ? 1 : 0) + (filter !== 'all' ? 1 : 0) + (metric !== 'total' ? 1 : 0);
+  const activeCount = (month !== null ? 1 : 0) + (filter !== 'all' ? 1 : 0) + (metric !== 'total' ? 1 : 0);
 
   const change = (apply: () => void) => {
     apply();
     setToggled([]); // chaque réglage repart de l'état par défaut des mois
   };
-  const reset = () => change(() => { setYear(currentYear); setMonth(null); setFilter('all'); setMetric('total'); });
+  const reset = () => change(() => { setMonth(null); setFilter('all'); setMetric('total'); });
 
   const subtitle = (m: (typeof months)[number]): string => {
     if (m.future) return 'À venir';
@@ -61,15 +63,33 @@ export function RecapScreen({ visible, onClose, onOpenDay }: {
     return `${plural(m.noted, 'jour noté', 'jours notés')}${m.average !== null ? ` · moyenne ${formatScore(m.average)}` : ''}`;
   };
 
+  // Retour du téléphone : d'abord on referme la fiche du jour, ensuite seulement le Recap.
+  const back = () => (openDay ? setOpenDay(null) : onClose());
+
   return (
-    <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={back}>
       <View style={[st.root, { paddingTop: insets.top, paddingBottom: bottom }]}>
         <View style={st.head}>
-          <View style={{ flex: 1 }}>
-            <Txt size={12} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Recap</Txt>
-            <Txt bold size={24} numberOfLines={1}>{year}</Txt>
-          </View>
+          <Txt bold size={24} style={{ flex: 1 }}>Recap</Txt>
           <IconButton icon="x" label="Fermer" onPress={onClose} bordered={false} />
+        </View>
+
+        <View style={st.years} accessibilityRole="tablist">
+          {yearTabs.map((y) => {
+            const on = y === year;
+            return (
+              <Pressable
+                key={y}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`Année ${y}`}
+                onPress={() => change(() => setYear(y))}
+                style={({ pressed }) => [st.yearTab, on && { backgroundColor: colors.accent, borderColor: colors.accent }, pressed && { opacity: 0.7 }]}
+              >
+                <Txt bold={on} size={17} color={on ? '#FFFFFF' : colors.ink}>{y}</Txt>
+              </Pressable>
+            );
+          })}
         </View>
 
         <View style={st.info}>
@@ -116,7 +136,7 @@ export function RecapScreen({ visible, onClose, onOpenDay }: {
                     m.days.length === 0 ? (
                       <Txt size={14} color={colors.muted} style={st.empty}>Aucun jour.</Txt>
                     ) : (
-                      m.days.map((d) => <DayRow key={d.day} d={d} onPress={() => onOpenDay(d.day)} />)
+                      m.days.map((d) => <DayRow key={d.day} d={d} onPress={() => setOpenDay(d.day)} />)
                     )
                   ) : null}
                 </Card>
@@ -146,11 +166,6 @@ export function RecapScreen({ visible, onClose, onOpenDay }: {
             </>
           }
         >
-          <Field label="Année">
-            <View style={st.chips}>
-              {years.map((y) => <Chip key={y} label={String(y)} selected={y === year} onPress={() => change(() => setYear(y))} />)}
-            </View>
-          </Field>
           <Field label="Mois">
             <View style={st.chips}>
               <Chip label="Tous" selected={month === null} onPress={() => change(() => setMonth(null))} />
@@ -172,6 +187,24 @@ export function RecapScreen({ visible, onClose, onOpenDay }: {
             </View>
           </Field>
         </Sheet>
+
+        {openDay ? (
+          <View style={[StyleSheet.absoluteFill, st.detail, { paddingTop: insets.top, paddingBottom: bottom }]}>
+            <View style={st.head}>
+              <IconButton icon="chevron-left" label="Retour à la liste" onPress={() => setOpenDay(null)} />
+              <View style={{ flex: 1 }}>
+                <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {relativeLabel(openDay, today) ?? `Semaine ${isoWeek(openDay)}`}
+                </Txt>
+                <Txt bold size={22} numberOfLines={1}>{labelDayLong(openDay)}</Txt>
+              </View>
+              <IconButton icon="x" label="Fermer" onPress={onClose} bordered={false} />
+            </View>
+            <ScrollView contentContainerStyle={st.detailContent} keyboardShouldPersistTaps="handled">
+              <DayEditor day={openDay} />
+            </ScrollView>
+          </View>
+        ) : null}
       </View>
     </Modal>
   );
@@ -204,7 +237,12 @@ function DayRow({ d, onPress }: { d: RecapDay; onPress: () => void }) {
 
 const st = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  years: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 10 },
+  yearTab: {
+    flex: 1, minHeight: 48, borderRadius: radius.m, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
+    alignItems: 'center', justifyContent: 'center',
+  },
   info: { paddingHorizontal: 16, paddingBottom: 10, gap: 2 },
   content: { paddingHorizontal: 16, paddingBottom: 110, gap: 10, maxWidth: 640, width: '100%', alignSelf: 'center' },
   monthRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 64, paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.l },
@@ -215,6 +253,8 @@ const st = StyleSheet.create({
   },
   mark: { width: 4, alignSelf: 'stretch', borderRadius: 2, backgroundColor: 'transparent' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  detail: { backgroundColor: colors.bg },
+  detailContent: { paddingHorizontal: 16, paddingBottom: 120, gap: 18, maxWidth: 640, width: '100%', alignSelf: 'center' },
   fab: {
     position: 'absolute', right: 18, height: 56, paddingHorizontal: 20, borderRadius: 28, backgroundColor: colors.accent,
     flexDirection: 'row', alignItems: 'center', gap: 8,

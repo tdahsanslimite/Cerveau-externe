@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { metricValue, overallAverage, recapMonth, recapMonths, recapYears, relation } from './recap.ts';
+import { metricValue, overallAverage, recapMonth, recapMonths, recapYearTabs, relation } from './recap.ts';
 import type { EntryMap } from './model.ts';
 
 const TODAY = '2026-10-23';
@@ -43,10 +43,21 @@ test('bon = au-dessus de la moyenne, mauvais = en dessous, égal = ni l’un ni 
   assert.equal(relation(15, null), null);
 });
 
-test('années : celles qui ont des notes + l’année en cours, la plus récente d’abord ; le futur est ignoré', () => {
-  assert.deepEqual(recapYears(E, TODAY), [2026, 2025]);
-  assert.deepEqual(recapYears({}, TODAY), [2026]);
-  assert.deepEqual(recapYears({ '2027-01-05': { mood: 5 } }, TODAY), [2026]);
+test('années en haut du Recap : n-1, n, n+1 autour de l’année en cours', () => {
+  assert.deepEqual(recapYearTabs(TODAY), [2025, 2026, 2027]);
+  assert.deepEqual(recapYearTabs('2027-01-01'), [2026, 2027, 2028]);
+  assert.deepEqual(recapYearTabs('2026-12-31'), [2025, 2026, 2027]);
+});
+
+test('l’année suivante : 12 mois à venir, rien à ouvrir ; l’année précédente : mois complets', () => {
+  const avg = overallAverage(E, 'total', TODAY);
+  const next = recapMonths(E, 2027, null, TODAY, 'total', avg, 'all');
+  assert.equal(next.length, 12);
+  assert.equal(next.every((m) => m.future && m.days.length === 0), true);
+  const prev = recapMonths(E, 2025, null, TODAY, 'total', avg, 'all');
+  assert.equal(prev.every((m) => !m.future), true);
+  assert.equal(prev[11].days.length, 31); // décembre 2025 en entier
+  assert.equal(prev[11].noted, 1); // le 31 décembre
 });
 
 test('mois : tous les jours jusqu’à aujourd’hui, avec leurs valeurs et leur classement', () => {
