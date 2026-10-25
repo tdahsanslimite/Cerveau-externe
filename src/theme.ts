@@ -1,16 +1,16 @@
-// Palette calme, peu stimulante, contrastes AA. Reprise du prototype validé.
+// Palette calme, peu stimulante, contrastes AA : bleu pétrole sur fond crème, touche de sable doré (25 oct.).
 export const colors = {
-  bg: '#F5F3EE',
+  bg: '#F7F3E8',
   card: '#FFFFFF',
-  ink: '#1E2226',
-  muted: '#5C636B',
+  ink: '#16252B',
+  muted: '#52616A',
   faint: '#9AA0A6',
-  line: '#E3E0D8',
-  lineSoft: '#EFECE5',
-  border: '#D9D5CB',
-  accent: '#1F6F6B',
-  accentSoft: '#E8F2F1',
-  accentDark: '#174F4C',
+  line: '#E8E2D1',
+  lineSoft: '#F0EBDC',
+  border: '#D9D2BE',
+  accent: '#14606E',
+  accentSoft: '#E1EEF0',
+  accentDark: '#0C4450',
   warn: '#B4541A',
   warnSoft: '#FFF1E6',
   warnDark: '#8A3E10',
@@ -18,6 +18,8 @@ export const colors = {
   alert: '#D92D20', // pastille « à remplir »
   ok: '#2E8B57',
   amber: '#9A6A00',
+  sand: '#C8A25A', // touche dorée (accent décoratif)
+  sandSoft: '#F3E8CE',
   paper: '#FFFDF6',
   paperLine: '#EDE6D2',
   backdrop: 'rgba(20,22,24,0.45)',
