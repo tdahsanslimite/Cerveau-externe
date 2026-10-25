@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, radius, TOUCH } from '../theme';
 import { Chip, Sheet, Txt } from '../ui';
 import { DomainsEditor } from './DomainsEditor';
+import { PhoneCalendarsSettings } from './PhoneCalendarsSettings';
 import { RemindersSettings } from './RemindersSettings';
 import { CalendarView, useSettings } from './SettingsContext';
 
@@ -44,6 +45,10 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
             ))}
           </View>
         </View>
+      </View>
+      <View style={{ gap: 8 }}>
+        <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 4 }}>Agendas du téléphone</Txt>
+        <PhoneCalendarsSettings />
       </View>
       <View style={{ gap: 8 }}>
         <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 4 }}>Rappels</Txt>

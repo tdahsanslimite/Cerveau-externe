@@ -11,7 +11,8 @@ import { Icon, IconButton, Txt } from '../ui';
 import { addDays, addMonths, DayKey, fromKey, isoWeek, labelDayLong, labelMonth, labelWeekRange, relativeLabel, startOfWeek, todayKey } from './dates';
 import { useCalendar } from './CalendarContext';
 import { blankEvent, EditorState, EventEditor } from './EventEditor';
-import { Occurrence } from './model';
+import { CalendarEvent, Occurrence } from './model';
+import { PhoneEventSheet } from './PhoneEventSheet';
 import { DayView, MonthView, WeekView } from './views';
 import { labelQuarter, QuarterView, quarterOf, WeekStrip, YearView } from './longViews';
 
@@ -65,7 +66,10 @@ export function CalendarScreen() {
             ? [`Trimestre ${quarterOf(day)}`, labelQuarter(day)]
             : ['Vue annuelle', String(fromKey(day).getFullYear())];
 
-  const onEdit = (occ: Occurrence) => setEditor({ event: occ.event, isNew: false, day: occ.day });
+  const [phoneEvent, setPhoneEvent] = useState<CalendarEvent | null>(null);
+  // Un événement lu depuis le téléphone (Google…) ne se modifie pas ici : fiche en lecture seule.
+  const onEdit = (occ: Occurrence) =>
+    occ.event.phone ? setPhoneEvent(occ.event) : setEditor({ event: occ.event, isNew: false, day: occ.day });
   const onAdd = (d: DayKey, start?: number) =>
     setEditor({ event: blankEvent(d, start ?? 9 * 60, domains[0]?.id), isNew: true, day: d });
   const onOpenDay = (d: DayKey) => {
@@ -137,6 +141,7 @@ export function CalendarScreen() {
       </Pressable>
 
       <EventEditor state={editor} onClose={() => setEditor(null)} />
+      <PhoneEventSheet event={phoneEvent} onClose={() => setPhoneEvent(null)} />
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <HoursBilan visible={bilanOpen} onClose={() => setBilanOpen(false)} />
     </View>

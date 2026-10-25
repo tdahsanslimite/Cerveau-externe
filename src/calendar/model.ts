@@ -89,6 +89,8 @@ export interface CalendarEvent {
   /** Identifiant du domaine (Travail, Sport…). */
   category: string;
   repeat: Repeat;
+  /** Lu depuis un agenda du téléphone (Google Agenda, Planning BAM…) : affiché, jamais enregistré ni modifié ici. */
+  phone?: { calendarId: string; calendarTitle: string; location?: string };
   /** Dernier jour d'un événement « toute la journée » sur plusieurs jours (vacances…). Absent = un seul jour. */
   endDate?: DayKey;
   /** Absent sur les événements créés avant la v1.1 : traité comme ['rdv']. */

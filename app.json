@@ -47,6 +47,12 @@
             "./assets/sounds/cloche.wav"
           ]
         }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Cerveau Externe lit tes agendas (Google Agenda, planning du travail) pour tout afficher au même endroit."
+        }
       ]
     ]
   }

@@ -14,6 +14,10 @@ export interface Settings {
   showFreeSlots: boolean;
   /** Type d'alerte des rappels quand l'événement n'en précise pas. */
   defaultAlert: AlertKind;
+  /** Afficher les agendas du téléphone (Google Agenda…) en lecture seule. */
+  phoneCalendars?: boolean;
+  /** Agendas du téléphone masqués (par identifiant). Par défaut : tous affichés. */
+  hiddenPhoneCalendars?: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true, defaultAlert: 'sonnerie' };
