@@ -1,11 +1,15 @@
 // Écran Respiration : un cercle qui grossit à l'inspiration et rétrécit à l'expiration, avec le temps restant.
 // Rien n'est enregistré ; l'exercice s'arrête quand on quitte l'écran (il n'est monté que lorsqu'il est affiché).
 import React, { useEffect, useRef, useState } from 'react';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { Pressable, ScrollView, StyleSheet, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
 import { Button, Card, Chip, Txt } from '../ui';
 import { DURATIONS_MIN, EXERCISES, formatClock, phaseAt, scaleAt } from './model';
+
+const PING_START = require('../../assets/sounds/ping-depart.wav');
+const PING_PHASE = require('../../assets/sounds/ping-temps.wav');
 
 const CIRCLE = 240;
 const MIN_SCALE = 0.45;
@@ -16,12 +20,29 @@ export function BreathingScreen() {
   const exercise = EXERCISES.find((e) => e.id === exerciseId) ?? EXERCISES[0];
   const [minutes, setMinutes] = useState(exercise.defaultMinutes);
   const [vibrate, setVibrate] = useState(true);
+  const [sound, setSound] = useState(true);
+  const pingStart = useAudioPlayer(PING_START);
+  const pingPhase = useAudioPlayer(PING_PHASE);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const startedAt = useRef(0);
   const lastIndex = useRef(-1);
   const total = minutes * 60;
+
+  // Les pings se jouent même en mode silencieux et sans couper la musique en cours.
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'mixWithOthers' }).catch(() => {});
+  }, []);
+
+  const ping = (player: typeof pingStart) => {
+    try {
+      player.seekTo(0);
+      player.play();
+    } catch {
+      // Le son est un confort : s'il échoue, l'exercice continue.
+    }
+  };
 
   useEffect(() => {
     if (!running) return;
@@ -38,15 +59,18 @@ export function BreathingScreen() {
       const s = phaseAt(exercise, t);
       const key = s.cycle * 10 + s.index;
       if (key !== lastIndex.current) {
+        const first = lastIndex.current === -1;
         lastIndex.current = key;
         if (vibrate) Vibration.vibrate(40);
+        // Premier temps : le ping de départ a déjà sonné au clic sur « Commencer ».
+        if (sound && !first) ping(pingPhase);
       }
       setElapsed(t);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [running, exercise, total, vibrate]);
+  }, [running, exercise, total, vibrate, sound]);
 
   useEffect(() => () => Vibration.cancel(), []);
 
@@ -56,6 +80,7 @@ export function BreathingScreen() {
     setElapsed(0);
     setDone(false);
     setRunning(true);
+    if (sound) ping(pingStart);
   };
   const stop = () => {
     setRunning(false);
@@ -131,6 +156,17 @@ export function BreathingScreen() {
                 <Txt size={15} style={{ flex: 1 }}>Vibration à chaque temps</Txt>
                 <View style={[st.track, vibrate && { backgroundColor: colors.accent }]}>
                   <View style={[st.thumb, vibrate && { alignSelf: 'flex-end' }]} />
+                </View>
+              </Pressable>
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityState={{ checked: sound }}
+                onPress={() => setSound((v) => !v)}
+                style={({ pressed }) => [st.switchRow, pressed && { opacity: 0.6 }]}
+              >
+                <Txt size={15} style={{ flex: 1 }}>Ping au départ et à chaque temps</Txt>
+                <View style={[st.track, sound && { backgroundColor: colors.accent }]}>
+                  <View style={[st.thumb, sound && { alignSelf: 'flex-end' }]} />
                 </View>
               </Pressable>
             </Card>
