@@ -9,7 +9,9 @@ import { Button, Card, Chip, Txt } from '../ui';
 import { DURATIONS_MIN, EXERCISES, formatClock, phaseAt, scaleAt } from './model';
 
 const PING_START = require('../../assets/sounds/ping-depart.wav');
-const PING_PHASE = require('../../assets/sounds/ping-temps.wav');
+const PING_INSPIRE = require('../../assets/sounds/ping-inspire.wav'); // aigu
+const PING_EXPIRE = require('../../assets/sounds/ping-expire.wav'); // grave
+const PING_HOLD = require('../../assets/sounds/ping-retiens.wav'); // médium, court
 
 const CIRCLE = 240;
 const MIN_SCALE = 0.45;
@@ -22,7 +24,9 @@ export function BreathingScreen() {
   const [vibrate, setVibrate] = useState(true);
   const [sound, setSound] = useState(true);
   const pingStart = useAudioPlayer(PING_START);
-  const pingPhase = useAudioPlayer(PING_PHASE);
+  const pingInspire = useAudioPlayer(PING_INSPIRE);
+  const pingExpire = useAudioPlayer(PING_EXPIRE);
+  const pingHold = useAudioPlayer(PING_HOLD);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -63,7 +67,7 @@ export function BreathingScreen() {
         lastIndex.current = key;
         if (vibrate) Vibration.vibrate(40);
         // Premier temps : le ping de départ a déjà sonné au clic sur « Commencer ».
-        if (sound && !first) ping(pingPhase);
+        if (sound && !first) ping(s.phase.name === 'Inspire' ? pingInspire : s.phase.name === 'Expire' ? pingExpire : pingHold);
       }
       setElapsed(t);
       raf = requestAnimationFrame(tick);
@@ -164,7 +168,7 @@ export function BreathingScreen() {
                 onPress={() => setSound((v) => !v)}
                 style={({ pressed }) => [st.switchRow, pressed && { opacity: 0.6 }]}
               >
-                <Txt size={15} style={{ flex: 1 }}>Ping au départ et à chaque temps</Txt>
+                <Txt size={15} style={{ flex: 1 }}>Sons (aigu = inspire, grave = expire)</Txt>
                 <View style={[st.track, sound && { backgroundColor: colors.accent }]}>
                   <View style={[st.thumb, sound && { alignSelf: 'flex-end' }]} />
                 </View>
