@@ -1,5 +1,6 @@
 // Registre des modules de l'appli (pur, testé). Un module = une entrée ici + une ligne d'écran dans AppTabs.
-// La page d'accueil affiche TOUS les modules en tuiles ; la barre du bas n'en garde que quelques-uns (BAR_IDS).
+// L'accueil montre des CATÉGORIES (CATEGORIES) ; un clic ouvre un sous-menu avec les modules de la catégorie.
+// La barre du bas n'en garde que quelques-uns (BAR_IDS).
 
 export type ModuleId = 'calendrier' | 'taches' | 'routines' | 'journal' | 'objectifs' | 'respiration' | 'meditation';
 
@@ -42,4 +43,52 @@ export function barModules(): ModuleMeta[] {
 /** Largeur d'une tuile en grille à 2 colonnes : la dernière, seule sur sa ligne, prend toute la largeur. */
 export function tileSpan(index: number, count: number): 1 | 2 {
   return count % 2 === 1 && index === count - 1 ? 2 : 1;
+}
+
+// ── Catégories de l'accueil ──────────────────────────────────────────────────────────────────────────
+export type CategoryId = 'tdah' | 'organiser' | 'detendre';
+
+export type CategoryMeta = {
+  id: CategoryId;
+  label: string;
+  hint: string;
+  /** Nom d'icône Feather. */
+  icon: string;
+  /** Modules du sous-menu, dans l'ordre d'affichage. */
+  items: ModuleId[];
+};
+
+/** Ordre = ordre des tuiles sur l'accueil. Chaque module appartient à UNE catégorie (vérifié par les tests). */
+export const CATEGORIES: CategoryMeta[] = [
+  { id: 'tdah', label: 'Mieux vivre avec mon TDAH', hint: 'Objectifs, routines, journal', icon: 'compass', items: ['objectifs', 'routines', 'journal'] },
+  { id: 'organiser', label: 'Organiser et planifier', hint: 'Idées, calendrier', icon: 'layout', items: ['taches', 'calendrier'] },
+  { id: 'detendre', label: 'Se détendre', hint: 'Respiration, méditation', icon: 'feather', items: ['respiration', 'meditation'] },
+];
+
+export function categoryById(id: CategoryId): CategoryMeta {
+  const c = CATEGORIES.find((x) => x.id === id);
+  if (!c) throw new Error(`Catégorie inconnue : ${id}`);
+  return c;
+}
+
+export function categoryOf(id: ModuleId): CategoryMeta | undefined {
+  return CATEGORIES.find((c) => c.items.includes(id));
+}
+
+export function categoryModules(id: CategoryId): ModuleMeta[] {
+  return categoryById(id).items.map(moduleById);
+}
+
+/** Pastille d'un module : nombre à classer et / ou point « à remplir ». */
+export type TileInfo = { badge?: number; dot?: boolean };
+
+/** Ce que la tuile d'une catégorie doit montrer : la somme des nombres et un point si l'un de ses modules en a un. */
+export function categoryInfo(id: CategoryId, info: Partial<Record<ModuleId, TileInfo>>): TileInfo {
+  let badge = 0;
+  let dot = false;
+  for (const m of categoryById(id).items) {
+    badge += info[m]?.badge ?? 0;
+    dot = dot || !!info[m]?.dot;
+  }
+  return { badge: badge > 0 ? badge : undefined, dot: dot || undefined };
 }

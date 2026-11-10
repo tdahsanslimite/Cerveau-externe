@@ -10,8 +10,8 @@ import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area
 import { BreathingScreen } from './breathing/BreathingScreen';
 import { CalendarScreen } from './calendar/CalendarScreen';
 import { GoalsScreen } from './goals/GoalsScreen';
-import { HomeScreen, TileInfo } from './home/HomeScreen';
-import { barModules, ModuleId } from './home/modules';
+import { HomeScreen } from './home/HomeScreen';
+import { barModules, CategoryId, ModuleId, TileInfo } from './home/modules';
 import { JournalScreen } from './journal/JournalScreen';
 import { MeditationScreen } from './meditation/MeditationScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
@@ -40,17 +40,26 @@ const LIVE: { id: ModuleId; screen: () => React.ReactElement }[] = [
 export function AppTabs() {
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState<Where>('accueil');
+  // Sous-menu ouvert sur l'accueil (null = les 3 catégories). Il reste ouvert quand on entre dans un module,
+  // pour que « retour » ramène à la liste d'où l'on vient ; la barre « Accueil » repart des catégories.
+  const [menu, setMenu] = useState<CategoryId | null>(null);
   const routinesAlert = useRoutineAlert();
 
-  // Le bouton retour d'Android ramène à l'accueil avant de quitter l'appli.
+  // Le bouton retour d'Android remonte d'un niveau : module → sous-menu (ou accueil) → accueil → quitter l'appli.
   useEffect(() => {
-    if (active === 'accueil') return;
+    if (active === 'accueil' && menu === null) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setActive('accueil');
+      if (active === 'accueil') setMenu(null);
+      else setActive('accueil');
       return true;
     });
     return () => sub.remove();
-  }, [active]);
+  }, [active, menu]);
+
+  const goHome = () => {
+    setMenu(null);
+    setActive('accueil');
+  };
 
   const info: Partial<Record<ModuleId, TileInfo>> = {
     routines: { dot: routinesAlert },
@@ -74,7 +83,7 @@ export function AppTabs() {
           )}
           {active === 'accueil' ? (
             <View style={StyleSheet.absoluteFill}>
-              <HomeScreen onOpen={setActive} info={info} />
+              <HomeScreen menu={menu} onMenu={setMenu} onOpen={setActive} info={info} />
             </View>
           ) : null}
         </View>
@@ -85,7 +94,7 @@ export function AppTabs() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Accueil"
-            onPress={() => setActive('accueil')}
+            onPress={goHome}
             style={({ pressed }) => [st.tab, pressed && { opacity: 0.6 }]}
           >
             <Icon name="home" size={24} color={colors.muted} />
