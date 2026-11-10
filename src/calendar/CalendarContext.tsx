@@ -6,7 +6,7 @@ import { useSettings } from '../settings/SettingsContext';
 import { syncReminders } from './notifications';
 import { addDays, fromKey, todayKey } from './dates';
 import type { DayKey } from './dates';
-import { CalendarEvent, DEFAULT_DOMAINS, Domain, domainOf, itemsOf } from './model';
+import { CalendarEvent, DEFAULT_DOMAINS, LEGACY_DOMAINS, Domain, domainOf, itemsOf } from './model';
 import { listPhoneCalendars, listPhoneEvents, phoneCalendarsSupported, phonePermission } from './phoneCalendar';
 import { isPhoneDomain, PhoneCalendarInfo, phoneDomain, phoneEventsToCalendar } from './phoneEvents';
 
@@ -21,7 +21,7 @@ interface CalendarData {
   events: CalendarEvent[];
   /** Page de notes libres, indexée par le lundi de la semaine. */
   weekNotes: Record<DayKey, string>;
-  domains: Domain[];
+  domains?: Domain[]; // absent tant que rien n'est enregistré (voir le premier chargement plus bas)
   /** Les sous-domaines de Sport (Roller, Trampo, Renfo) ont été proposés une fois : on ne les recrée pas s'ils sont supprimés. */
   sportSubsSeeded?: boolean;
 }
@@ -68,18 +68,21 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [data, setData, loaded] = usePersistentState<CalendarData>('ce.calendar.v1', {
     events: [],
     weekNotes: {},
-    domains: DEFAULT_DOMAINS,
   });
   const domains = data.domains?.length ? data.domains : DEFAULT_DOMAINS;
 
-  // Une seule fois : Sport reçoit ses sous-domaines (demande de Valentin : voir le temps passé en roller, trampo, renfo).
+  // Une seule fois, au premier chargement de cette version :
+  // - téléphone qui a déjà des données (Valentin) : on garde ses domaines (ou les anciens par défaut s'ils n'étaient pas
+  //   enregistrés) et Sport reçoit Roller / Trampo / Renfo (sa demande du 10 nov.) ;
+  // - nouvel utilisateur : Perso, Sport, Travail, sans sous-domaine (il crée le reste lui-même).
   useEffect(() => {
     if (!loaded || data.sportSubsSeeded) return;
     setData((d) => {
-      const list = d.domains?.length ? d.domains : DEFAULT_DOMAINS;
+      const existing = (d.events?.length ?? 0) > 0 || Object.keys(d.weekNotes ?? {}).length > 0;
+      const list = d.domains?.length ? d.domains : existing ? LEGACY_DOMAINS : DEFAULT_DOMAINS;
       const sport = list.find((x) => x.id === 'sport');
       const add: Domain[] =
-        sport && !list.some((x) => x.parent === 'sport')
+        existing && sport && !list.some((x) => x.parent === 'sport')
           ? [['sport-roller', 'Roller'], ['sport-trampo', 'Trampo'], ['sport-renfo', 'Renfo']].map(([id, label]) => ({ id, label, color: sport.color, parent: 'sport' }))
           : [];
       return { ...d, domains: [...list, ...add], sportSubsSeeded: true };

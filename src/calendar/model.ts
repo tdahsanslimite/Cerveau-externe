@@ -13,7 +13,15 @@ export interface Domain {
   parent?: string;
 }
 
+/** Domaines d'un nouvel utilisateur (décision de Valentin, 10 nov. : « juste perso, sport, travail », le reste il le crée). */
 export const DEFAULT_DOMAINS: Domain[] = [
+  { id: 'perso', label: 'Perso', color: '#6B7178' },
+  { id: 'sport', label: 'Sport', color: '#7A4FB0' },
+  { id: 'travail', label: 'Travail', color: '#2F63B0' },
+];
+
+/** Anciens domaines par défaut : gardés pour un téléphone qui a déjà des données sans liste de domaines enregistrée. */
+export const LEGACY_DOMAINS: Domain[] = [
   { id: 'travail', label: 'Travail', color: '#2F63B0' },
   { id: 'famille', label: 'Famille', color: '#C9721F' },
   { id: 'sante', label: 'Santé', color: '#2E8B57' },
