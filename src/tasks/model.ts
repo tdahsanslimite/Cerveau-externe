@@ -5,7 +5,7 @@
 // Testé dans model.test.ts. Les imports gardent l'extension .ts pour que `npm test` les lise.
 import { addDays } from '../calendar/dates.ts';
 import type { DayKey } from '../calendar/dates.ts';
-import type { CalendarEvent } from '../calendar/model.ts';
+import type { CalendarEvent, ItemLine } from '../calendar/model.ts';
 
 export type TaskStatus = 'todo' | 'done' | 'dropped';
 
@@ -31,7 +31,16 @@ export interface Task {
   rank?: number;
   /** Placée dans « The One Thing » (seulement en la déplaçant à la main) : à faire tout de suite. */
   oneThing?: boolean;
+  /** Absent = tâche. 'liste' = liste à cocher (courses, étapes…) : ses lignes sont dans `items`. */
+  kind?: IdeaKind;
+  items?: ItemLine[];
 }
+
+export type IdeaKind = 'tache' | 'liste';
+export const IDEA_KINDS: { id: IdeaKind; label: string }[] = [
+  { id: 'tache', label: 'Tâche' },
+  { id: 'liste', label: 'Liste' },
+];
 
 // ---- Matrice d'Eisenhower ----
 
@@ -59,14 +68,25 @@ export interface Triable {
   oneThing?: boolean;
 }
 
-export function quadrantOf(t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>): QuadrantId | null {
-  if (t.important === null || t.urgent === null) return null;
+/**
+ * La case d'une idée. « Ne sais pas » (null) sur l'importance ou l'urgence : elle va dans « Abandonner »,
+ * en attendant que l'utilisateur la répartisse à sa guise (pas de longue liste en haut de page).
+ */
+export function quadrantOf(t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>): QuadrantId {
+  if (t.important === null || t.urgent === null) return 'lacher';
   if (t.oneThing && t.important && t.urgent) return 'one';
   if (t.important) return t.urgent ? 'faire' : 'planifier';
   return t.urgent ? 'alleger' : 'lacher';
 }
 
-export const isSorted = (t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>) => quadrantOf(t) !== null;
+/** Pas encore répartie : au moins un « Ne sais pas ». */
+export const toSort = (t: Pick<Triable, 'important' | 'urgent'>) => t.important === null || t.urgent === null;
+
+/** Peut-on la mettre au calendrier ? Seulement si elle est dans The One Thing ou « Urgent et important ». */
+export const canSchedule = (t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>) => {
+  const q = quadrantOf(t);
+  return q === 'one' || q === 'faire';
+};
 
 // ---- Une seule liste : tâches du module + événements « Tâche » ----
 
@@ -82,13 +102,15 @@ export interface TaskItem extends Triable {
   slides: number;
   category?: string;
   note?: string;
+  kind: IdeaKind;
+  items?: ItemLine[];
 }
 
 export function taskToItem(t: Task): TaskItem {
   return {
     key: `task:${t.id}`, source: 'task', id: t.id, title: t.title, day: t.day, start: null, durationMin: 0,
     important: t.important, urgent: t.urgent, status: t.status, slides: t.slides, category: t.category,
-    rank: t.rank, note: t.note, oneThing: t.oneThing,
+    rank: t.rank, note: t.note, oneThing: t.oneThing, kind: t.kind ?? 'tache', items: t.items,
   };
 }
 
@@ -97,13 +119,16 @@ export function taskToItem(t: Task): TaskItem {
  * Les séries (chaque jour, chaque semaine…) restent dans le calendrier : elles n'ont pas de priorité à trier.
  */
 export function eventToItem(e: CalendarEvent): TaskItem | null {
-  if (!(e.kinds ?? []).includes('tache') || e.repeat !== 'none' || e.sentToSas) return null;
+  const k = e.kinds ?? [];
+  // Tâche ou liste (« objet » sans rendez-vous) ; un rendez-vous, même avec des objets, reste dans le calendrier.
+  if (!(k.includes('tache') || (k.includes('objet') && !k.includes('rdv'))) || e.repeat !== 'none' || e.sentToSas) return null;
   return {
     key: `event:${e.id}`, source: 'event', id: e.id, title: e.title, day: e.date,
     start: e.start, durationMin: e.durationMin,
     important: e.important ?? null, urgent: e.urgent ?? null,
     status: e.doneDays?.includes(e.date) ? 'done' : 'todo',
     slides: 0, category: e.category, rank: e.rank, note: e.note, oneThing: e.oneThing,
+    kind: k.includes('objet') ? 'liste' : 'tache', items: k.includes('objet') ? (e.items ?? (e.item ? [{ id: 'old', text: e.item }] : [])) : undefined,
   };
 }
 
@@ -114,16 +139,6 @@ export function itemsOf(tasks: Task[], events: CalendarEvent[]): TaskItem[] {
     if (item) fromEvents.push(item);
   }
   return [...tasks.map(taskToItem), ...fromEvents];
-}
-
-// ---- Le sas : tout ce qui n'a pas encore de priorité ----
-
-/**
- * Éléments à trier : pas faits, pas encore de priorité. Une tâche déposée sans réfléchir n'a pas de jour ;
- * un événement « Tâche » en a un (et un créneau), et attend seulement qu'on lui donne sa priorité.
- */
-export function inSas<T extends Triable>(items: T[]): T[] {
-  return items.filter((t) => t.status === 'todo' && !isSorted(t));
 }
 
 /**
@@ -209,8 +224,7 @@ export function continueList(before: string, after: string): string {
  */
 export function tasksOn<T extends Triable & { start?: number | null }>(items: T[], day: DayKey): T[] {
   const rank = (t: T) => {
-    const q = quadrantOf(t);
-    return q === null ? 4 : QUADRANT_RANK[q];
+    return QUADRANT_RANK[quadrantOf(t)];
   };
   const at = (t: T) => t.start ?? 24 * 60;
   return items
@@ -250,6 +264,7 @@ export function taskFromMissedEvent(e: CalendarEvent, today: DayKey): Task {
   return {
     id: newId(), title: e.title, createdAt: today, important: null, urgent: null, day: null,
     status: 'todo', slides: 1, category: e.category, note: e.note,
+    ...((e.kinds ?? []).includes('objet') ? { kind: 'liste' as const, items: (e.items ?? []).map((i) => ({ ...i, done: false })) } : {}),
   };
 }
 
@@ -298,7 +313,8 @@ export function eventFromTask(t: Task, today: DayKey, domainIds: string[]): Cale
   const category = t.category && domainIds.includes(t.category) ? t.category : domainIds.includes('travail') ? 'travail' : (domainIds[0] ?? 'travail');
   return {
     id: newId(), title: t.title.trim(), date: t.day ?? today, start: 9 * 60, durationMin: 60, category,
-    repeat: 'none', kinds: ['tache'], reminders: [{ amount: 30, unit: 'min' }],
+    repeat: 'none', kinds: t.kind === 'liste' ? ['tache', 'objet'] : ['tache'], reminders: [{ amount: 30, unit: 'min' }],
+    items: t.kind === 'liste' ? t.items : undefined,
     important: t.important, urgent: t.urgent, note: t.note, rank: t.rank, oneThing: t.oneThing,
   };
 }

@@ -1,5 +1,6 @@
-// Fiche d'une idée, en trois étapes : 1) la note, 2) le domaine, 3) la priorité (points).
-// Pour une idée existante, on peut aussi la mettre au calendrier : la date et l'heure se notent juste en dessous.
+// Fiche d'une idée : Tâche ou Liste (à cocher), puis 1) la note, 2) le domaine, 3) la priorité (Oui / Non / Ne sais pas).
+// Pour une idée existante, on peut la mettre au calendrier, mais seulement si elle est dans The One Thing ou « Urgent et important » :
+// on crée l'idée, on juge sa priorité, et si elle le mérite on la programme (évite la surcharge).
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { addDays, durationLabel, labelDayLong, minutesToLabel, relativeLabel, todayKey } from '../calendar/dates';
@@ -7,10 +8,11 @@ import type { DayKey } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
 import { findConflict, nextFreeStart } from '../calendar/model';
 import { DomainPicker } from '../calendar/DomainPicker';
+import { ItemListEditor, TriChips } from '../calendar/ItemListEditor';
 import { TimeWheel } from '../calendar/TimeWheel';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
-import { continueList, eventFromTask, isStuck, quadrantInfo, quadrantOf, Task } from './model';
+import { canSchedule, continueList, eventFromTask, IDEA_KINDS, isStuck, quadrantInfo, quadrantOf, Task } from './model';
 import { useTasks } from './TasksContext';
 
 const DURATIONS = [15, 30, 45, 60, 90, 120];
@@ -36,27 +38,34 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
   const patch = (p: Partial<Task>) => setT({ ...t, ...p });
   const today = todayKey();
   const titleOk = t.title.trim().length > 0;
-  const important = t.important === true;
-  const urgent = t.urgent === true;
-  const q = quadrantOf({ important, urgent, oneThing: t.oneThing });
+  const q = quadrantOf({ important: t.important, urgent: t.urgent, oneThing: t.oneThing });
+  const isList = t.kind === 'liste';
+  const schedulable = canSchedule({ important: t.important, urgent: t.urgent, oneThing: t.oneThing });
 
-  const clean = (next: Task): Task => ({ ...next, title: next.title.trim(), note: next.note?.trim() || undefined });
+  const clean = (next: Task): Task => ({
+    ...next,
+    title: next.title.trim(),
+    note: next.note?.trim() || undefined,
+    items: next.kind === 'liste' ? (next.items ?? []).filter((i) => i.text.trim()).map((i) => ({ ...i, text: i.text.trim() })) : next.items,
+  });
+  const setKind = (kind: 'tache' | 'liste') =>
+    patch({ kind, ...(kind === 'liste' && !(t.items ?? []).length ? { items: [{ id: `l${Date.now().toString(36)}`, text: '' }] } : {}) });
 
   // ---- Créneau choisi (idée existante) ----
-  const candidate = cal ? { ...eventFromTask({ ...t, day: cal.day }, today, domains.map((d) => d.id)), start: cal.start, durationMin: cal.duration } : null;
+  const candidate = cal && schedulable ? { ...eventFromTask({ ...t, day: cal.day }, today, domains.map((d) => d.id)), start: cal.start, durationMin: cal.duration } : null;
   const conflict = candidate ? findConflict(events, candidate) : null;
   const suggestion = candidate && conflict ? nextFreeStart(events, { ...candidate, date: conflict.day }, cal!.start) : null;
 
   const validate = () => {
     setTried(true);
     if (!titleOk) return;
-    // Une nouvelle idée validée est classée (oui ou non). Une idée du « à classer » dont on ne touche pas la priorité le reste.
-    const imp = isNew ? important : t.important;
-    const urg = isNew ? urgent : t.urgent;
-    const done = clean({ ...t, important: imp, urgent: urg, oneThing: imp && urg ? t.oneThing : undefined });
+    // « Ne sais pas » (null) est gardé tel quel : l'idée reste dans Abandonner, à répartir plus tard.
+    const imp = t.important;
+    const urg = t.urgent;
+    const done = clean({ ...t, important: imp, urgent: urg, oneThing: imp === true && urg === true ? t.oneThing : undefined });
     if (cal && candidate) {
       if (conflict) return;
-      saveEvent({ ...candidate, title: done.title, important: imp, urgent: urg, note: done.note });
+      saveEvent({ ...candidate, title: done.title, important: imp, urgent: urg, note: done.note, items: done.kind === 'liste' ? done.items : undefined });
       remove(t.id); // un seul exemplaire : l'événement du calendrier, qui reste dans les listes
     } else {
       save(done);
@@ -98,6 +107,14 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
         />
       </Field>
 
+      <Field label="C’est…">
+        <View style={st.wrap}>
+          {IDEA_KINDS.map((k) => (
+            <Chip key={k.id} label={k.label} selected={(t.kind ?? 'tache') === k.id} onPress={() => setKind(k.id)} />
+          ))}
+        </View>
+      </Field>
+
       {isStuck(t) ? (
         <View style={st.warn}>
           <Icon name="refresh-cw" size={18} color={colors.warnDark} />
@@ -107,7 +124,12 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
         </View>
       ) : null}
 
-      <Field label="1 · Développe ton idée" hint="Une note libre. Un retour à la ligne après un tiret continue la liste.">
+      {isList ? (
+        <Field label="1 · Ta liste" hint="Une ligne par chose. Tu les coches une à une.">
+          <ItemListEditor items={t.items ?? []} onChange={(items) => patch({ items })} placeholder="Ex. lait" />
+        </Field>
+      ) : (
+        <Field label="1 · Développe ton idée" hint="Une note libre. Un retour à la ligne après un tiret continue la liste.">
         <TextInput
           accessibilityLabel="Note"
           value={t.note ?? ''}
@@ -117,26 +139,36 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
           multiline
           style={[st.input, { minHeight: 110, paddingTop: 12, textAlignVertical: 'top' }]}
         />
-      </Field>
+        </Field>
+
+      )}
 
       <Field label="2 · Domaine" hint="Une simple étiquette, pour les calculs.">
         <DomainPicker value={t.category} onChange={(category) => patch({ category })} allowNone />
       </Field>
 
-      <Field
-        label="3 · Priorité"
-        hint={`Rangée dans « ${quadrantInfo(q ?? 'lacher').label} ».`}
-      >
-        <View style={st.wrap}>
-          <Chip label="Important" selected={important} onPress={() => patch({ important: !important })} />
-          <Chip label="Urgent" selected={urgent} onPress={() => patch({ urgent: !urgent })} />
+      <Field label="3 · Priorité" hint={`Rangée dans « ${quadrantInfo(q).label} ». « Ne sais pas » : elle va dans Abandonner, tu la répartiras ensuite.`}>
+        <View style={{ gap: 10 }}>
+          <View style={{ gap: 6 }}>
+            <Txt bold size={14}>Important ?</Txt>
+            <TriChips value={t.important} onChange={(important) => patch({ important })} />
+          </View>
+          <View style={{ gap: 6 }}>
+            <Txt bold size={14}>Urgent ?</Txt>
+            <TriChips value={t.urgent} onChange={(urgent) => patch({ urgent })} />
+          </View>
         </View>
       </Field>
 
       {!isNew ? (
-        <Field label="Calendrier" hint="Choisis la date et l’heure : à la validation, l’idée entre au calendrier.">
-          <Button label={cal ? 'Pas de calendrier' : 'Mettre au calendrier'} kind="ghost" icon="calendar" onPress={toggleCal} />
-          {cal ? (
+        <Field
+          label="Calendrier"
+          hint={schedulable
+            ? 'Choisis la date et l’heure : à la validation, l’idée entre au calendrier.'
+            : 'On ne programme que ce qui est dans The One Thing ou « Urgent et important ». Juge d’abord la priorité : si elle le mérite, tu pourras la mettre au calendrier.'}
+        >
+          {schedulable ? <Button label={cal ? 'Pas de calendrier' : 'Mettre au calendrier'} kind="ghost" icon="calendar" onPress={toggleCal} /> : null}
+          {cal && schedulable ? (
             <View style={{ gap: 10 }}>
               <View style={st.stepper}>
                 <Pressable accessibilityRole="button" accessibilityLabel="Jour précédent" onPress={() => setCal({ ...cal, day: addDays(cal.day, -1) })} style={({ pressed }) => [st.stepBtn, pressed && { opacity: 0.6 }]}>

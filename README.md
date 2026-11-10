@@ -23,16 +23,21 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 
 ## Module « Trier mes idées » (ex-Tâches)
 
-- **En tête de page** : on note une idée par son titre. Une fenêtre s'ouvre, en 3 étapes : 1) **la note** (texte libre, un retour à la ligne après un tiret continue la liste) ; 2) **le domaine** (Travail, Sport… : une simple étiquette pour les calculs, pas affichée dans cet onglet) ; 3) **la priorité** : important / urgent. En coulisse, des points (**important = 2, urgent = 1**, jamais affichés) servent au tri automatique. Fermer la fenêtre sans valider ne perd pas l'idée : elle attend dans « À classer », visible seulement s'il en reste.
-- **Les listes**, de la plus pertinente à la moins pertinente : **The One Thing** (« Réussir sa journée ! »), **Urgent et important** (« À faire maintenant ! »), **Important** (« Il faut que tu programmes cette idée »), **Urgent**, **Abandonner ?** (« Si une idée tombe ici c'est pas bon... »).
-- **The One Thing** : une seule idée, la chose suprême à exécuter tout de suite. On n'y met une idée **qu'en la déplaçant à la main** (appui long puis glisser) : jamais automatiquement. Si une idée y est déjà, elle retourne tout en haut de « Urgent et important ». Cocher l'idée ou la rendre non urgente / non importante la fait sortir.
-- **Glisser-déposer** : appui long sur une idée, puis on la fait glisser vers une autre liste, ou plus haut / plus bas dans sa liste (trait vert = où elle tombera, la liste visée s'entoure). L'ordre choisi est gardé (`rank`).
-- **Appui simple** sur une idée : fenêtre pour modifier le titre, la note, le domaine, l'importance et **le calendrier** : « Mettre au calendrier » déroule la date et l'heure juste en dessous (créneau libre vérifié) ; à la validation l'idée entre au calendrier et reste dans les listes avec son créneau.
-- **Une seule liste, deux sources, jamais de copie** : un événement du calendrier coché **Tâche** (ponctuel) apparaît aussi dans les listes ; sa priorité se règle dans sa fiche. Les séries, rendez-vous et objets restent dans le calendrier.
-- **Retour au sas** : une idée datée pas cochée un jour passé repasse dans « À classer » (sans jour ni priorité). Pour un événement « Tâche », le créneau reste dans le calendrier et une idée neuve repart dans « À classer ». Après 3 retours, l'appli propose de la découper ou de l'abandonner.
+- **En tête de page** : on note une idée par son titre. Une fenêtre s'ouvre : **Tâche ou Liste** (liste à cocher : courses, étapes…), puis 1) **la note** (ou les lignes de la liste), 2) **le domaine**, 3) **la priorité** : Important ? et Urgent ? avec **Oui / Non / Ne sais pas**. En coulisse, des points (**important = 2, urgent = 1**, jamais affichés) servent au tri automatique.
+- **Une nouvelle idée (ou un « Ne sais pas ») tombe directement dans « Abandonner ? »** : plus de longue liste au-dessus de The One Thing. On la répartit ensuite à sa guise. Plus de rubrique « À classer » ni de badge.
+- **Disposition** : **The One Thing** (« Réussir sa journée ! ») en haut, puis la **matrice d'Eisenhower en 4 cases (2 × 2)** : en haut **Urgent et important** (« À faire maintenant ! ») | **Important** (« Il faut que tu programmes cette idée »), en bas **Urgent** | **Abandonner ?** (« Si une idée tombe ici c'est pas bon... »).
+- **The One Thing** : une seule idée, la chose suprême à exécuter tout de suite. On n'y met une idée **qu'en la déplaçant à la main** (appui long puis glisser). Si une idée y est déjà, elle retourne tout en haut de « Urgent et important ».
+- **Glisser-déposer** : appui long sur une idée, puis on la fait glisser vers une autre case (dans toutes les directions) ou plus haut / plus bas dans sa case (trait vert = où elle tombera). L'ordre choisi est gardé (`rank`).
+- **Appui simple** sur une idée : fenêtre pour tout modifier. **« Mettre au calendrier » n'apparaît que si l'idée est dans The One Thing ou « Urgent et important »** : on crée l'idée, on juge sa priorité, et seulement si elle le mérite on la programme (évite la surcharge). Sinon un texte l'explique. À la validation l'idée entre au calendrier (une liste garde ses lignes) et reste visible avec son créneau.
+- **Une seule liste, deux sources, jamais de copie** : un événement du calendrier de type tâche / liste ponctuel apparaît aussi dans les cases ; les séries et rendez-vous restent dans le calendrier. Les anciens événements « Tâche » / « Objet » seuls sont devenus des tâches / listes.
+- **Retour** : une idée datée pas cochée un jour passé repasse dans « Abandonner ? » (sans jour, priorité effacée) pour décider à nouveau si elle vaut la peine. Après 3 retours, l'appli propose de la découper ou de l'abandonner.
 - **Abandonner** : une idée abandonnée disparaît partout mais reste en mémoire (pour un futur bilan).
 - Les idées prévues un jour apparaissent dans les vues **Jour** et **Semaine** du calendrier et **comptent dans la charge du jour**.
-- Barre d'onglets en bas : Calendrier / Trier mes idées / Routines (badge avec le nombre d'idées à classer).
+
+## Calendrier : on n'y crée que des rendez-vous
+
+- La fiche d'un nouvel événement propose une **nature** : **Rendez-vous**, **Déplacement**, **Activité**, **Autre** (définitions à affiner). Plus de triple choix Événement / Tâche / Objet : les tâches et listes se créent dans « Trier mes idées ».
+- **Chevauchements** : deux rendez-vous (toutes natures) ne se superposent pas ; **une tâche ou une liste ne se pose pas sur un rendez-vous, une activité ou un « autre »** (physiquement impossible) ; **pendant un déplacement (vacances, trajet…) c'est possible**. Deux tâches/listes peuvent se superposer.
 
 ## Module Routines
 
@@ -67,10 +72,10 @@ src/calendar/CalendarContext    données du calendrier
 src/calendar/views.tsx          vues Jour / Semaine / Mois
 src/calendar/EventEditor.tsx    fiche d'événement
 src/calendar/CalendarScreen.tsx écran principal
-src/tasks/model.ts              idées, liste unique (tâches + événements « Tâche »), points, 4 listes, ordre, déplacement (testés)
+src/tasks/model.ts              idées (tâche / liste), liste unique (tâches + événements), points, cases, ordre, déplacement (testés)
 src/tasks/useTaskItems.ts       la liste unique pour les écrans
 src/tasks/TasksContext.tsx      données des tâches (ce.tasks.v1)
-src/tasks/TasksScreen.tsx       « Trier mes idées » : saisie, 4 listes, glisser-déposer
+src/tasks/TasksScreen.tsx       « Trier mes idées » : saisie, The One Thing + matrice 2 × 2, glisser-déposer
 src/tasks/apply.ts              applique priorité / place à une idée, où qu'elle vive
 src/calendar/DomainPicker.tsx   choix du domaine + précision (sous-domaine)
 src/tasks/TaskEditor.tsx        fenêtre d'une idée (note, domaine, points, calendrier)

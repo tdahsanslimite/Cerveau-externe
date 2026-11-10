@@ -16,9 +16,7 @@ import { JournalScreen } from './journal/JournalScreen';
 import { MeditationScreen } from './meditation/MeditationScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
 import { useRoutineAlert } from './routines/useRoutineAlert';
-import { inSas } from './tasks/model';
 import { TasksScreen } from './tasks/TasksScreen';
-import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
 
@@ -41,9 +39,7 @@ const LIVE: { id: ModuleId; screen: () => React.ReactElement }[] = [
 
 export function AppTabs() {
   const insets = useSafeAreaInsets();
-  const items = useTaskItems();
   const [active, setActive] = useState<Where>('accueil');
-  const sasCount = inSas(items).length;
   const routinesAlert = useRoutineAlert();
 
   // Le bouton retour d'Android ramène à l'accueil avant de quitter l'appli.
@@ -57,7 +53,6 @@ export function AppTabs() {
   }, [active]);
 
   const info: Partial<Record<ModuleId, TileInfo>> = {
-    taches: { badge: sasCount > 0 ? sasCount : undefined },
     routines: { dot: routinesAlert },
   };
 
@@ -98,24 +93,18 @@ export function AppTabs() {
           </Pressable>
           {barModules().map((m) => {
             const on = active === m.id;
-            const badge = m.id === 'taches' && sasCount > 0 ? sasCount : 0;
             const dot = m.id === 'routines' && routinesAlert;
             return (
               <Pressable
                 key={m.id}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
-                accessibilityLabel={badge ? `${m.label}, ${badge} à classer` : dot ? `${m.label}, à remplir` : m.label}
+                accessibilityLabel={dot ? `${m.label}, à remplir` : m.label}
                 onPress={() => setActive(m.id)}
                 style={({ pressed }) => [st.tab, on && st.tabOn, pressed && { opacity: 0.6 }]}
               >
                 <View>
                   <Icon name={m.icon as IconName} size={24} color={on ? colors.accent : colors.muted} />
-                  {badge ? (
-                    <View style={st.badge}>
-                      <Txt bold size={11} color="#FFFFFF">{badge > 99 ? '99+' : badge}</Txt>
-                    </View>
-                  ) : null}
                 </View>
                 <View style={st.labelRow}>
                   <Txt bold={on} size={12} color={on ? colors.accent : colors.muted}>{m.barLabel}</Txt>

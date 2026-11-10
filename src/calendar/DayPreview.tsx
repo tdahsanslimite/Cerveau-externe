@@ -7,7 +7,7 @@ import { colors, radius } from '../theme';
 import { Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
 import { DayKey, labelDayShort, minutesToLabel } from './dates';
-import { CalendarEvent, endOf, kindsOf, occurrencesOn } from './model';
+import { CalendarEvent, endOf, kindsOf, natureLabel, natureOf, occurrencesOn } from './model';
 
 const PX_PER_MIN = 0.5; // 30 px par heure
 const LABEL_W = 42;
@@ -42,7 +42,7 @@ function lanes(blocks: Block[]): { block: Block; lane: number; of: number }[] {
 
 const kindLabel = (e: CalendarEvent) => {
   const k = kindsOf(e);
-  return k.includes('rdv') ? 'Événement' : k.includes('tache') ? 'Tâche' : 'Objet';
+  return k.includes('rdv') ? natureLabel(natureOf(e)) : k.includes('objet') ? 'Liste' : 'Tâche';
 };
 
 export function DayPreview({ day, candidate, blockingId }: { day: DayKey; candidate: CalendarEvent; blockingId: string | null }) {

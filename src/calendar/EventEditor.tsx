@@ -9,11 +9,12 @@ import { useCalendar } from './CalendarContext';
 import { addDays, DayKey, diffDays, durationLabel, labelDayLong, labelDayShort, minutesToLabel, relativeLabel } from './dates';
 import { DayPreview } from './DayPreview';
 import {
-  ALERTS, CalendarEvent, EventKind, ItemLine, itemsOf, findConflict, KINDS, kindsOf, MAX_REMINDERS, newId, nextFreeStart,
+  ALERTS, CalendarEvent, ItemLine, itemsOf, findConflict, kindsOf, MAX_REMINDERS, NATURES, natureOf, newId, nextFreeStart,
   Reminder, REMINDER_UNITS, REPEATS,
 } from './model';
 import { notificationsSupported } from './notifications';
 import { DomainPicker } from './DomainPicker';
+import { ItemListEditor, TriChips } from './ItemListEditor';
 import { TimeWheel } from './TimeWheel';
 
 const DAY_END = 24 * 60;
@@ -92,16 +93,6 @@ export function EventEditor({ state, onClose, onSaved }: {
   const others = load(e.date, { eventId: e.id });
   const overLimit = others + 1 > settings.dailyLimit;
 
-  const toggleKind = (k: EventKind) => {
-    const next = kinds.includes(k) ? kinds.filter((x) => x !== k) : [...kinds, k];
-    const turningOnItems = k === 'objet' && !kinds.includes('objet');
-    patch({
-      kinds: next.length ? next : ['rdv'],
-      itemEveReminder: turningOnItems ? true : e.itemEveReminder,
-      ...(turningOnItems && itemsOf(e).length === 0 ? { items: [{ id: newId(), text: '' }] } : {}),
-    });
-  };
-
   const setReminder = (i: number, r: Partial<Reminder>) =>
     patch({ reminders: reminders.map((x, j) => (j === i ? { ...x, ...r } : x)) });
 
@@ -128,7 +119,7 @@ export function EventEditor({ state, onClose, onSaved }: {
     <>
       {tried && !canSave ? (
         <Txt size={14} color={colors.danger} style={{ textAlign: 'center' }}>
-          {!titleOk ? 'Donne un intitulé à l’événement.' : !itemOk ? 'Ajoute au moins un objet à la liste.' : 'Ce créneau est déjà pris.'}
+          {!titleOk ? 'Donne un intitulé.' : !itemOk ? 'Ajoute au moins un objet à la liste.' : 'Ce créneau est déjà pris.'}
         </Txt>
       ) : null}
       <Button label={state.isNew ? 'Ajouter' : 'Enregistrer'} kind="dark" onPress={save} style={!canSave && { opacity: 0.45 }} />
@@ -164,73 +155,30 @@ export function EventEditor({ state, onClose, onSaved }: {
         />
       </Field>
 
-      <Field label="C'est…" hint="Tu peux en choisir plusieurs.">
-        <View style={st.wrap}>
-          {KINDS.map((k) => (
-            <Chip key={k.id} label={k.label} selected={kinds.includes(k.id)} onPress={() => toggleKind(k.id)} />
-          ))}
-        </View>
-      </Field>
+      {kinds.includes('rdv') ? (
+        <Field label="C'est…" hint={NATURES.find((n) => n.id === natureOf(e))?.hint}>
+          <View style={st.wrap}>
+            {NATURES.map((n) => (
+              <Chip key={n.id} label={n.label} selected={natureOf(e) === n.id} onPress={() => patch({ nature: n.id })} />
+            ))}
+          </View>
+        </Field>
+      ) : null}
 
       {inMatrix ? (
         <>
-          <Field label="Important ?" hint="Pour la matrice des Tâches. Laisse vide pour la trier plus tard : elle ira dans le sas.">
-            <View style={st.wrap}>
-              <Chip label="Oui" selected={e.important === true} onPress={() => patch({ important: e.important === true ? null : true })} />
-              <Chip label="Non" selected={e.important === false} onPress={() => patch({ important: e.important === false ? null : false })} />
-            </View>
+          <Field label="Important ?" hint="Pour la matrice des Idées. « Ne sais pas » : elle ira dans Abandonner, tu la répartiras plus tard.">
+            <TriChips value={e.important ?? null} onChange={(v) => patch({ important: v })} />
           </Field>
           <Field label="Urgent ?">
-            <View style={st.wrap}>
-              <Chip label="Oui" selected={e.urgent === true} onPress={() => patch({ urgent: e.urgent === true ? null : true })} />
-              <Chip label="Non" selected={e.urgent === false} onPress={() => patch({ urgent: e.urgent === false ? null : false })} />
-            </View>
+            <TriChips value={e.urgent ?? null} onChange={(v) => patch({ urgent: v })} />
           </Field>
         </>
       ) : null}
 
       {hasItem ? (
         <Field label="Objets à prendre / acheter">
-          <View style={st.itemList}>
-            {itemList.map((it, idx) => (
-              <View key={it.id} style={st.itemRow}>
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: !!it.done }}
-                  accessibilityLabel={it.done ? `Décocher ${it.text}` : `Cocher ${it.text}`}
-                  onPress={() => setItems(itemList.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
-                  hitSlop={8}
-                  style={[st.box, it.done && st.boxOn]}
-                >
-                  {it.done ? <Icon name="check" size={16} color="#FFFFFF" /> : null}
-                </Pressable>
-                <TextInput
-                  accessibilityLabel={`Objet ${idx + 1}`}
-                  value={it.text}
-                  onChangeText={(text) => setItems(itemList.map((x) => (x.id === it.id ? { ...x, text } : x)))}
-                  placeholder="Ex. devis signé"
-                  placeholderTextColor={colors.faint}
-                  autoFocus={!it.text && idx === itemList.length - 1 && idx > 0}
-                  returnKeyType="next"
-                  blurOnSubmit={false}
-                  onSubmitEditing={() => { if (it.text.trim()) setItems([...itemList, { id: newId(), text: '' }]); }}
-                  style={[st.itemInput, it.done && { textDecorationLine: 'line-through', color: colors.muted }]}
-                />
-                <Pressable accessibilityRole="button" accessibilityLabel={`Retirer ${it.text || 'cet objet'}`} onPress={() => setItems(itemList.filter((x) => x.id !== it.id))} hitSlop={8} style={st.itemRemove}>
-                  <Icon name="x" size={16} color={colors.muted} />
-                </Pressable>
-              </View>
-            ))}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Ajouter un objet"
-              onPress={() => setItems([...itemList, { id: newId(), text: '' }])}
-              style={[st.itemAdd, tried && !itemOk && { borderColor: colors.danger }]}
-            >
-              <Icon name="plus" size={16} color={colors.accent} />
-              <Txt bold size={14} color={colors.accent}>Ajouter</Txt>
-            </Pressable>
-          </View>
+          <ItemListEditor items={itemList} onChange={setItems} error={tried && !itemOk} />
           <Pressable accessibilityRole="switch" accessibilityState={{ checked: !!e.itemEveReminder }} onPress={() => patch({ itemEveReminder: !e.itemEveReminder })} style={st.checkRow}>
             <View style={[st.box, e.itemEveReminder && st.boxOn]}>{e.itemEveReminder ? <Icon name="check" size={16} color="#FFFFFF" /> : null}</View>
             <Txt size={14} style={{ flex: 1 }}>Me le rappeler la veille à 20 h pour le préparer</Txt>

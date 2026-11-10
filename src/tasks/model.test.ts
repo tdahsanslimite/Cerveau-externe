@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  byQuadrant, eventFromTask, eventToItem, inSas, isStuck, itemsOf, newTask, quadrantOf, setDone, slideLabel, returnOverdueToSas, eventTasksToReturn, taskFromMissedEvent,
+  byQuadrant, eventFromTask, eventToItem, toSort, canSchedule, isStuck, itemsOf, newTask, quadrantOf, setDone, slideLabel, returnOverdueToSas, eventTasksToReturn, taskFromMissedEvent,
   sortEvent, sortTask, taskCountOn, taskToItem, tasksOn, whenToDay,
   continueList, moveIdea, pointsOf, priorityOf,
 } from './model.ts';
@@ -17,8 +17,8 @@ test('les quatre quadrants d’Eisenhower', () => {
   assert.equal(quadrantOf({ important: true, urgent: false }), 'planifier');
   assert.equal(quadrantOf({ important: false, urgent: true }), 'alleger');
   assert.equal(quadrantOf({ important: false, urgent: false }), 'lacher');
-  assert.equal(quadrantOf({ important: null, urgent: null }), null);
-  assert.equal(quadrantOf({ important: true, urgent: null }), null);
+  assert.equal(quadrantOf({ important: null, urgent: null }), 'lacher'); // « Ne sais pas » : dans Abandonner
+  assert.equal(quadrantOf({ important: true, urgent: null }), 'lacher');
 });
 
 test('une tâche déposée atterrit dans le sas, sans priorité ni jour', () => {
@@ -26,22 +26,25 @@ test('une tâche déposée atterrit dans le sas, sans priorité ni jour', () => 
   assert.equal(t.title, 'Appeler la banque');
   assert.equal(t.important, null);
   assert.equal(t.day, null);
-  assert.deepEqual(inSas([t]).map((x) => x.id), [t.id]);
+  assert.equal(quadrantOf(t), 'lacher');
+  assert.ok(toSort(t));
 });
 
-test('le sas contient tout ce qui n’a pas de priorité, avec ou sans jour, sauf le fait et le lâché', () => {
+test('« Ne sais pas » (null) range dans Abandonner, et seules The One Thing / Urgent et important se programment', () => {
   const vierge = mk({ id: 'a' });
-  const triee = mk({ id: 'b', important: true, urgent: false });
-  const prevue = mk({ id: 'c', day: TODAY });
-  const faite = mk({ id: 'd', status: 'done' });
-  const lachee = mk({ id: 'e', status: 'dropped' });
   const moitie = mk({ id: 'f', important: true, urgent: null });
-  assert.deepEqual(inSas([vierge, triee, prevue, faite, lachee, moitie]).map((x) => x.id), ['a', 'c', 'f']);
+  const faire = mk({ id: 'b', important: true, urgent: true });
+  assert.deepEqual(byQuadrant([vierge, moitie, faire], 'lacher').map((x) => x.id), ['a', 'f']);
+  assert.ok(!canSchedule(vierge) && !canSchedule(moitie));
+  assert.ok(canSchedule(faire));
+  assert.ok(canSchedule({ important: true, urgent: true, oneThing: true }));
+  assert.ok(!canSchedule({ important: true, urgent: false }));
+  assert.ok(!canSchedule({ important: false, urgent: true }));
 });
 
-test('trier une tâche la sort du sas et la range dans la matrice', () => {
+test('trier une tâche la range dans la matrice', () => {
   const t = sortTask(mk({ id: 'a' }), true, true, TODAY);
-  assert.deepEqual(inSas([t]), []);
+  assert.ok(!toSort(t));
   assert.deepEqual(byQuadrant([t], 'faire').map((x) => x.id), ['a']);
   assert.deepEqual(byQuadrant([t], 'planifier'), []);
   assert.equal(t.day, TODAY);
@@ -98,7 +101,7 @@ test('retour au sas : une tâche pas cochée un jour passé repasse par le sas, 
   assert.equal(get('retard').important, null);
   assert.equal(get('retard').urgent, null);
   assert.equal(get('retard').slides, 1);
-  assert.ok(inSas(out.map(taskToItem)).some((i) => i.id === 'retard'));
+  assert.ok(byQuadrant(out.map(taskToItem), 'lacher').some((i) => i.id === 'retard')); // retour dans Abandonner, à re-décider
   for (const id of ['aujourdhui', 'futur', 'sansjour', 'faite', 'lachee']) {
     assert.equal(get(id).slides, 0, id);
     assert.equal(get(id).day, tasks.find((t) => t.id === id)?.day);
@@ -180,10 +183,10 @@ test('un événement coché « Tâche » apparaît dans la liste, avec son crén
   assert.equal(item.status, 'todo');
 });
 
-test('les rendez-vous, objets et séries restent dans le calendrier', () => {
+test('les rendez-vous et séries restent dans le calendrier (un objet seul devient une liste)', () => {
   assert.equal(eventToItem(ev({ kinds: ['rdv'] })), null);
   assert.equal(eventToItem(ev({ kinds: undefined })), null); // événements d’avant la v1.1 = rendez-vous
-  assert.equal(eventToItem(ev({ kinds: ['objet'] })), null);
+  assert.equal(eventToItem(ev({ kinds: ['objet'], repeat: 'daily' })), null);
   assert.equal(eventToItem(ev({ repeat: 'daily' })), null);
   assert.equal(eventToItem(ev({ repeat: 'weekly' })), null);
   assert.notEqual(eventToItem(ev({ kinds: ['rdv', 'tache', 'objet'] })), null); // « IRM + tâche + objet »
@@ -203,7 +206,7 @@ test('sas et matrice mélangent tâches du module et événements, sans doublon'
   ];
   const items = itemsOf(tasks, events);
   assert.deepEqual(items.map((i) => i.key), ['task:t1', 'task:t2', 'event:e1', 'event:e2']);
-  assert.deepEqual(inSas(items).map((i) => i.key), ['task:t1', 'event:e1']);
+  assert.deepEqual(byQuadrant(items, 'lacher').map((i) => i.key), ['event:e1', 'task:t1']);
   assert.deepEqual(byQuadrant(items, 'planifier').map((i) => i.key), ['event:e2', 'task:t2']); // le jour le plus proche d'abord, « un jour » en dernier
 });
 
@@ -260,7 +263,7 @@ test('trier un événement « Tâche » ne touche qu’à sa priorité', () => {
   assert.equal(after.urgent, false);
   assert.equal(after.start, before.start);
   assert.equal(after.note, 'x');
-  assert.deepEqual(inSas([eventToItem(after) as TaskItem]), []);
+  assert.ok(!toSort(eventToItem(after) as TaskItem));
 });
 
 test('une tâche du module se convertit en élément de liste sans perdre ses champs', () => {
@@ -351,4 +354,18 @@ test('la note continue une liste à tirets', () => {
   assert.equal(continueList('texte', 'texte\n'), 'texte\n');
   assert.equal(continueList('- un', '- un deux'), '- un deux');
   assert.equal(continueList('', '\n'), '\n');
+});
+
+test('liste : une idée « liste » devient un événement tâche + objet avec ses lignes, et un événement « objet » seul est une liste', () => {
+  const t = mk({ id: 'l', kind: 'liste', items: [{ id: '1', text: 'lait' }, { id: '2', text: 'pain', done: true }], important: true, urgent: true });
+  assert.equal(taskToItem(t).kind, 'liste');
+  const e = eventFromTask(t, TODAY, ['travail']);
+  assert.deepEqual(e.kinds, ['tache', 'objet']);
+  assert.equal(e.items?.length, 2);
+  const back = eventToItem(e);
+  assert.equal(back?.kind, 'liste');
+  const objetSeul = eventToItem(ev({ id: 'o', kinds: ['objet'], item: 'devis' }));
+  assert.equal(objetSeul?.kind, 'liste');
+  assert.equal(eventToItem(ev({ id: 'r', kinds: ['rdv', 'objet'], item: 'devis' })), null); // IRM : reste un rendez-vous
+  assert.equal(taskToItem(mk({ id: 'x' })).kind, 'tache');
 });

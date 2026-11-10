@@ -43,10 +43,10 @@ test('occurrences d’un événement répété : un id par occurrence ; agenda i
   assert.equal(new Set(list.map((e) => e.id)).size, 2);
 });
 
-test('un rendez-vous Google bloque un événement Cerveau Externe, pas une tâche', () => {
+test('un rendez-vous Google bloque un rendez-vous Cerveau Externe, et une tâche aussi', () => {
   const [google] = toCalendarEvents({ id: '1', calendarId: '7', title: 'Rdv Calendly', startDate: new Date(2026, 9, 27, 14, 0), endDate: new Date(2026, 9, 27, 15, 0), allDay: false }, cal);
   const mine = { id: 'm', title: 'Tournage', date: '2026-10-27', start: 14 * 60 + 30, durationMin: 60, category: 'travail', repeat: 'none' as const };
   assert.equal(findConflict([google], mine)?.event.id, google.id);
-  assert.equal(findConflict([google], { ...mine, kinds: ['tache' as const] }), null);
+  assert.equal(findConflict([google], { ...mine, kinds: ['tache' as const] })?.event.id, google.id);
   assert.ok(occursOn(google, '2026-10-27'));
 });

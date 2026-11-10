@@ -71,6 +71,18 @@ export const KINDS: { id: EventKind; label: string; hint: string }[] = [
   { id: 'objet', label: 'Objet à prendre', hint: 'Une chose à ne pas oublier d’emporter.' },
 ];
 
+/** Nature d'un rendez-vous du calendrier (le calendrier ne crée plus que ça ; tâches et listes viennent des idées). */
+export type Nature = 'rdv' | 'deplacement' | 'activite' | 'autre';
+
+export const NATURES: { id: Nature; label: string; hint: string }[] = [
+  { id: 'rdv', label: 'Rendez-vous', hint: 'Tu y es en personne : rien d’autre ne peut se faire en même temps.' },
+  { id: 'deplacement', label: 'Déplacement', hint: 'Voyage, vacances, trajet : tu peux y glisser une tâche ou une liste.' },
+  { id: 'activite', label: 'Activité', hint: 'Sport, sortie, loisir : rien d’autre en même temps.' },
+  { id: 'autre', label: 'Autre', hint: 'Compte comme un rendez-vous : rien d’autre en même temps.' },
+];
+
+export const natureLabel = (n: Nature) => NATURES.find((x) => x.id === n)?.label ?? 'Rendez-vous';
+
 export type ReminderUnit = 'min' | 'h' | 'j';
 
 export interface Reminder {
@@ -115,6 +127,8 @@ export interface CalendarEvent {
   endDate?: DayKey;
   /** Absent sur les événements créés avant la v1.1 : traité comme ['rdv']. */
   kinds?: EventKind[];
+  /** Nature d'un rendez-vous (rendez-vous, déplacement, activité, autre). Absent = rendez-vous. */
+  nature?: Nature;
   /** Ce qu'il faut emporter (type « objet »). */
   /** Ancien champ texte (avant le 10 nov.) : relu comme premier objet de la liste. */
   item?: string;
@@ -161,6 +175,7 @@ export function itemsOf(e: CalendarEvent): ItemLine[] {
 export const pendingItems = (e: CalendarEvent) => itemsOf(e).filter((i) => !i.done && i.text.trim());
 
 export const kindsOf = (e: CalendarEvent): EventKind[] => (e.kinds && e.kinds.length ? e.kinds : ['rdv']);
+export const natureOf = (e: CalendarEvent): Nature => e.nature ?? 'rdv';
 export const isTask = (e: CalendarEvent) => kindsOf(e).includes('tache');
 export const isDoneOn = (e: CalendarEvent, day: DayKey) => !!e.doneDays?.includes(day);
 export const endOf = (e: CalendarEvent) => (e.start ?? 0) + e.durationMin;
@@ -262,14 +277,28 @@ function daysToCheck(e: CalendarEvent, horizonDays: number): DayKey[] {
 }
 
 /**
- * Premier événement déjà prévu qui bloque `candidate` (règle de Valentin, 21 oct.) :
- * seul un ÉVÉNEMENT bloque un autre ÉVÉNEMENT (on ne peut pas être à deux endroits) ;
- * une tâche ou un objet peut se poser sur n'importe quoi (ex. une tâche pendant une semaine de vacances).
- * Un événement « toute la journée » occupe tout le jour (vacances, déplacement…).
+ * Est-ce que `existing` empêche `cand` d'avoir lieu en même temps ? (règle de Valentin, 10 nov.)
+ * - deux rendez-vous (de n'importe quelle nature) : on ne peut pas être à deux endroits ;
+ * - une tâche ou une liste ne peut pas tomber sur un rendez-vous, une activité ou un « autre » (et inversement) ;
+ * - pendant un déplacement (vacances, trajet…), tâches et listes passent ;
+ * - deux tâches/listes peuvent se superposer, et celles sans heure ne bloquent ni ne sont bloquées.
+ * Un rendez-vous « toute la journée » occupe tout le jour.
  */
+function blocks(existing: CalendarEvent, cand: CalendarEvent): boolean {
+  const ep = isPresence(existing);
+  const cp = isPresence(cand);
+  if (ep && cp) return true;
+  if (!ep && !cp) return false;
+  const presence = ep ? existing : cand;
+  const other = ep ? cand : existing;
+  if (natureOf(presence) === 'deplacement') return false;
+  return other.start !== null;
+}
+
+/** Premier événement déjà prévu qui bloque `candidate` (voir `blocks`). */
 export function findConflict(events: CalendarEvent[], candidate: CalendarEvent, horizonDays = 56): Occurrence | null {
-  if (!isPresence(candidate)) return null;
-  const others = events.filter((e) => e.id !== candidate.id && isPresence(e));
+  const others = events.filter((e) => e.id !== candidate.id && blocks(e, candidate));
+  if (!others.length) return null;
   for (const day of daysToCheck(candidate, horizonDays)) {
     const hit = others.find((o) => occursOn(o, day) && overlapsOnDay(candidate, o));
     if (hit) return { event: hit, day };
