@@ -83,6 +83,14 @@ export function quadrantOf(t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>
 /** Pas encore répartie : au moins un « Ne sais pas ». */
 export const toSort = (t: Pick<Triable, 'important' | 'urgent'>) => t.important === null || t.urgent === null;
 
+/**
+ * Nombre d'idées « En vrac » à trier : celles qui n'ont pas de priorité et ne sont ni faites ni abandonnées.
+ * Une idée neuve, ou sortie de la matrice par le vidage de 3 h (nightlyReset), en fait partie : la matrice se vide
+ * chaque nuit, donc il y a chaque jour quelque chose à trier. C'est le chiffre du badge sur « Idées ».
+ */
+export const toSortCount = (items: Pick<Triable, 'important' | 'urgent' | 'status'>[]): number =>
+  items.reduce((n, t) => (t.status === 'todo' && toSort(t) ? n + 1 : n), 0);
+
 /** Peut-on la mettre au calendrier ? Seulement si elle est dans The One Thing ou « Urgent et important ». */
 export const canSchedule = (t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>) => {
   const q = quadrantOf(t);

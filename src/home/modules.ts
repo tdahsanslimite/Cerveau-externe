@@ -60,7 +60,7 @@ export type CategoryMeta = {
 
 /** Ordre = ordre des tuiles sur l'accueil. Chaque module appartient à UNE catégorie (vérifié par les tests). */
 export const CATEGORIES: CategoryMeta[] = [
-  { id: 'tdah', label: 'Mieux vivre avec mon TDAH', hint: 'Objectifs, routines, journal', icon: 'compass', items: ['objectifs', 'routines', 'journal'] },
+  { id: 'tdah', label: 'Mon TDAH au quotidien', hint: 'Objectifs, routines, journal', icon: 'compass', items: ['objectifs', 'routines', 'journal'] },
   { id: 'organiser', label: 'Organiser et planifier', hint: 'Idées, calendrier', icon: 'layout', items: ['taches', 'calendrier'] },
   { id: 'detendre', label: 'Se détendre', hint: 'Respiration, méditation', icon: 'feather', items: ['respiration', 'meditation'] },
 ];

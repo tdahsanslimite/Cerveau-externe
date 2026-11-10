@@ -25,7 +25,7 @@ function Badges({ info }: { info?: TileInfo }) {
 }
 
 function describe(label: string, info?: TileInfo): string {
-  return info?.badge ? `${label}, ${info.badge} à classer` : info?.dot ? `${label}, à remplir` : label;
+  return info?.badge ? `${label}, ${info.badge} à trier` : info?.dot ? `${label}, à remplir` : label;
 }
 
 export function HomeScreen({ menu, onMenu, onOpen, info }: {

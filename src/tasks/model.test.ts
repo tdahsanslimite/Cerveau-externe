@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  byQuadrant, eventFromTask, eventToItem, toSort, canSchedule, nightlyReset, matrixDay, isStuck, itemsOf, newTask, quadrantOf, setDone, slideLabel, returnOverdueToSas, eventTasksToReturn, taskFromMissedEvent,
+  byQuadrant, toSortCount, eventFromTask, eventToItem, toSort, canSchedule, nightlyReset, matrixDay, isStuck, itemsOf, newTask, quadrantOf, setDone, slideLabel, returnOverdueToSas, eventTasksToReturn, taskFromMissedEvent,
   sortEvent, sortTask, taskCountOn, taskToItem, tasksOn, whenToDay,
   continueList, moveIdea, pointsOf, priorityOf,
 } from './model.ts';
@@ -389,4 +389,16 @@ test('nuit à 3 h : Important, Urgent et Abandonner repartent en vrac ; The One 
 test('jour de la matrice : la nuit finit à 3 h', () => {
   assert.equal(matrixDay(new Date(2026, 10, 11, 2, 59)), '2026-11-10');
   assert.equal(matrixDay(new Date(2026, 10, 11, 3, 0)), '2026-11-11');
+});
+
+test('toSortCount : compte les idées sans priorité encore à faire, pas les triées ni les faites', () => {
+  const items = [
+    { important: null, urgent: null, status: 'todo' as const },   // neuve
+    { important: true, urgent: null, status: 'todo' as const },   // un « Ne sais pas »
+    { important: true, urgent: false, status: 'todo' as const },  // triée
+    { important: null, urgent: null, status: 'done' as const },   // faite
+    { important: null, urgent: null, status: 'dropped' as const },// abandonnée
+  ];
+  assert.equal(toSortCount(items), 2);
+  assert.equal(toSortCount([]), 0);
 });

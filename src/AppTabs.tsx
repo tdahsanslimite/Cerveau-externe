@@ -16,8 +16,10 @@ import { JournalScreen } from './journal/JournalScreen';
 import { MeditationScreen } from './meditation/MeditationScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
 import { useRoutineAlert } from './routines/useRoutineAlert';
+import { toSortCount } from './tasks/model';
 import { TasksScreen } from './tasks/TasksScreen';
 import { useNightlyReset } from './tasks/useNightlyReset';
+import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
 
@@ -44,6 +46,7 @@ export function AppTabs() {
   // Sous-menu ouvert sur l'accueil (null = les 3 catégories). Il reste ouvert quand on entre dans un module,
   // pour que « retour » ramène à la liste d'où l'on vient ; la barre « Accueil » repart des catégories.
   const [menu, setMenu] = useState<CategoryId | null>(null);
+  const toSortToday = toSortCount(useTaskItems());
   const routinesAlert = useRoutineAlert();
   useNightlyReset();
 
@@ -64,6 +67,7 @@ export function AppTabs() {
   };
 
   const info: Partial<Record<ModuleId, TileInfo>> = {
+    taches: { badge: toSortToday > 0 ? toSortToday : undefined },
     routines: { dot: routinesAlert },
   };
 
@@ -104,18 +108,24 @@ export function AppTabs() {
           </Pressable>
           {barModules().map((m) => {
             const on = active === m.id;
+            const badge = m.id === 'taches' ? toSortToday : 0;
             const dot = m.id === 'routines' && routinesAlert;
             return (
               <Pressable
                 key={m.id}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
-                accessibilityLabel={dot ? `${m.label}, à remplir` : m.label}
+                accessibilityLabel={badge ? `${m.label}, ${badge} à trier` : dot ? `${m.label}, à remplir` : m.label}
                 onPress={() => setActive(m.id)}
                 style={({ pressed }) => [st.tab, on && st.tabOn, pressed && { opacity: 0.6 }]}
               >
                 <View>
                   <Icon name={m.icon as IconName} size={24} color={on ? colors.accent : colors.muted} />
+                  {badge ? (
+                    <View style={st.badge}>
+                      <Txt bold size={11} color="#FFFFFF">{badge > 99 ? '99+' : badge}</Txt>
+                    </View>
+                  ) : null}
                 </View>
                 <View style={st.labelRow}>
                   <Txt bold={on} size={12} color={on ? colors.accent : colors.muted}>{m.barLabel}</Txt>
