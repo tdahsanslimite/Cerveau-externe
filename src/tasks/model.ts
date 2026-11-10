@@ -3,7 +3,7 @@
 //  - le module Tâches (saisie rapide, pas d'heure) ;
 //  - un événement du calendrier coché « Tâche » (il a un créneau). Il n'est jamais copié : il reste dans le calendrier.
 // Testé dans model.test.ts. Les imports gardent l'extension .ts pour que `npm test` les lise.
-import { addDays } from '../calendar/dates.ts';
+import { addDays, toKey } from '../calendar/dates.ts';
 import type { DayKey } from '../calendar/dates.ts';
 import type { CalendarEvent, ItemLine } from '../calendar/model.ts';
 
@@ -44,19 +44,20 @@ export const IDEA_KINDS: { id: IdeaKind; label: string }[] = [
 
 // ---- Matrice d'Eisenhower ----
 
-export type QuadrantId = 'one' | 'faire' | 'planifier' | 'alleger' | 'lacher';
+export type QuadrantId = 'one' | 'faire' | 'planifier' | 'alleger' | 'lacher' | 'vrac';
 
-export const QUADRANTS: { id: QuadrantId; label: string; hint: string; icon: 'star' | 'zap' | 'calendar' | 'users' | 'wind' }[] = [
+export const QUADRANTS: { id: QuadrantId; label: string; hint: string; icon: 'star' | 'zap' | 'calendar' | 'users' | 'wind' | 'inbox' }[] = [
   { id: 'one', label: 'The One Thing', hint: 'Réussir sa journée !', icon: 'star' },
   { id: 'faire', label: 'Urgent et important', hint: 'À faire maintenant !', icon: 'zap' },
   { id: 'planifier', label: 'Important', hint: 'Il faut que tu programmes cette idée', icon: 'calendar' },
   { id: 'alleger', label: 'Urgent', hint: '', icon: 'users' },
   { id: 'lacher', label: 'Abandonner ?', hint: 'Si une idée tombe ici c’est pas bon...', icon: 'wind' },
+  { id: 'vrac', label: 'En vrac', hint: 'Les idées à trier : nouvelles, ou sorties de la matrice cette nuit', icon: 'inbox' },
 ];
 
 export const quadrantInfo = (id: QuadrantId) => QUADRANTS.find((q) => q.id === id) ?? QUADRANTS[0];
 
-const QUADRANT_RANK: Record<QuadrantId, number> = { one: 0, faire: 1, planifier: 2, alleger: 3, lacher: 4 };
+const QUADRANT_RANK: Record<QuadrantId, number> = { one: 0, faire: 1, planifier: 2, alleger: 3, lacher: 4, vrac: 5 };
 
 /** Ce qui sert à trier : commun aux tâches du module et aux événements « Tâche ». */
 export interface Triable {
@@ -69,11 +70,11 @@ export interface Triable {
 }
 
 /**
- * La case d'une idée. « Ne sais pas » (null) sur l'importance ou l'urgence : elle va dans « Abandonner »,
- * en attendant que l'utilisateur la répartisse à sa guise (pas de longue liste en haut de page).
+ * La case d'une idée. « Ne sais pas » (null) sur l'importance ou l'urgence : elle va « En vrac », la liste sous la matrice,
+ * en attendant d'être triée (pas de longue liste au-dessus de The One Thing).
  */
 export function quadrantOf(t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>): QuadrantId {
-  if (t.important === null || t.urgent === null) return 'lacher';
+  if (t.important === null || t.urgent === null) return 'vrac';
   if (t.oneThing && t.important && t.urgent) return 'one';
   if (t.important) return t.urgent ? 'faire' : 'planifier';
   return t.urgent ? 'alleger' : 'lacher';
@@ -164,16 +165,34 @@ export function pointsOf(t: Pick<Triable, 'important' | 'urgent'>): 0 | 1 | 2 | 
 }
 
 /** Priorité (important, urgent) qui correspond à une liste. */
-export function priorityOf(q: QuadrantId): { important: boolean; urgent: boolean } {
+export function priorityOf(q: QuadrantId): { important: boolean | null; urgent: boolean | null } {
+  if (q === 'vrac') return { important: null, urgent: null };
   return { important: q === 'one' || q === 'faire' || q === 'planifier', urgent: q === 'one' || q === 'faire' || q === 'alleger' };
 }
 
 export interface PriorityUpdate {
   key: string;
-  important: boolean;
-  urgent: boolean;
-  rank: number;
+  important: boolean | null;
+  urgent: boolean | null;
+  rank?: number;
   oneThing: boolean;
+}
+
+/**
+ * Chaque nuit, ce qui est dans Important, Urgent et Abandonner sort de la matrice et retourne « En vrac » (priorité effacée),
+ * pour refaire le tri et s'assurer que chaque idée est encore pertinente. The One Thing et Urgent et important restent
+ * jusqu'à ce qu'elles soient faites ; une idée déjà programmée au calendrier ne bouge pas.
+ */
+export function nightlyReset(items: TaskItem[]): PriorityUpdate[] {
+  const out = ['planifier', 'alleger', 'lacher'] as QuadrantId[];
+  return items
+    .filter((i) => i.status === 'todo' && i.day === null && out.includes(quadrantOf(i)))
+    .map((i) => ({ key: i.key, important: null, urgent: null, rank: undefined, oneThing: false }));
+}
+
+/** Jour « de la matrice » : la nuit finit à 3 h (avant 3 h on est encore la veille). */
+export function matrixDay(now: Date = new Date()): DayKey {
+  return toKey(new Date(now.getTime() - 3 * 60 * 60 * 1000));
 }
 
 /**

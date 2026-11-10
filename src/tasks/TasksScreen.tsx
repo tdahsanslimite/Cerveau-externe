@@ -165,7 +165,7 @@ export function TasksScreen() {
     const q = QUADRANTS.find((x) => x.id === id) as (typeof QUADRANTS)[number];
     const list = byQuadrant(items, id);
     const hot = target?.q === id;
-    const wide = id === 'one';
+    const wide = id === 'one' || id === 'vrac';
     return (
       <View key={id} style={wide ? { gap: 6 } : st.cell} onLayout={measure(sections, id)}>
         <View style={[st.quadHead, !wide && { minHeight: 56 }]}>
@@ -176,11 +176,11 @@ export function TasksScreen() {
           </View>
           <Txt bold size={13} color={colors.muted}>{list.length}</Txt>
         </View>
-        {wide ? <AnnualOneThingLine day={todayKey()} /> : null}
+        {id === 'one' ? <AnnualOneThingLine day={todayKey()} /> : null}
         <View style={wide ? undefined : { flex: 1 }} onLayout={measure(cards, id)}>
           <Card style={[!wide && { flex: 1 }, hot ? st.cardHot : null]}>
             {list.length === 0 ? (
-              <EmptyState text={drag ? 'Dépose ici.' : wide ? 'Glisse ici l’idée qui réussit ta journée.' : 'Rien ici.'} />
+              <EmptyState text={drag ? 'Dépose ici.' : id === 'one' ? 'Glisse ici l’idée qui réussit ta journée.' : id === 'vrac' ? 'Rien à trier : bravo.' : 'Rien ici.'} />
             ) : (
               list.map((i) => (
                 <TaskRow
@@ -240,7 +240,7 @@ export function TasksScreen() {
         </Pressable>
       </View>
       <View style={st.captureNote}>
-        <Txt size={13} color={colors.muted} numberOfLines={1}>Le titre suffit : l’idée arrive dans « Abandonner ? », tu la répartis ensuite.</Txt>
+        <Txt size={13} color={colors.muted} numberOfLines={1}>Le titre suffit : l’idée arrive « En vrac », tu la tries ensuite.</Txt>
       </View>
 
       <ScrollView
@@ -267,6 +267,7 @@ export function TasksScreen() {
               </View>
             ))}
           </View>
+          {renderCell('vrac')}
 
           {drag && target ? (
             <>

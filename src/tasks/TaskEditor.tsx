@@ -147,7 +147,7 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
         <DomainPicker value={t.category} onChange={(category) => patch({ category })} allowNone />
       </Field>
 
-      <Field label="3 · Priorité" hint={`Rangée dans « ${quadrantInfo(q).label} ». « Ne sais pas » : elle va dans Abandonner, tu la répartiras ensuite.`}>
+      <Field label="3 · Priorité" hint={`Rangée dans « ${quadrantInfo(q).label} ». « Ne sais pas » : elle reste En vrac, à trier.`}>
         <View style={{ gap: 10 }}>
           <View style={{ gap: 6 }}>
             <Txt bold size={14}>Important ?</Txt>

@@ -18,6 +18,8 @@ export interface Settings {
   phoneCalendars?: boolean;
   /** Agendas du téléphone masqués (par identifiant). Par défaut : tous affichés. */
   hiddenPhoneCalendars?: string[];
+  /** Dernier jour (la nuit finit à 3 h) où la matrice des idées a été vidée de Important / Urgent / Abandonner. */
+  ideasResetDay?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true, defaultAlert: 'sonnerie' };

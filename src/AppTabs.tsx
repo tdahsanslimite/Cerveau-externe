@@ -17,6 +17,7 @@ import { MeditationScreen } from './meditation/MeditationScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
 import { useRoutineAlert } from './routines/useRoutineAlert';
 import { TasksScreen } from './tasks/TasksScreen';
+import { useNightlyReset } from './tasks/useNightlyReset';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
 
@@ -44,6 +45,7 @@ export function AppTabs() {
   // pour que « retour » ramène à la liste d'où l'on vient ; la barre « Accueil » repart des catégories.
   const [menu, setMenu] = useState<CategoryId | null>(null);
   const routinesAlert = useRoutineAlert();
+  useNightlyReset();
 
   // Le bouton retour d'Android remonte d'un niveau : module → sous-menu (ou accueil) → accueil → quitter l'appli.
   useEffect(() => {

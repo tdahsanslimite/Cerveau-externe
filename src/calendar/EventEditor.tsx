@@ -167,7 +167,7 @@ export function EventEditor({ state, onClose, onSaved }: {
 
       {inMatrix ? (
         <>
-          <Field label="Important ?" hint="Pour la matrice des Idées. « Ne sais pas » : elle ira dans Abandonner, tu la répartiras plus tard.">
+          <Field label="Important ?" hint="Pour la matrice des Idées. « Ne sais pas » : elle ira En vrac, à trier.">
             <TriChips value={e.important ?? null} onChange={(v) => patch({ important: v })} />
           </Field>
           <Field label="Urgent ?">
