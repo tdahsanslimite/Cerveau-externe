@@ -9,6 +9,8 @@ export interface Domain {
   id: string;
   label: string;
   color: string;
+  /** Domaine parent : fait de celui-ci un sous-domaine (Sport › Roller). Un seul niveau ; il prend la couleur du parent. */
+  parent?: string;
 }
 
 export const DEFAULT_DOMAINS: Domain[] = [
@@ -28,7 +30,25 @@ export const DOMAIN_COLORS = [
 const FALLBACK_DOMAIN: Domain = { id: '_', label: 'Sans domaine', color: '#9AA0A6' };
 
 export function domainOf(domains: Domain[], id: string): Domain {
-  return domains.find((d) => d.id === id) ?? FALLBACK_DOMAIN;
+  const d = domains.find((x) => x.id === id);
+  if (!d) return FALLBACK_DOMAIN;
+  const parent = d.parent ? domains.find((x) => x.id === d.parent) : undefined;
+  return parent ? { ...d, color: parent.color } : d;
+}
+
+/** Domaines de premier niveau (un sous-domaine dont le parent n'existe plus en devient un). */
+export function topDomains(domains: Domain[]): Domain[] {
+  return domains.filter((d) => !d.parent || !domains.some((p) => p.id === d.parent));
+}
+
+export function subDomains(domains: Domain[], parentId: string): Domain[] {
+  return domains.filter((d) => d.parent === parentId);
+}
+
+/** Domaine de premier niveau d'un domaine : lui-même, ou son parent s'il en a un. */
+export function rootOf(domains: Domain[], id: string): string {
+  const d = domains.find((x) => x.id === id);
+  return d?.parent && domains.some((p) => p.id === d.parent) ? d.parent : id;
 }
 
 // ---------------- Événements ----------------
@@ -309,6 +329,36 @@ export function hoursByDomain(events: CalendarEvent[], from: DayKey, to: DayKey,
     }
   }
   return out;
+}
+
+export interface HoursGroup {
+  /** Domaine de premier niveau. */
+  id: string;
+  done: number;
+  planned: number;
+  /** Détail par sous-domaine. L'entrée dont l'id est celui du groupe = heures « sans précision ». Vide si le domaine n'a pas de sous-domaine utilisé. */
+  subs: { id: string; done: number; planned: number }[];
+}
+
+/** Regroupe les heures par domaine de premier niveau, avec le détail des sous-domaines. */
+export function groupHours(report: Record<string, DomainHours>, domains: Domain[]): HoursGroup[] {
+  const groups = new Map<string, HoursGroup>();
+  const own = new Map<string, DomainHours>();
+  for (const [id, h] of Object.entries(report)) {
+    const root = rootOf(domains, id);
+    const g = groups.get(root) ?? { id: root, done: 0, planned: 0, subs: [] };
+    g.done += h.done;
+    g.planned += h.planned;
+    if (id === root) own.set(root, h);
+    else g.subs.push({ id, done: h.done, planned: h.planned });
+    groups.set(root, g);
+  }
+  for (const g of groups.values()) {
+    g.subs.sort((a, b) => b.done - a.done || b.planned - a.planned);
+    const o = own.get(g.id);
+    if (g.subs.length && o) g.subs.push({ id: g.id, done: o.done, planned: o.planned });
+  }
+  return [...groups.values()];
 }
 
 export function newId(): string {

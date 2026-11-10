@@ -13,6 +13,7 @@ import {
   Reminder, REMINDER_UNITS, REPEATS,
 } from './model';
 import { notificationsSupported } from './notifications';
+import { DomainPicker } from './DomainPicker';
 import { TimeWheel } from './TimeWheel';
 
 const DAY_END = 24 * 60;
@@ -360,11 +361,7 @@ export function EventEditor({ state, onClose, onSaved }: {
       </Field>
 
       <Field label="Domaine">
-        <View style={st.wrap}>
-          {domains.map((c) => (
-            <Chip key={c.id} label={c.label} dot={c.color} color={colors.ink} selected={e.category === c.id} onPress={() => patch({ category: c.id })} />
-          ))}
-        </View>
+        <DomainPicker value={e.category} onChange={(id) => id && patch({ category: id })} />
       </Field>
 
       <Field label="Répétition" hint={recurring && !state.isNew ? 'Les modifications s’appliquent à toute la série.' : undefined}>

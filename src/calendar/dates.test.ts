@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { addDays, addMonths, isoWeek, monthGrid, startOfWeek, weekdayIndex, labelWeekRange, relativeLabel, minutesToLabel, durationLabel } from './dates.ts';
 import { planReminders } from './reminders.ts';
-import { occursOn, occurrencesOn, loadLevel, freeSlots, findConflict, nextFreeStart, minutesByDomain, hoursByDomain, reminderMinutes, reminderLabel } from './model.ts';
-import type { CalendarEvent } from './model.ts';
+import { occursOn, occurrencesOn, loadLevel, freeSlots, findConflict, nextFreeStart, minutesByDomain, hoursByDomain, topDomains, subDomains, rootOf, domainOf, groupHours, reminderMinutes, reminderLabel } from './model.ts';
+import type { CalendarEvent, Domain } from './model.ts';
 
 test('navigation entre jours, y compris changement de mois, d’année et heure d’été', () => {
   assert.equal(addDays('2026-10-31', 1), '2026-11-01');
@@ -215,4 +215,54 @@ test('objets en liste cochable : ancien texte relu, rappels seulement pour ce qu
   assert.match(plan[0].body, /Pense à prendre : Pain$/m);
   const allDone = { ...courses, items: [{ id: '1', text: 'Lait', done: true }] };
   assert.doesNotMatch(planReminders([allDone], new Date(2026, 10, 10, 8, 0), '2026-11-10')[0].body, /Pense à prendre/);
+});
+
+// ---------------- Sous-domaines ----------------
+
+test('sous-domaines : un seul niveau, couleur du parent, parent disparu = premier niveau', () => {
+  const domains: Domain[] = [
+    { id: 'sport', label: 'Sport', color: '#7A4FB0' },
+    { id: 'roller', label: 'Roller', color: '#000000', parent: 'sport' },
+    { id: 'trampo', label: 'Trampo', color: '#000000', parent: 'sport' },
+    { id: 'orphelin', label: 'Orphelin', color: '#111111', parent: 'disparu' },
+  ];
+  assert.deepEqual(topDomains(domains).map((d) => d.id), ['sport', 'orphelin']);
+  assert.deepEqual(subDomains(domains, 'sport').map((d) => d.id), ['roller', 'trampo']);
+  assert.equal(rootOf(domains, 'roller'), 'sport');
+  assert.equal(rootOf(domains, 'sport'), 'sport');
+  assert.equal(rootOf(domains, 'orphelin'), 'orphelin');
+  assert.equal(rootOf(domains, 'inconnu'), 'inconnu');
+  assert.equal(domainOf(domains, 'roller').color, '#7A4FB0');
+  assert.equal(domainOf(domains, 'orphelin').color, '#111111');
+});
+
+test('heures regroupées par domaine, avec le détail des sous-domaines', () => {
+  const domains: Domain[] = [
+    { id: 'sport', label: 'Sport', color: '#7A4FB0' },
+    { id: 'roller', label: 'Roller', color: '#7A4FB0', parent: 'sport' },
+    { id: 'trampo', label: 'Trampo', color: '#7A4FB0', parent: 'sport' },
+    { id: 'travail', label: 'Travail', color: '#2F63B0' },
+  ];
+  const report = {
+    sport: { done: 30, planned: 0 },
+    roller: { done: 60, planned: 30 },
+    trampo: { done: 120, planned: 0 },
+    travail: { done: 90, planned: 0 },
+    'phone:x': { done: 15, planned: 0 },
+  };
+  const groups = groupHours(report, domains);
+  const sport = groups.find((g) => g.id === 'sport');
+  assert.deepEqual(sport, {
+    id: 'sport', done: 210, planned: 30,
+    subs: [
+      { id: 'trampo', done: 120, planned: 0 },
+      { id: 'roller', done: 60, planned: 30 },
+      { id: 'sport', done: 30, planned: 0 }, // sans précision
+    ],
+  });
+  assert.deepEqual(groups.find((g) => g.id === 'travail')?.subs, []);
+  assert.deepEqual(groups.find((g) => g.id === 'phone:x'), { id: 'phone:x', done: 15, planned: 0, subs: [] });
+  // sous-domaine seul (rien « sans précision »)
+  assert.deepEqual(groupHours({ roller: { done: 10, planned: 0 } }, domains)[0].subs, [{ id: 'roller', done: 10, planned: 0 }]);
+  assert.equal(groups.reduce((s, g) => s + g.done, 0), 315);
 });

@@ -22,6 +22,8 @@ interface CalendarData {
   /** Page de notes libres, indexée par le lundi de la semaine. */
   weekNotes: Record<DayKey, string>;
   domains: Domain[];
+  /** Les sous-domaines de Sport (Roller, Trampo, Renfo) ont été proposés une fois : on ne les recrée pas s'ils sont supprimés. */
+  sportSubsSeeded?: boolean;
 }
 
 interface Ctx {
@@ -69,6 +71,20 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     domains: DEFAULT_DOMAINS,
   });
   const domains = data.domains?.length ? data.domains : DEFAULT_DOMAINS;
+
+  // Une seule fois : Sport reçoit ses sous-domaines (demande de Valentin : voir le temps passé en roller, trampo, renfo).
+  useEffect(() => {
+    if (!loaded || data.sportSubsSeeded) return;
+    setData((d) => {
+      const list = d.domains?.length ? d.domains : DEFAULT_DOMAINS;
+      const sport = list.find((x) => x.id === 'sport');
+      const add: Domain[] =
+        sport && !list.some((x) => x.parent === 'sport')
+          ? [['sport-roller', 'Roller'], ['sport-trampo', 'Trampo'], ['sport-renfo', 'Renfo']].map(([id, label]) => ({ id, label, color: sport.color, parent: 'sport' }))
+          : [];
+      return { ...d, domains: [...list, ...add], sportSubsSeeded: true };
+    });
+  }, [loaded, data.sportSubsSeeded, setData]);
 
   const { settings, update } = useSettings();
   const defaultAlert = settings.defaultAlert ?? 'sonnerie';
@@ -195,7 +211,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         const list = d.domains?.length ? d.domains : DEFAULT_DOMAINS;
         return {
           ...d,
-          domains: list.filter((x) => x.id !== id),
+          // Les sous-domaines d'un domaine supprimé passent au premier niveau.
+          domains: list.filter((x) => x.id !== id).map((x) => (x.parent === id ? { ...x, parent: undefined } : x)),
           events: d.events.map((e) => (e.category === id ? { ...e, category: moveTo } : e)),
         };
       }),

@@ -6,6 +6,7 @@ import { addDays, durationLabel, labelDayLong, minutesToLabel, relativeLabel, to
 import type { DayKey } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
 import { findConflict, nextFreeStart } from '../calendar/model';
+import { DomainPicker } from '../calendar/DomainPicker';
 import { TimeWheel } from '../calendar/TimeWheel';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
@@ -119,12 +120,7 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
       </Field>
 
       <Field label="2 · Domaine" hint="Une simple étiquette, pour les calculs.">
-        <View style={st.wrap}>
-          <Chip label="Aucun" selected={!t.category} color={colors.ink} onPress={() => patch({ category: undefined })} />
-          {domains.map((c) => (
-            <Chip key={c.id} label={c.label} dot={c.color} color={colors.ink} selected={t.category === c.id} onPress={() => patch({ category: c.id })} />
-          ))}
-        </View>
+        <DomainPicker value={t.category} onChange={(category) => patch({ category })} allowNone />
       </Field>
 
       <Field

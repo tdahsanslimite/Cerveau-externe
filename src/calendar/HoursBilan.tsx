@@ -6,7 +6,7 @@ import { colors, radius } from '../theme';
 import { Chip, IconButton, Sheet, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
 import { addDays, addMonths, DayKey, fromKey, isoWeek, labelMonth, labelWeekRange, monthDays, startOfWeek, todayKey } from './dates';
-import { BilanPeriod, hoursByDomain } from './model';
+import { BilanPeriod, groupHours, hoursByDomain } from './model';
 
 const PERIODS: { id: BilanPeriod; label: string }[] = [
   { id: 'semaine', label: 'Semaine' },
@@ -63,10 +63,8 @@ export function HoursBilan({ visible, onClose }: { visible: boolean; onClose: ()
   const { from, to } = periodRange(period, day);
   const report = hoursByDomain(events, from, to, today);
   const isFuture = from > today;
-  // Ordre : domaines de l'utilisateur d'abord (dans son ordre), puis un éventuel domaine supprimé.
-  const ids = [...domains.map((d) => d.id), ...Object.keys(report).filter((id) => !domains.some((d) => d.id === id))];
-  const rows = ids
-    .map((id) => ({ id, ...(report[id] ?? { done: 0, planned: 0 }) }))
+  // Un bloc par domaine de premier niveau (les sous-domaines s'y rangent), le plus long en premier.
+  const rows = groupHours(report, domains)
     .filter((r) => r.done + r.planned > 0)
     .sort((a, b) => b.done - a.done || b.planned - a.planned);
   const max = Math.max(1, ...rows.map((r) => r.done + r.planned));
@@ -125,6 +123,21 @@ export function HoursBilan({ visible, onClose }: { visible: boolean; onClose: ()
                 {!isFuture && r.planned > 0 ? (
                   <Txt size={13} color={colors.muted}>+ {hoursLabel(r.planned)} prévues</Txt>
                 ) : null}
+                {r.subs.map((sub) => {
+                  const v = isFuture ? sub.planned : sub.done;
+                  const w = `${(v / max) * 100}%` as const;
+                  return (
+                    <View key={sub.id} style={st.subRow} accessibilityLabel={`${sub.id === r.id ? 'Sans précision' : domain(sub.id).label} : ${hoursLabel(v)}`}>
+                      <Txt size={14} color={colors.muted} style={{ width: 112 }} numberOfLines={1}>
+                        {sub.id === r.id ? 'Sans précision' : domain(sub.id).label}
+                      </Txt>
+                      <View style={st.subTrack}>
+                        <View style={[st.subBar, { width: w, backgroundColor: d.color }]} />
+                      </View>
+                      <Txt size={14} bold style={{ minWidth: 56, textAlign: 'right' }}>{hoursLabel(v)}</Txt>
+                    </View>
+                  );
+                })}
               </View>
             );
           })}
@@ -147,5 +160,8 @@ const st = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 6 },
   track: { flexDirection: 'row', height: 10, borderRadius: 5, backgroundColor: colors.lineSoft, overflow: 'hidden' },
   bar: { height: 10 },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 22, minHeight: 26 },
+  subTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.lineSoft, overflow: 'hidden' },
+  subBar: { height: 6, opacity: 0.75 },
   planned: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 5, backgroundColor: 'transparent' },
 });

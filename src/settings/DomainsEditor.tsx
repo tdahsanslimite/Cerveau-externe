@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useCalendar } from '../calendar/CalendarContext';
-import { Domain, DOMAIN_COLORS, newId } from '../calendar/model';
+import { Domain, DOMAIN_COLORS, newId, subDomains, topDomains } from '../calendar/model';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Icon, Txt } from '../ui';
 
@@ -29,6 +29,12 @@ export function DomainsEditor() {
     setDraft(d);
     setConfirm(false);
   };
+  const addSub = (parent: Domain) => {
+    const d: Domain = { id: newId(), label: '', color: parent.color, parent: parent.id };
+    setOpenId(d.id);
+    setDraft(d);
+    setConfirm(false);
+  };
   const save = () => {
     if (!draft || !draft.label.trim()) return;
     saveDomain({ ...draft, label: draft.label.trim() });
@@ -37,20 +43,22 @@ export function DomainsEditor() {
 
   const isNew = !!draft && !domains.some((d) => d.id === draft.id);
   const usage = (id: string) => events.filter((e) => e.category === id).length;
-  const fallback = domains.find((d) => d.id !== openId);
+  // Un sous-domaine supprimé renvoie ses événements vers son parent ; sinon vers un autre domaine.
+  const fallback = (draft?.parent ? domains.find((d) => d.id === draft.parent) : undefined) ?? domains.find((d) => d.id !== openId && !d.parent);
+  const isSub = !!draft?.parent;
 
   const editor = draft ? (
     <View style={st.editor}>
       <TextInput
-        accessibilityLabel="Nom du domaine"
+        accessibilityLabel={isSub ? 'Nom du sous-domaine' : 'Nom du domaine'}
         value={draft.label}
         onChangeText={(label) => setDraft({ ...draft, label })}
-        placeholder="Ex. Immobilier, YouTube, Couple…"
+        placeholder={isSub ? 'Ex. Roller, Trampo, Renfo…' : 'Ex. Immobilier, YouTube, Couple…'}
         placeholderTextColor={colors.faint}
         autoFocus
         style={st.input}
       />
-      <View style={st.swatches}>
+      {isSub ? null : <View style={st.swatches}>
         {DOMAIN_COLORS.map((c) => (
           <Pressable
             key={c}
@@ -63,7 +71,7 @@ export function DomainsEditor() {
             {draft.color === c ? <Icon name="check" size={18} color="#FFFFFF" /> : null}
           </Pressable>
         ))}
-      </View>
+      </View>}
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Button label="Annuler" kind="ghost" onPress={close} style={{ flex: 1 }} />
         <Button label={isNew ? 'Créer' : 'Enregistrer'} kind="dark" onPress={save} style={[{ flex: 1 }, !draft.label.trim() && { opacity: 0.45 }]} />
@@ -74,12 +82,13 @@ export function DomainsEditor() {
             <Txt size={14} color={colors.danger} style={{ lineHeight: 20 }}>
               {usage(draft.id)
                 ? `${usage(draft.id)} événement(s) passeront dans « ${fallback.label} ».`
-                : 'Aucun événement n’utilise ce domaine.'}
+                : `Aucun événement n’utilise ce ${isSub ? 'sous-domaine' : 'domaine'}.`}
+              {!isSub && subDomains(domains, draft.id).length ? ' Ses sous-domaines deviendront des domaines.' : ''}
             </Txt>
-            <Button label="Oui, supprimer ce domaine" kind="danger" onPress={() => { deleteDomain(draft.id, fallback.id); close(); }} />
+            <Button label={isSub ? 'Oui, supprimer ce sous-domaine' : 'Oui, supprimer ce domaine'} kind="danger" onPress={() => { deleteDomain(draft.id, fallback.id); close(); }} />
           </View>
         ) : (
-          <Button label="Supprimer ce domaine" kind="danger" icon="trash-2" onPress={() => setConfirm(true)} />
+          <Button label={isSub ? 'Supprimer ce sous-domaine' : 'Supprimer ce domaine'} kind="danger" icon="trash-2" onPress={() => setConfirm(true)} />
         )
       ) : null}
     </View>
@@ -87,22 +96,51 @@ export function DomainsEditor() {
 
   return (
     <View style={st.group}>
-      {domains.map((d) => (
-        <View key={d.id}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Modifier le domaine ${d.label}`}
-            onPress={() => (openId === d.id ? close() : open(d))}
-            style={st.row}
-          >
-            <View style={[st.dot, { backgroundColor: openId === d.id && draft ? draft.color : d.color }]} />
-            <Txt bold style={{ flex: 1 }}>{d.label}</Txt>
-            <Icon name={openId === d.id ? 'chevron-up' : 'edit-2'} size={16} color={colors.faint} />
-          </Pressable>
-          {openId === d.id ? editor : null}
-        </View>
-      ))}
-      {isNew ? editor : (
+      {topDomains(domains).map((d) => {
+        const subs = subDomains(domains, d.id);
+        return (
+          <View key={d.id}>
+            <View style={st.row}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Modifier le domaine ${d.label}`}
+                onPress={() => (openId === d.id ? close() : open(d))}
+                style={st.rowMain}
+              >
+                <View style={[st.dot, { backgroundColor: openId === d.id && draft ? draft.color : d.color }]} />
+                <Txt bold style={{ flex: 1 }}>{d.label}</Txt>
+                <Icon name={openId === d.id ? 'chevron-up' : 'edit-2'} size={16} color={colors.faint} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Ajouter un sous-domaine à ${d.label}`}
+                onPress={() => addSub(d)}
+                style={({ pressed }) => [st.plus, pressed && { opacity: 0.6 }]}
+              >
+                <Icon name="plus" size={20} color={colors.accent} />
+              </Pressable>
+            </View>
+            {openId === d.id ? editor : null}
+            {subs.map((sd) => (
+              <View key={sd.id}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Modifier le sous-domaine ${sd.label}`}
+                  onPress={() => (openId === sd.id ? close() : open(sd))}
+                  style={[st.row, st.subRow]}
+                >
+                  <Icon name="corner-down-right" size={16} color={colors.faint} />
+                  <Txt bold style={{ flex: 1 }}>{sd.label}</Txt>
+                  <Icon name={openId === sd.id ? 'chevron-up' : 'edit-2'} size={16} color={colors.faint} />
+                </Pressable>
+                {openId === sd.id ? editor : null}
+              </View>
+            ))}
+            {isNew && draft?.parent === d.id ? editor : null}
+          </View>
+        );
+      })}
+      {isNew && !draft?.parent ? editor : (
         <Pressable accessibilityRole="button" onPress={add} style={[st.row, { borderBottomWidth: 0 }]}>
           <Icon name="plus" size={18} color={colors.accent} />
           <Txt bold color={colors.accent}>Nouveau domaine</Txt>
@@ -115,6 +153,9 @@ export function DomainsEditor() {
 const st = StyleSheet.create({
   group: { backgroundColor: colors.card, borderRadius: radius.l, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, minHeight: 52, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 },
+  subRow: { paddingLeft: 30, backgroundColor: '#FAF9F6' },
+  plus: { width: TOUCH, height: TOUCH, alignItems: 'center', justifyContent: 'center', marginRight: -8 },
   dot: { width: 14, height: 14, borderRadius: 7 },
   editor: { padding: 14, gap: 12, backgroundColor: '#FAF9F6', borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
   input: {

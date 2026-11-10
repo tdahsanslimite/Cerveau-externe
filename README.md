@@ -18,7 +18,7 @@ Construite avec Expo (React Native + TypeScript) : un seul code pour Android, iO
 - Jusqu'à 3 rappels par événement (minutes, heures, jours), notifications locales sur Android.
 - Type d'alerte : Sonnerie, Carillon, Cloche (sons de l'appli, `assets/sounds`), Vibreur, Silencieux ; par défaut dans les Réglages, modifiable par événement. Un canal Android par type.
 - Réglages › Rappels : bouton « Tester un rappel » (10 s) et état (autorisation, nombre programmé, prochain, dernier problème).
-- Domaines personnalisables (nom, couleur, création, suppression) dans les Réglages.
+- Domaines personnalisables (nom, couleur, création, suppression) dans les Réglages, avec **sous-domaines** (un seul niveau) : le « + » à droite d'un domaine ajoute un sous-domaine, qui prend la couleur du parent (Sport › Roller, Trampo, Renfo : créés une fois au premier lancement, modifiables). Dans une fiche, on choisit le domaine puis, facultativement, une précision. Le **bilan des heures** range chaque sous-domaine sous son domaine (ligne « Sans précision » pour le reste). Supprimer un domaine fait des sous-domaines des domaines ; supprimer un sous-domaine renvoie ses événements au parent.
 - Données stockées sur le téléphone uniquement.
 
 ## Module « Trier mes idées » (ex-Tâches)
@@ -72,6 +72,7 @@ src/tasks/useTaskItems.ts       la liste unique pour les écrans
 src/tasks/TasksContext.tsx      données des tâches (ce.tasks.v1)
 src/tasks/TasksScreen.tsx       « Trier mes idées » : saisie, 4 listes, glisser-déposer
 src/tasks/apply.ts              applique priorité / place à une idée, où qu'elle vive
+src/calendar/DomainPicker.tsx   choix du domaine + précision (sous-domaine)
 src/tasks/TaskEditor.tsx        fenêtre d'une idée (note, domaine, points, calendrier)
 src/tasks/DayTasks.tsx          tâches du jour dans le calendrier
 src/routines/model.ts           routines, jours prévus, cases cochées, bilan du mois (testés)

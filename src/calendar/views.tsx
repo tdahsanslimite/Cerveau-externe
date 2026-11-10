@@ -9,7 +9,7 @@ import { Card, Icon, SectionLabel, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
 import { EmptyState, EventRow, LOAD_COLOR, LoadLine } from './components';
 import { DAY_SHORT, DayKey, fromKey, labelDayShort, monthGrid, relativeLabel, startOfWeek, todayKey, weekDays } from './dates';
-import { loadLevel, Occurrence, occurrencesOn } from './model';
+import { loadLevel, Occurrence, occurrencesOn, topDomains } from './model';
 
 export interface ViewProps {
   day: DayKey;
@@ -184,7 +184,7 @@ function Legend() {
   const { domains } = useCalendar();
   return (
     <View style={st.legend}>
-      {domains.map((c) => (
+      {topDomains(domains).map((c) => (
         <View key={c.id} style={st.legendItem}>
           <View style={[st.dot, { width: 10, height: 10, borderRadius: 5, backgroundColor: c.color }]} />
           <Txt size={13} color={colors.muted}>{c.label}</Txt>
