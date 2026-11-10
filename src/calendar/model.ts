@@ -96,7 +96,10 @@ export interface CalendarEvent {
   /** Absent sur les événements créés avant la v1.1 : traité comme ['rdv']. */
   kinds?: EventKind[];
   /** Ce qu'il faut emporter (type « objet »). */
+  /** Ancien champ texte (avant le 10 nov.) : relu comme premier objet de la liste. */
   item?: string;
+  /** Liste d'objets à prendre / acheter, cochables un par un (comme une liste de courses). */
+  items?: ItemLine[];
   /** Rappel la veille à 20 h pour préparer l'objet. */
   itemEveReminder?: boolean;
   reminders?: Reminder[];
@@ -120,6 +123,22 @@ export interface CalendarEvent {
   skipped?: DayKey[];
   note?: string;
 }
+
+export interface ItemLine {
+  id: string;
+  text: string;
+  done?: boolean;
+}
+
+/** Liste d'objets d'un événement ; l'ancien champ texte `item` devient une ligne. */
+export function itemsOf(e: CalendarEvent): ItemLine[] {
+  if (e.items) return e.items;
+  const old = e.item?.trim();
+  return old ? [{ id: 'old', text: old }] : [];
+}
+
+/** Objets encore à prendre (non cochés), sans les lignes vides. */
+export const pendingItems = (e: CalendarEvent) => itemsOf(e).filter((i) => !i.done && i.text.trim());
 
 export const kindsOf = (e: CalendarEvent): EventKind[] => (e.kinds && e.kinds.length ? e.kinds : ['rdv']);
 export const isTask = (e: CalendarEvent) => kindsOf(e).includes('tache');

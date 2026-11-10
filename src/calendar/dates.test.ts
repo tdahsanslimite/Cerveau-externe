@@ -203,3 +203,16 @@ test('événement sur plusieurs jours : un seul rappel, le premier jour', () => 
   assert.equal(plan.length, 1);
   assert.equal(plan[0].at.getDate(), 25);
 });
+
+test('objets en liste cochable : ancien texte relu, rappels seulement pour ce qui reste', async () => {
+  const { itemsOf, pendingItems } = await import('./model.ts');
+  const old = ev({ id: 'o', kinds: ['objet'], item: 'devis signé' });
+  assert.deepEqual(itemsOf(old).map((i) => i.text), ['devis signé']);
+  const courses = ev({ id: 'c', title: 'Courses', date: '2026-11-11', start: 18 * 60, kinds: ['objet'],
+    items: [{ id: '1', text: 'Lait', done: true }, { id: '2', text: 'Pain' }, { id: '3', text: ' ' }], reminders: [{ amount: 30, unit: 'min' }] });
+  assert.deepEqual(pendingItems(courses).map((i) => i.text), ['Pain']);
+  const plan = planReminders([courses], new Date(2026, 10, 10, 8, 0), '2026-11-10');
+  assert.match(plan[0].body, /Pense à prendre : Pain$/m);
+  const allDone = { ...courses, items: [{ id: '1', text: 'Lait', done: true }] };
+  assert.doesNotMatch(planReminders([allDone], new Date(2026, 10, 10, 8, 0), '2026-11-10')[0].body, /Pense à prendre/);
+});

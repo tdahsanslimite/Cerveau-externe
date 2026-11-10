@@ -1,7 +1,7 @@
 // Calcul pur des rappels à programmer (testé dans dates.test.ts, sans téléphone).
 import { addDays, fromKey, minutesToLabel, todayKey } from './dates.ts';
 import type { DayKey } from './dates.ts';
-import { kindsOf, occursOn, reminderLabel, reminderMinutes } from './model.ts';
+import { kindsOf, pendingItems, occursOn, reminderLabel, reminderMinutes } from './model.ts';
 import type { AlertKind, CalendarEvent } from './model.ts';
 
 export const HORIZON_DAYS = 30;
@@ -36,7 +36,8 @@ export function planReminders(
       const base = e.start ?? ALL_DAY_BASE;
       const when = e.start === null ? 'Aujourd’hui' : `${minutesToLabel(e.start)} – ${minutesToLabel(base + e.durationMin)}`;
       const kinds = kindsOf(e);
-      const item = kinds.includes('objet') && e.item?.trim() ? e.item.trim() : null;
+      const pending = kinds.includes('objet') ? pendingItems(e).map((i) => i.text.trim()) : [];
+      const item = pending.length ? pending.join(', ') : null;
       const lines = [when];
       if (item) lines.push(`Pense à prendre : ${item}`);
       if (kinds.includes('tache')) lines.push('Tâche prévue sur ce créneau');

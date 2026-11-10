@@ -6,7 +6,7 @@ import { useSettings } from '../settings/SettingsContext';
 import { syncReminders } from './notifications';
 import { addDays, fromKey, todayKey } from './dates';
 import type { DayKey } from './dates';
-import { CalendarEvent, DEFAULT_DOMAINS, Domain, domainOf } from './model';
+import { CalendarEvent, DEFAULT_DOMAINS, Domain, domainOf, itemsOf } from './model';
 import { listPhoneCalendars, listPhoneEvents, phoneCalendarsSupported, phonePermission } from './phoneCalendar';
 import { isPhoneDomain, PhoneCalendarInfo, phoneDomain, phoneEventsToCalendar } from './phoneEvents';
 
@@ -51,6 +51,8 @@ interface Ctx {
   skipOccurrence: (id: string, day: DayKey) => void;
   /** Coche / décoche une tâche pour un jour donné. */
   toggleDone: (id: string, day: DayKey) => void;
+  /** Coche / décoche un objet de la liste d'un événement. */
+  toggleItem: (id: string, itemId: string) => void;
   saveDomain: (d: Domain) => void;
   /** Supprime un domaine ; ses événements passent dans `moveTo`. */
   deleteDomain: (id: string, moveTo: string) => void;
@@ -165,6 +167,13 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       setData((d) => ({
         ...d,
         events: d.events.map((x) => (x.id === id ? { ...x, skipped: [...(x.skipped ?? []), day] } : x)),
+      })),
+    toggleItem: (id, itemId) =>
+      setData((d) => ({
+        ...d,
+        events: d.events.map((x) =>
+          x.id !== id ? x : { ...x, item: undefined, items: itemsOf(x).map((i) => (i.id === itemId ? { ...i, done: !i.done } : i)) },
+        ),
       })),
     toggleDone: (id, day) =>
       setData((d) => ({

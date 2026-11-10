@@ -9,7 +9,7 @@ import { useCalendar } from './CalendarContext';
 import { addDays, DayKey, diffDays, durationLabel, labelDayLong, labelDayShort, minutesToLabel, relativeLabel } from './dates';
 import { DayPreview } from './DayPreview';
 import {
-  ALERTS, CalendarEvent, EventKind, findConflict, KINDS, kindsOf, MAX_REMINDERS, newId, nextFreeStart,
+  ALERTS, CalendarEvent, EventKind, ItemLine, itemsOf, findConflict, KINDS, kindsOf, MAX_REMINDERS, newId, nextFreeStart,
   Reminder, REMINDER_UNITS, REPEATS,
 } from './model';
 import { notificationsSupported } from './notifications';
@@ -78,7 +78,9 @@ export function EventEditor({ state, onClose, onSaved }: {
 
   // ---- Vérifications ----
   const titleOk = e.title.trim().length > 0;
-  const itemOk = !hasItem || (e.item ?? '').trim().length > 0;
+  const itemList = itemsOf(e);
+  const itemOk = !hasItem || itemList.some((i) => i.text.trim().length > 0);
+  const setItems = (items: ItemLine[]) => patch({ items, item: undefined });
   // Version « telle qu'elle sera enregistrée » (fin sur plusieurs jours seulement si journée entière, sans répétition).
   const asSaved: CalendarEvent = { ...e, endDate: e.start === null && !recurring && lastDay > e.date ? lastDay : undefined };
   const conflict = findConflict(events, asSaved);
@@ -91,7 +93,12 @@ export function EventEditor({ state, onClose, onSaved }: {
 
   const toggleKind = (k: EventKind) => {
     const next = kinds.includes(k) ? kinds.filter((x) => x !== k) : [...kinds, k];
-    patch({ kinds: next.length ? next : ['rdv'], itemEveReminder: k === 'objet' && !kinds.includes('objet') ? true : e.itemEveReminder });
+    const turningOnItems = k === 'objet' && !kinds.includes('objet');
+    patch({
+      kinds: next.length ? next : ['rdv'],
+      itemEveReminder: turningOnItems ? true : e.itemEveReminder,
+      ...(turningOnItems && itemsOf(e).length === 0 ? { items: [{ id: newId(), text: '' }] } : {}),
+    });
   };
 
   const setReminder = (i: number, r: Partial<Reminder>) =>
@@ -103,7 +110,8 @@ export function EventEditor({ state, onClose, onSaved }: {
     saveEvent({
       ...e,
       title: e.title.trim(),
-      item: e.item?.trim() || undefined,
+      item: undefined,
+      items: hasItem ? itemList.filter((i) => i.text.trim()).map((i) => ({ ...i, text: i.text.trim() })) : e.items,
       note: e.note?.trim() || undefined,
       // La priorité ne sert qu'aux tâches ponctuelles (sas et matrice) : on ne garde pas une valeur oubliée.
       important: inMatrix ? e.important ?? null : undefined,
@@ -119,7 +127,7 @@ export function EventEditor({ state, onClose, onSaved }: {
     <>
       {tried && !canSave ? (
         <Txt size={14} color={colors.danger} style={{ textAlign: 'center' }}>
-          {!titleOk ? 'Donne un intitulé à l’événement.' : !itemOk ? 'Indique l’objet à prendre.' : 'Ce créneau est déjà pris.'}
+          {!titleOk ? 'Donne un intitulé à l’événement.' : !itemOk ? 'Ajoute au moins un objet à la liste.' : 'Ce créneau est déjà pris.'}
         </Txt>
       ) : null}
       <Button label={state.isNew ? 'Ajouter' : 'Enregistrer'} kind="dark" onPress={save} style={!canSave && { opacity: 0.45 }} />
@@ -181,15 +189,47 @@ export function EventEditor({ state, onClose, onSaved }: {
       ) : null}
 
       {hasItem ? (
-        <Field label="Objet à prendre">
-          <TextInput
-            accessibilityLabel="Objet à prendre"
-            value={e.item ?? ''}
-            onChangeText={(item) => patch({ item })}
-            placeholder="Ex. devis signé, carte vitale"
-            placeholderTextColor={colors.faint}
-            style={[st.input, tried && !itemOk && st.inputError]}
-          />
+        <Field label="Objets à prendre / acheter">
+          <View style={st.itemList}>
+            {itemList.map((it, idx) => (
+              <View key={it.id} style={st.itemRow}>
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: !!it.done }}
+                  accessibilityLabel={it.done ? `Décocher ${it.text}` : `Cocher ${it.text}`}
+                  onPress={() => setItems(itemList.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
+                  hitSlop={8}
+                  style={[st.box, it.done && st.boxOn]}
+                >
+                  {it.done ? <Icon name="check" size={16} color="#FFFFFF" /> : null}
+                </Pressable>
+                <TextInput
+                  accessibilityLabel={`Objet ${idx + 1}`}
+                  value={it.text}
+                  onChangeText={(text) => setItems(itemList.map((x) => (x.id === it.id ? { ...x, text } : x)))}
+                  placeholder="Ex. devis signé"
+                  placeholderTextColor={colors.faint}
+                  autoFocus={!it.text && idx === itemList.length - 1 && idx > 0}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => { if (it.text.trim()) setItems([...itemList, { id: newId(), text: '' }]); }}
+                  style={[st.itemInput, it.done && { textDecorationLine: 'line-through', color: colors.muted }]}
+                />
+                <Pressable accessibilityRole="button" accessibilityLabel={`Retirer ${it.text || 'cet objet'}`} onPress={() => setItems(itemList.filter((x) => x.id !== it.id))} hitSlop={8} style={st.itemRemove}>
+                  <Icon name="x" size={16} color={colors.muted} />
+                </Pressable>
+              </View>
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ajouter un objet"
+              onPress={() => setItems([...itemList, { id: newId(), text: '' }])}
+              style={[st.itemAdd, tried && !itemOk && { borderColor: colors.danger }]}
+            >
+              <Icon name="plus" size={16} color={colors.accent} />
+              <Txt bold size={14} color={colors.accent}>Ajouter</Txt>
+            </Pressable>
+          </View>
           <Pressable accessibilityRole="switch" accessibilityState={{ checked: !!e.itemEveReminder }} onPress={() => patch({ itemEveReminder: !e.itemEveReminder })} style={st.checkRow}>
             <View style={[st.box, e.itemEveReminder && st.boxOn]}>{e.itemEveReminder ? <Icon name="check" size={16} color="#FFFFFF" /> : null}</View>
             <Txt size={14} style={{ flex: 1 }}>Me le rappeler la veille à 20 h pour le préparer</Txt>
@@ -407,4 +447,9 @@ const st = StyleSheet.create({
   unit: { flex: 1, minHeight: 42, borderRadius: radius.s, alignItems: 'center', justifyContent: 'center' },
   unitOn: { backgroundColor: colors.card },
   remove: { width: TOUCH, height: TOUCH, alignItems: 'center', justifyContent: 'center' },
+  itemList: { backgroundColor: colors.card, borderRadius: radius.m, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, paddingVertical: 4 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
+  itemInput: { flex: 1, minHeight: 44, fontFamily: fonts.regular, fontSize: 16, color: colors.ink, paddingVertical: 0 },
+  itemRemove: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  itemAdd: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40, paddingHorizontal: 10, marginVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: 'transparent' },
 });

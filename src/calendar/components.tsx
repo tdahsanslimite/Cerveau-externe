@@ -4,7 +4,7 @@ import { colors, radius } from '../theme';
 import { Icon, Txt } from '../ui';
 import { durationLabel, minutesToLabel } from './dates';
 import { useCalendar } from './CalendarContext';
-import { endOf, isDoneOn, kindsOf, LOAD_LABEL, LoadLevel, Occurrence } from './model';
+import { endOf, isDoneOn, itemsOf, kindsOf, LOAD_LABEL, LoadLevel, Occurrence } from './model';
 
 export const LOAD_COLOR: Record<LoadLevel, string> = {
   vide: colors.ok,
@@ -66,7 +66,7 @@ export function LoadLine({ level, count, limit }: { level: LoadLevel; count: num
 const REPEAT_HINT = { none: '', daily: 'chaque jour', weekdays: 'lun – ven', weekly: 'chaque semaine' } as const;
 
 export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: () => void; compact?: boolean }) {
-  const { domain, toggleDone } = useCalendar();
+  const { domain, toggleDone, toggleItem } = useCalendar();
   const e = occ.event;
   const cat = domain(e.category);
   const kinds = kindsOf(e);
@@ -81,7 +81,8 @@ export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: 
     REPEAT_HINT[e.repeat] || null,
     e.reminders?.length ? `${e.reminders.length} rappel${e.reminders.length > 1 ? 's' : ''}` : null,
   ].filter(Boolean).join(' · ');
-  const item = kinds.includes('objet') && e.item ? e.item : null;
+  const items = kinds.includes('objet') ? itemsOf(e).filter((i) => i.text.trim()) : [];
+  const item = items.length ? `${items.filter((i) => i.done).length}/${items.length}` : null;
 
   return (
     <View style={[s.eventRow, compact && s.eventRowCompact]}>
@@ -119,17 +120,29 @@ export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: 
             {e.title}
           </Txt>
           {!compact ? <Txt size={13} color={colors.muted}>{meta}</Txt> : null}
-          {item && !compact ? (
-            <View style={s.itemLine}>
-              <Icon name="briefcase" size={13} color={colors.warnDark} />
-              <Txt size={13} color={colors.warnDark} style={{ flex: 1 }}>{item}</Txt>
-            </View>
-          ) : null}
         </View>
         {item && compact ? <Icon name="briefcase" size={14} color={colors.warnDark} /> : null}
         {e.repeat !== 'none' && compact ? <Icon name="repeat" size={14} color={colors.faint} /> : null}
         {!compact ? <Icon name="chevron-right" size={18} color={colors.faint} /> : null}
       </Pressable>
+      {items.length && !compact && !e.phone ? (
+        // Liste d'objets cochable directement dans le calendrier (comme une liste de courses).
+        <View style={s.itemsBox}>
+          {items.map((it) => (
+            <Pressable
+              key={it.id}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: !!it.done }}
+              accessibilityLabel={it.done ? `Décocher ${it.text}` : `Cocher ${it.text}`}
+              onPress={() => toggleItem(e.id, it.id)}
+              style={s.itemCheckRow}
+            >
+              <View style={[s.miniBox, it.done && s.checkOn]}>{it.done ? <Icon name="check" size={12} color="#FFFFFF" /> : null}</View>
+              <Txt size={14} color={it.done ? colors.faint : colors.ink} style={[{ flex: 1 }, it.done && { textDecorationLine: 'line-through' }]}>{it.text}</Txt>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -165,7 +178,7 @@ export const s = StyleSheet.create({
   segment: { flex: 1, height: 10, borderRadius: 5 },
   loadLine: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, minHeight: 28 },
   miniSeg: { width: 14, height: 6, borderRadius: 3 },
-  eventRow: {
+  eventRow: { flexWrap: 'wrap',
     flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16,
     borderBottomWidth: 1, borderBottomColor: colors.lineSoft, minHeight: 60,
   },
@@ -175,6 +188,9 @@ export const s = StyleSheet.create({
   checkCompact: { width: 24, height: 24, borderRadius: 7 },
   checkOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   itemLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  itemsBox: { width: '100%', paddingLeft: 66, paddingTop: 4, gap: 2 },
+  itemCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36 },
+  miniBox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: colors.faint, alignItems: 'center', justifyContent: 'center' },
   catBar: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
   freeSlot: {
     flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, minHeight: 44,
