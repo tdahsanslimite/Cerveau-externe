@@ -110,3 +110,22 @@ jobs:
             --title "LCE — Cerveau Externe $TAG" \
             --notes "Nouvelle version de LCE, le cerveau externe pour les TDAH. Télécharge cerveau-externe.apk et installe-le par-dessus l'ancienne version : tes données sont conservées." \
             --latest
+
+      # Copie publique pour les testeurs : dépôt public tdahsanslimite/cerveau-externe-telechargement
+      # (lien à donner : github.com/tdahsanslimite/cerveau-externe-telechargement/releases/latest).
+      # Jeton limité à ce dépôt, rangé dans le secret RELEASES_TOKEN. Un échec ici n'empêche pas la version privée.
+      - name: Publier pour les testeurs (dépôt public)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::Le secret RELEASES_TOKEN manque : pas de copie publique."
+            exit 1
+          fi
+          TAG="v1.0.${{ github.run_number }}"
+          gh release create "$TAG" cerveau-externe.apk \
+            --repo tdahsanslimite/cerveau-externe-telechargement \
+            --title "LCE — Cerveau Externe $TAG" \
+            --notes "Nouvelle version de LCE, le cerveau externe pour les TDAH. Télécharge cerveau-externe.apk ci-dessous et installe-le par-dessus l'ancienne version : tes données sont gardées." \
+            --latest
