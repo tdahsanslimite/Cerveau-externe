@@ -17,6 +17,12 @@ export function PeriodLine({ kind, day }: { kind: PeriodKind; day: DayKey }) {
   );
 }
 
+/** Texte du One Thing de l'année (onglet Objectifs), ou null s'il n'est pas rempli. */
+export function useAnnualOneThingText(day: DayKey): string | null {
+  const { years } = useGoals();
+  return annualOneThing(years, day)?.text?.trim() || null;
+}
+
 /** Le One Thing de l'année (thème en tête), au-dessus de la case « The One Thing » de « Trier mes idées ». */
 export function AnnualOneThingLine({ day }: { day: DayKey }) {
   const { years } = useGoals();

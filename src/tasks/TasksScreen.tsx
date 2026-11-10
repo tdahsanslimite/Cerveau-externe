@@ -9,7 +9,7 @@ import { useCalendar } from '../calendar/CalendarContext';
 import { EmptyState } from '../calendar/components';
 import { labelDayLong, todayKey } from '../calendar/dates';
 import { EditorState, EventEditor } from '../calendar/EventEditor';
-import { AnnualOneThingLine } from '../goals/GoalLines';
+import { useAnnualOneThingText } from '../goals/GoalLines';
 import { SettingsSheet } from '../settings/SettingsSheet';
 import { colors, fonts, radius } from '../theme';
 import { Card, Icon, IconButton, Txt } from '../ui';
@@ -161,6 +161,9 @@ export function TasksScreen() {
     (store.current as Record<string, Box>)[key] = { x: l.x, y: l.y, w: l.width, h: l.height };
   };
 
+  // En-tête de The One Thing : la cible, le titre, puis le One Thing noté dans Objectifs (lien entre les onglets).
+  const annualOne = useAnnualOneThingText(today);
+
   const renderCell = (id: QuadrantId) => {
     const q = QUADRANTS.find((x) => x.id === id) as (typeof QUADRANTS)[number];
     const list = byQuadrant(items, id);
@@ -169,14 +172,15 @@ export function TasksScreen() {
     return (
       <View key={id} style={wide ? { gap: 6 } : st.cell} onLayout={measure(sections, id)}>
         <View style={[st.quadHead, !wide && { minHeight: 56 }]}>
-          <Icon name={q.icon} size={wide ? 18 : 16} color={colors.accentDark} />
+          <Icon name={id === 'one' ? 'target' : q.icon} size={wide ? 18 : 16} color={colors.accentDark} />
           <View style={{ flex: 1 }}>
             <Txt bold size={wide ? 16 : 14}>{q.label}</Txt>
-            {q.hint ? <Txt size={12} color={colors.muted}>{q.hint}</Txt> : null}
+            {id === 'one' && annualOne ? (
+              <Txt size={14} numberOfLines={3}>{annualOne}</Txt>
+            ) : q.hint ? <Txt size={12} color={colors.muted}>{q.hint}</Txt> : null}
           </View>
           <Txt bold size={13} color={colors.muted}>{list.length}</Txt>
         </View>
-        {id === 'one' ? <AnnualOneThingLine day={todayKey()} /> : null}
         <View style={wide ? undefined : { flex: 1 }} onLayout={measure(cards, id)}>
           <Card style={[!wide && { flex: 1 }, hot ? st.cardHot : null]}>
             {list.length === 0 ? (
