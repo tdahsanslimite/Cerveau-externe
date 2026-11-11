@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BAR_IDS, barModules, categoryById, categoryInfo, categoryModules, categoryOf, CATEGORIES, MODULES, moduleById, tileSpan,
+  barModulesFor, categoryById, categoryInfo, categoryModules, categoryOf, CATEGORIES, MODULES, moduleById, tileSpan,
 } from './modules.ts';
 
 test('chaque module a un id unique', () => {
@@ -9,18 +9,16 @@ test('chaque module a un id unique', () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test('la barre du bas ne garde que des modules qui existent, dans l\'ordre voulu', () => {
-  assert.deepEqual(BAR_IDS, ['calendrier', 'routines', 'taches']);
-  assert.deepEqual(barModules().map((m) => m.id), BAR_IDS);
-  for (const id of BAR_IDS) assert.equal(moduleById(id).id, id);
+test('la barre du bas montre les modules de la catégorie où l\'on est', () => {
+  assert.deepEqual(barModulesFor('calendrier').map((m) => m.id), ['taches', 'calendrier']);
+  assert.deepEqual(barModulesFor('taches').map((m) => m.id), ['taches', 'calendrier']);
+  assert.deepEqual(barModulesFor('routines').map((m) => m.id), ['journal', 'routines', 'objectifs']);
+  assert.deepEqual(barModulesFor('meditation').map((m) => m.id), ['respiration', 'meditation']);
+  assert.equal(moduleById('taches').barLabel, 'Trier');
 });
 
-test('l\'accueil propose les 7 modules, dont respiration et méditation hors de la barre', () => {
+test('l\'accueil propose les 7 modules', () => {
   assert.equal(MODULES.length, 7);
-  assert.ok(MODULES.some((m) => m.id === 'respiration'));
-  assert.ok(MODULES.some((m) => m.id === 'meditation'));
-  assert.ok(!BAR_IDS.includes('respiration'));
-  assert.ok(!BAR_IDS.includes('meditation'));
 });
 
 test('tileSpan : la dernière tuile d\'un nombre impair prend toute la largeur', () => {
@@ -40,7 +38,7 @@ test('chaque module est dans une et une seule catégorie, et toute catégorie ne
 
 test('les 3 catégories de l\'accueil et leurs sous-menus', () => {
   assert.deepEqual(CATEGORIES.map((c) => c.id), ['tdah', 'organiser', 'detendre']);
-  assert.deepEqual(categoryById('tdah').items, ['objectifs', 'routines', 'journal']);
+  assert.deepEqual(categoryById('tdah').items, ['journal', 'routines', 'objectifs']);
   assert.deepEqual(categoryById('organiser').items, ['taches', 'calendrier']);
   assert.deepEqual(categoryModules('detendre').map((m) => m.id), ['respiration', 'meditation']);
   assert.equal(categoryOf('journal')?.id, 'tdah');

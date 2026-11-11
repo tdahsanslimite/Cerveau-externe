@@ -1,6 +1,6 @@
 // Registre des modules de l'appli (pur, testé). Un module = une entrée ici + une ligne d'écran dans AppTabs.
 // L'accueil montre des CATÉGORIES (CATEGORIES) ; un clic ouvre un sous-menu avec les modules de la catégorie.
-// La barre du bas n'en garde que quelques-uns (BAR_IDS).
+// Dans un module, la barre du bas montre « Accueil » + les modules de SA catégorie (barModulesFor).
 
 export type ModuleId = 'calendrier' | 'taches' | 'routines' | 'journal' | 'objectifs' | 'respiration' | 'meditation';
 
@@ -19,7 +19,7 @@ export type ModuleMeta = {
 /** Ordre = ordre des tuiles sur l'accueil. Ajouter un module : une ligne ici. */
 export const MODULES: ModuleMeta[] = [
   { id: 'calendrier', label: 'Calendrier', barLabel: 'Calendrier', hint: 'Ta journée, ta semaine', icon: 'calendar' },
-  { id: 'taches', label: 'Trier mes idées', barLabel: 'Idées', hint: 'Vider ta tête, choisir', icon: 'check-square' },
+  { id: 'taches', label: 'Trier mes idées', barLabel: 'Trier', hint: 'Vider ta tête, choisir', icon: 'check-square' },
   { id: 'routines', label: 'Routines', barLabel: 'Routines', hint: 'Matin, journée, soir', icon: 'repeat' },
   { id: 'journal', label: 'Journal', barLabel: 'Journal', hint: 'Comprendre tes journées', icon: 'book-open' },
   { id: 'objectifs', label: 'Objectifs', barLabel: 'Objectifs', hint: 'Qui tu veux devenir', icon: 'target' },
@@ -27,17 +27,10 @@ export const MODULES: ModuleMeta[] = [
   { id: 'meditation', label: 'Méditation', barLabel: 'Méditation', hint: 'Se poser quelques minutes', icon: 'moon' },
 ];
 
-/** Les usages de tous les jours, gardés dans la barre du bas (dans cet ordre). */
-export const BAR_IDS: ModuleId[] = ['calendrier', 'routines', 'taches'];
-
 export function moduleById(id: ModuleId): ModuleMeta {
   const m = MODULES.find((x) => x.id === id);
   if (!m) throw new Error(`Module inconnu : ${id}`);
   return m;
-}
-
-export function barModules(): ModuleMeta[] {
-  return BAR_IDS.map(moduleById);
 }
 
 /** Largeur d'une tuile en grille à 2 colonnes : la dernière, seule sur sa ligne, prend toute la largeur. */
@@ -60,7 +53,7 @@ export type CategoryMeta = {
 
 /** Ordre = ordre des tuiles sur l'accueil. Chaque module appartient à UNE catégorie (vérifié par les tests). */
 export const CATEGORIES: CategoryMeta[] = [
-  { id: 'tdah', label: 'Mon TDAH au quotidien', hint: 'Objectifs, routines, journal', icon: 'compass', items: ['objectifs', 'routines', 'journal'] },
+  { id: 'tdah', label: 'Mon TDAH au quotidien', hint: 'Journal, routines, objectifs', icon: 'compass', items: ['journal', 'routines', 'objectifs'] },
   { id: 'organiser', label: 'Organiser et planifier', hint: 'Idées, calendrier', icon: 'layout', items: ['taches', 'calendrier'] },
   { id: 'detendre', label: 'Se détendre', hint: 'Respiration, méditation', icon: 'feather', items: ['respiration', 'meditation'] },
 ];
@@ -91,4 +84,10 @@ export function categoryInfo(id: CategoryId, info: Partial<Record<ModuleId, Tile
     dot = dot || !!info[m]?.dot;
   }
   return { badge: badge > 0 ? badge : undefined, dot: dot || undefined };
+}
+
+/** Onglets de la barre du bas dans un module : les modules de sa catégorie, dans l'ordre du sous-menu. */
+export function barModulesFor(id: ModuleId): ModuleMeta[] {
+  const c = categoryOf(id);
+  return c ? categoryModules(c.id) : [moduleById(id)];
 }

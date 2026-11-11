@@ -11,7 +11,7 @@ import { BreathingScreen } from './breathing/BreathingScreen';
 import { CalendarScreen } from './calendar/CalendarScreen';
 import { GoalsScreen } from './goals/GoalsScreen';
 import { HomeScreen } from './home/HomeScreen';
-import { barModules, CategoryId, ModuleId, TileInfo } from './home/modules';
+import { barModulesFor, CategoryId, ModuleId, TileInfo } from './home/modules';
 import { JournalScreen } from './journal/JournalScreen';
 import { MeditationScreen } from './meditation/MeditationScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
@@ -106,7 +106,7 @@ export function AppTabs() {
             <Icon name="home" size={24} color={colors.muted} />
             <Txt size={12} color={colors.muted}>Accueil</Txt>
           </Pressable>
-          {barModules().map((m) => {
+          {barModulesFor(active).map((m) => {
             const on = active === m.id;
             const badge = m.id === 'taches' ? toSortToday : 0;
             const dot = m.id === 'routines' && routinesAlert;
