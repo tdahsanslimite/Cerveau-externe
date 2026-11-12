@@ -14,6 +14,9 @@ import { HomeScreen } from './home/HomeScreen';
 import { barModulesFor, CategoryId, ModuleId, TileInfo } from './home/modules';
 import { JournalScreen } from './journal/JournalScreen';
 import { MeditationScreen } from './meditation/MeditationScreen';
+import { nextOverall, whenText } from './reveil/model';
+import { useReveil } from './reveil/ReveilContext';
+import { ReveilScreen } from './reveil/ReveilScreen';
 import { RoutinesScreen } from './routines/RoutinesScreen';
 import { useRoutineAlert } from './routines/useRoutineAlert';
 import { toSortCount } from './tasks/model';
@@ -32,6 +35,7 @@ const KEPT: { id: ModuleId; screen: () => React.ReactElement }[] = [
   { id: 'routines', screen: () => <RoutinesScreen /> },
   { id: 'journal', screen: () => <JournalScreen /> },
   { id: 'objectifs', screen: () => <GoalsScreen /> },
+  { id: 'reveil', screen: () => <ReveilScreen /> },
 ];
 
 /** Écrans montés seulement quand ils sont affichés. */
@@ -48,6 +52,8 @@ export function AppTabs() {
   const [menu, setMenu] = useState<CategoryId | null>(null);
   const toSortToday = toSortCount(useTaskItems());
   const routinesAlert = useRoutineAlert();
+  const { alarms } = useReveil();
+  const nextAlarm = active === 'accueil' ? nextOverall(alarms, new Date()) : null;
   useNightlyReset();
 
   // Le bouton retour d'Android remonte d'un niveau : module → sous-menu (ou accueil) → accueil → quitter l'appli.
@@ -69,6 +75,9 @@ export function AppTabs() {
   const info: Partial<Record<ModuleId, TileInfo>> = {
     taches: { badge: toSortToday > 0 ? toSortToday : undefined },
     routines: { dot: routinesAlert },
+    reveil: nextAlarm
+      ? { hint: `Prochain : ${nextAlarm.alarm.title} ${whenText(nextAlarm.at, new Date())}` }
+      : alarms.length > 0 ? { hint: 'Aucun réveil allumé' } : undefined,
   };
 
   return (

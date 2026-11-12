@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
 import { Icon, IconName, Txt } from '../ui';
 import {
-  CategoryId, CATEGORIES, categoryById, categoryInfo, categoryModules, ModuleId, tileSpan, TileInfo,
+  CategoryId, CATEGORIES, categoryById, categoryInfo, categoryModules, directModule, ModuleId, tileSpan, TileInfo,
 } from './modules';
 
 export type { TileInfo };
@@ -79,7 +79,7 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
                   </View>
                   <View style={{ gap: 2, flexShrink: 1 }}>
                     <Txt bold size={17}>{m.label}</Txt>
-                    <Txt size={13} color={colors.muted}>{m.hint}</Txt>
+                    <Txt size={13} color={colors.muted}>{info[m.id]?.hint ?? m.hint}</Txt>
                   </View>
                 </Pressable>
               );
@@ -89,12 +89,14 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
           <View style={st.list}>
             {CATEGORIES.map((c) => {
               const extra = categoryInfo(c.id, info);
+              const direct = directModule(c.id);
+              const hint = (direct && info[direct]?.hint) || c.hint;
               return (
                 <Pressable
                   key={c.id}
                   accessibilityRole="button"
                   accessibilityLabel={describe(c.label, extra)}
-                  onPress={() => onMenu(c.id)}
+                  onPress={() => (direct ? onOpen(direct) : onMenu(c.id))}
                   style={({ pressed }) => [st.tile, st.category, pressed && { opacity: 0.7 }]}
                 >
                   <View style={st.iconWrapBig}>
@@ -103,7 +105,7 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
                   </View>
                   <View style={{ flex: 1, gap: 3 }}>
                     <Txt bold size={19}>{c.label}</Txt>
-                    <Txt size={14} color={colors.muted}>{c.hint}</Txt>
+                    <Txt size={14} color={colors.muted}>{hint}</Txt>
                   </View>
                   <Icon name="chevron-right" size={22} color={colors.faint} />
                 </Pressable>

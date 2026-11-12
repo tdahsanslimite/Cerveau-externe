@@ -1,0 +1,6 @@
+{
+  "name": "reveil",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Réveil de Cerveau Externe : alarmes Android qui sonnent sur le volume « alarme » jusqu'à ce qu'on les arrête."
+}

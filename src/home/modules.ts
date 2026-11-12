@@ -2,7 +2,7 @@
 // L'accueil montre des CATÉGORIES (CATEGORIES) ; un clic ouvre un sous-menu avec les modules de la catégorie.
 // Dans un module, la barre du bas montre « Accueil » + les modules de SA catégorie (barModulesFor).
 
-export type ModuleId = 'calendrier' | 'taches' | 'routines' | 'journal' | 'objectifs' | 'respiration' | 'meditation';
+export type ModuleId = 'calendrier' | 'taches' | 'routines' | 'journal' | 'objectifs' | 'respiration' | 'meditation' | 'reveil';
 
 export type ModuleMeta = {
   id: ModuleId;
@@ -25,6 +25,7 @@ export const MODULES: ModuleMeta[] = [
   { id: 'objectifs', label: 'Objectifs', barLabel: 'Objectifs', hint: 'Qui tu veux devenir', icon: 'target' },
   { id: 'respiration', label: 'Respiration', barLabel: 'Respiration', hint: 'Cohérence cardiaque, apaisement', icon: 'wind' },
   { id: 'meditation', label: 'Méditation', barLabel: 'Méditation', hint: 'Se poser quelques minutes', icon: 'moon' },
+  { id: 'reveil', label: 'Réveil', barLabel: 'Réveil', hint: 'Tes réveils de la journée', icon: 'bell' },
 ];
 
 export function moduleById(id: ModuleId): ModuleMeta {
@@ -39,7 +40,7 @@ export function tileSpan(index: number, count: number): 1 | 2 {
 }
 
 // ── Catégories de l'accueil ──────────────────────────────────────────────────────────────────────────
-export type CategoryId = 'tdah' | 'organiser' | 'detendre';
+export type CategoryId = 'tdah' | 'organiser' | 'detendre' | 'reveil';
 
 export type CategoryMeta = {
   id: CategoryId;
@@ -56,6 +57,9 @@ export const CATEGORIES: CategoryMeta[] = [
   { id: 'tdah', label: 'Mon TDAH au quotidien', hint: 'Journal, routines, objectifs', icon: 'compass', items: ['journal', 'routines', 'objectifs'] },
   { id: 'organiser', label: 'Organiser et planifier', hint: 'Idées, calendrier', icon: 'layout', items: ['taches', 'calendrier'] },
   { id: 'detendre', label: 'Se détendre', hint: 'Respiration, méditation', icon: 'feather', items: ['respiration', 'meditation'] },
+  // 12 nov. : le réveil est un domaine à part pour l'instant (décision de Valentin). Catégorie d'un seul module :
+  // la tuile ouvre directement le module (directModule).
+  { id: 'reveil', label: 'Réveil', hint: 'Tes réveils de la journée', icon: 'bell', items: ['reveil'] },
 ];
 
 export function categoryById(id: CategoryId): CategoryMeta {
@@ -72,8 +76,14 @@ export function categoryModules(id: CategoryId): ModuleMeta[] {
   return categoryById(id).items.map(moduleById);
 }
 
-/** Pastille d'un module : nombre à classer et / ou point « à remplir ». */
-export type TileInfo = { badge?: number; dot?: boolean };
+/** Pastille d'un module : nombre à classer et / ou point « à remplir » ; `hint` remplace le sous-titre (ex. prochain réveil). */
+export type TileInfo = { badge?: number; dot?: boolean; hint?: string };
+
+/** Catégorie d'un seul module : la tuile de l'accueil ouvre directement ce module, sans sous-menu. */
+export function directModule(id: CategoryId): ModuleId | null {
+  const c = categoryById(id);
+  return c.items.length === 1 ? c.items[0] : null;
+}
 
 /** Ce que la tuile d'une catégorie doit montrer : la somme des nombres et un point si l'un de ses modules en a un. */
 export function categoryInfo(id: CategoryId, info: Partial<Record<ModuleId, TileInfo>>): TileInfo {

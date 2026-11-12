@@ -7,6 +7,7 @@ import { CalendarProvider, useCalendar } from './src/calendar/CalendarContext';
 import { AppTabs } from './src/AppTabs';
 import { GoalsProvider, useGoals } from './src/goals/GoalsContext';
 import { JournalProvider, useJournal } from './src/journal/JournalContext';
+import { ReveilProvider, useReveil } from './src/reveil/ReveilContext';
 import { RoutinesProvider, useRoutines } from './src/routines/RoutinesContext';
 import { SettingsProvider, useSettings } from './src/settings/SettingsContext';
 import { TasksProvider, useTasks } from './src/tasks/TasksContext';
@@ -19,7 +20,8 @@ function Gate() {
   const { loaded: routinesLoaded } = useRoutines();
   const { loaded: journalLoaded } = useJournal();
   const { loaded: goalsLoaded } = useGoals();
-  if (!settingsLoaded || !calendarLoaded || !tasksLoaded || !routinesLoaded || !journalLoaded || !goalsLoaded) return <Splash />;
+  const { loaded: reveilLoaded } = useReveil();
+  if (!settingsLoaded || !calendarLoaded || !tasksLoaded || !routinesLoaded || !journalLoaded || !goalsLoaded || !reveilLoaded) return <Splash />;
   return <AppTabs />;
 }
 
@@ -43,7 +45,9 @@ export default function App() {
               <RoutinesProvider>
                 <JournalProvider>
                   <GoalsProvider>
-                    <Gate />
+                    <ReveilProvider>
+                      <Gate />
+                    </ReveilProvider>
                   </GoalsProvider>
                 </JournalProvider>
               </RoutinesProvider>

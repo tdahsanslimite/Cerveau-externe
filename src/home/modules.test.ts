@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  barModulesFor, categoryById, categoryInfo, categoryModules, categoryOf, CATEGORIES, MODULES, moduleById, tileSpan,
+  barModulesFor, categoryById, categoryInfo, categoryModules, categoryOf, CATEGORIES, directModule, MODULES, moduleById, tileSpan,
 } from './modules.ts';
 
 test('chaque module a un id unique', () => {
@@ -17,8 +17,8 @@ test('la barre du bas montre les modules de la catégorie où l\'on est', () => 
   assert.equal(moduleById('taches').barLabel, 'Trier');
 });
 
-test('l\'accueil propose les 7 modules', () => {
-  assert.equal(MODULES.length, 7);
+test('l\'accueil propose les 8 modules', () => {
+  assert.equal(MODULES.length, 8);
 });
 
 test('tileSpan : la dernière tuile d\'un nombre impair prend toute la largeur', () => {
@@ -36,8 +36,8 @@ test('chaque module est dans une et une seule catégorie, et toute catégorie ne
   for (const m of MODULES) assert.ok(categoryOf(m.id));
 });
 
-test('les 3 catégories de l\'accueil et leurs sous-menus', () => {
-  assert.deepEqual(CATEGORIES.map((c) => c.id), ['tdah', 'organiser', 'detendre']);
+test('les 4 catégories de l\'accueil et leurs sous-menus', () => {
+  assert.deepEqual(CATEGORIES.map((c) => c.id), ['tdah', 'organiser', 'detendre', 'reveil']);
   assert.deepEqual(categoryById('tdah').items, ['journal', 'routines', 'objectifs']);
   assert.deepEqual(categoryById('organiser').items, ['taches', 'calendrier']);
   assert.deepEqual(categoryModules('detendre').map((m) => m.id), ['respiration', 'meditation']);
@@ -50,4 +50,10 @@ test('categoryInfo : somme des nombres à classer, point si un module en a un', 
   assert.deepEqual(categoryInfo('tdah', { routines: { dot: true } }), { badge: undefined, dot: true });
   assert.deepEqual(categoryInfo('detendre', { taches: { badge: 9 } }), { badge: undefined, dot: undefined });
   assert.deepEqual(categoryInfo('tdah', {}), { badge: undefined, dot: undefined });
+});
+
+test('le Réveil est une catégorie à part dont la tuile ouvre directement le module', () => {
+  assert.equal(directModule('reveil'), 'reveil');
+  assert.equal(directModule('organiser'), null);
+  assert.deepEqual(barModulesFor('reveil').map((m) => m.id), ['reveil']);
 });

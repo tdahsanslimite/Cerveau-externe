@@ -8,7 +8,7 @@ import { Txt } from '../ui';
 const ITEM_H = 44;
 const VISIBLE = 5; // lignes visibles ; celle du milieu est la valeur choisie
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+const minutesFor = (step: number) => Array.from({ length: Math.ceil(60 / step) }, (_, i) => i * step);
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -64,16 +64,16 @@ function Column({ values, value, onChange, label }: { values: number[]; value: n
   );
 }
 
-/** `value` en minutes depuis minuit. Les minutes hors pas de 5 sont arrondies à l'affichage de la roue. */
-export function TimeWheel({ value, onChange }: { value: number; onChange: (minutes: number) => void }) {
+/** `value` en minutes depuis minuit. Les minutes hors pas (5 par défaut, 1 pour le réveil) sont arrondies à l'affichage. */
+export function TimeWheel({ value, onChange, step = 5 }: { value: number; onChange: (minutes: number) => void; step?: number }) {
   const h = Math.floor(value / 60);
-  const m = Math.round((value % 60) / 5) * 5 % 60;
+  const m = Math.round((value % 60) / step) * step % 60;
   return (
     <View style={st.wrap}>
       <View style={st.band} pointerEvents="none" />
       <Column label="Heures" values={HOURS} value={h} onChange={(nh) => onChange(nh * 60 + m)} />
       <Txt bold size={24} style={{ marginHorizontal: 4 }}>:</Txt>
-      <Column label="Minutes" values={MINUTES} value={m} onChange={(nm) => onChange(h * 60 + nm)} />
+      <Column label="Minutes" values={minutesFor(step)} value={m} onChange={(nm) => onChange(h * 60 + nm)} />
     </View>
   );
 }
