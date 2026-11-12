@@ -1,7 +1,7 @@
 // Page d'accueil à deux niveaux : 3 grosses catégories ; un clic ouvre un sous-menu avec les modules de la catégorie.
 // Ajouter une catégorie ou un module = une entrée dans CATEGORIES / MODULES (modules.ts) ; les grilles s'adaptent au nombre.
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
 import { Icon, IconName, Txt } from '../ui';
@@ -10,6 +10,25 @@ import {
 } from './modules';
 
 export type { TileInfo };
+
+// Version web (iPhone, 12 nov.) : pas de réveil ni de rappels dans un navigateur ; on le dit plutôt que de montrer un module muet.
+const isWeb = Platform.OS === 'web';
+const HOME_CATEGORIES = isWeb ? CATEGORIES.filter((c) => c.id !== 'reveil') : CATEGORIES;
+
+function WebNotice() {
+  return (
+    <View style={st.notice}>
+      <Icon name="info" size={20} color={colors.amber} />
+      <View style={{ flex: 1, gap: 4 }}>
+        <Txt bold size={14}>Version web (bêta)</Txt>
+        <Txt size={13} color={colors.muted}>
+          Pas de rappels ni de réveil ici. Tes données restent dans ce navigateur, sur ce téléphone : ajoute la page à ton
+          écran d'accueil (Partager › Sur l'écran d'accueil) et ouvre l'appli depuis cette icône pour ne pas les perdre.
+        </Txt>
+      </View>
+    </View>
+  );
+}
 
 function Badges({ info }: { info?: TileInfo }) {
   return (
@@ -87,7 +106,7 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
           </View>
         ) : (
           <View style={st.list}>
-            {CATEGORIES.map((c) => {
+            {HOME_CATEGORIES.map((c) => {
               const extra = categoryInfo(c.id, info);
               const direct = directModule(c.id);
               const hint = (direct && info[direct]?.hint) || c.hint;
@@ -111,6 +130,7 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
                 </Pressable>
               );
             })}
+            {isWeb ? <WebNotice /> : null}
           </View>
         )}
       </ScrollView>
@@ -140,6 +160,9 @@ const st = StyleSheet.create({
   badge: {
     position: 'absolute', top: -4, right: -6, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5,
     backgroundColor: colors.warn, alignItems: 'center', justifyContent: 'center',
+  },
+  notice: {
+    flexDirection: 'row', gap: 12, padding: 14, borderRadius: radius.l, backgroundColor: colors.sandSoft, marginTop: 6,
   },
   dot: { position: 'absolute', top: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.alert, borderWidth: 2, borderColor: colors.card },
 });

@@ -93,3 +93,54 @@ jobs:
             --title "LCE, le cerveau externe — $TAG" \
             --notes "Télécharge cerveau-externe.apk ci-dessous, puis ouvre-le sur ton téléphone Android pour l'installer (ou le mettre à jour : tes données sont conservées)." \
             --latest
+
+  # Version web (pour l'iPhone, 12 nov.) : publiée sur GitHub Pages du dépôt public de téléchargement,
+  # https://tdahsanslimite.github.io/cerveau-externe-telechargement/ (branche gh-pages, remplacée à chaque version).
+  # Indépendante de l'APK : un échec Android n'empêche pas la version web, et inversement.
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier le code (types + tests)
+        run: |
+          npx tsc --noEmit
+          npm test
+
+      - name: Exporter la version web
+        env:
+          CE_WEB_BASE_URL: /cerveau-externe-telechargement
+        run: |
+          npx expo export --platform web --output-dir web-dist
+          node scripts/patch-web.js web-dist /cerveau-externe-telechargement
+
+      - name: Publier sur GitHub Pages (dépôt public)
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::Le secret RELEASES_TOKEN manque : pas de version web."
+            exit 0
+          fi
+          cd web-dist
+          git init -q -b gh-pages
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Version web : $(cd .. && git log -1 --pretty=%s)"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/tdahsanslimite/cerveau-externe-telechargement.git" gh-pages
+          # Active Pages la première fois (marche seulement si le jeton a le droit « Pages » ; sinon à faire à la main :
+          # Settings › Pages › Deploy from a branch › gh-pages / root).
+          gh api -X POST repos/tdahsanslimite/cerveau-externe-telechargement/pages \
+            -f "source[branch]=gh-pages" -f "source[path]=/" >/dev/null 2>&1 \
+            && echo "GitHub Pages activé." \
+            || echo "::notice::Pages déjà activé, ou à activer à la main (Settings › Pages › gh-pages)."
