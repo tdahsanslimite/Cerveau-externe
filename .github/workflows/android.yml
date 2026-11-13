@@ -64,6 +64,8 @@ jobs:
           CE_KEYSTORE_PASSWORD: ${{ secrets.CE_KEYSTORE_PASSWORD }}
           CE_KEY_ALIAS: cerveau-externe
           CE_KEY_PASSWORD: ${{ secrets.CE_KEYSTORE_PASSWORD }}
+          # Numéro de cette version, lu par l'appli pour savoir si une plus récente existe (src/update).
+          EXPO_PUBLIC_CE_BUILD: ${{ github.run_number }}
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Publier la nouvelle version

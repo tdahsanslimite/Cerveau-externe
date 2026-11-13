@@ -8,6 +8,7 @@ import { Icon, IconName, Txt } from '../ui';
 import {
   CategoryId, CATEGORIES, categoryById, categoryInfo, categoryModules, directModule, ModuleId, tileSpan, TileInfo,
 } from './modules';
+import { useUpdate } from '../update/useUpdate';
 
 export type { TileInfo };
 
@@ -25,6 +26,31 @@ function WebNotice() {
           Pas de rappels ni de réveil ici. Tes données restent dans ce navigateur, sur ce téléphone : ajoute la page à ton
           écran d'accueil (Partager › Sur l'écran d'accueil) et ouvre l'appli depuis cette icône pour ne pas les perdre.
         </Txt>
+      </View>
+    </View>
+  );
+}
+
+// Nouvelle version de l'appli (13 nov.) : bandeau en haut de l'accueil, le bouton télécharge directement l'APK.
+function UpdateBanner() {
+  const { available, install, later } = useUpdate();
+  if (available == null) return null;
+  return (
+    <View style={st.update} accessibilityRole="alert">
+      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+        <Icon name="download" size={22} color={colors.accentDark} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt bold size={16} color={colors.accentDark}>Nouvelle version disponible</Txt>
+          <Txt size={13} color={colors.accentDark}>Tes données sont gardées. Touche « Installer » une fois le téléchargement fini.</Txt>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
+        <Pressable accessibilityRole="button" onPress={later} hitSlop={6} style={({ pressed }) => [st.updateLater, pressed && { opacity: 0.6 }]}>
+          <Txt size={14} color={colors.accentDark}>Plus tard</Txt>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={install} style={({ pressed }) => [st.updateBtn, pressed && { opacity: 0.8 }]}>
+          <Txt bold size={15} color="#FFFFFF">Mettre à jour</Txt>
+        </Pressable>
       </View>
     </View>
   );
@@ -106,6 +132,7 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
           </View>
         ) : (
           <View style={st.list}>
+            <UpdateBanner />
             {HOME_CATEGORIES.map((c) => {
               const extra = categoryInfo(c.id, info);
               const direct = directModule(c.id);
@@ -164,5 +191,8 @@ const st = StyleSheet.create({
   notice: {
     flexDirection: 'row', gap: 12, padding: 14, borderRadius: radius.l, backgroundColor: colors.sandSoft, marginTop: 6,
   },
+  update: { backgroundColor: colors.sand, borderRadius: radius.l, padding: 16, gap: 12 },
+  updateBtn: { backgroundColor: colors.accentDark, borderRadius: radius.m, paddingHorizontal: 18, minHeight: 44, justifyContent: 'center' },
+  updateLater: { paddingHorizontal: 10, minHeight: 44, justifyContent: 'center' },
   dot: { position: 'absolute', top: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.alert, borderWidth: 2, borderColor: colors.card },
 });
