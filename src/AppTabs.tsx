@@ -3,8 +3,8 @@
 // Navigation volontairement simple (sans Expo Router) tant que l'appli n'a que quelques modules.
 // Les écrans de données restent affichés en mémoire : on retrouve le jour et la vue là où on les a laissés.
 // Respiration et Méditation ne sont montés que lorsqu'ils sont affichés (l'exercice s'arrête en quittant).
-import React, { useEffect, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState, BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BreathingScreen } from './breathing/BreathingScreen';
@@ -60,6 +60,17 @@ export function AppTabs() {
   useNightlyReset();
   useWidgetSync();
 
+  // « Ta journée » s'ouvre à chaque ouverture de l'appli : au lancement, et à chaque retour dedans (13 nov., Valentin).
+  const [dayOpen, setDayOpen] = useState(true);
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (appState.current === 'background' && next === 'active') setDayOpen(true);
+      appState.current = next;
+    });
+    return () => sub.remove();
+  }, []);
+
   // Le bouton retour d'Android remonte d'un niveau : module → sous-menu (ou accueil) → accueil → quitter l'appli.
   useEffect(() => {
     if (active === 'accueil' && menu === null) return;
@@ -108,9 +119,9 @@ export function AppTabs() {
         </View>
       </SafeAreaInsetsContext.Provider>
       {/* À l'ouverture : ta journée (et les rappels). En entrant dans Organiser et planifier : le ménage de la veille. */}
-      <DayHost />
+      <DayHost visible={dayOpen} onClose={() => setDayOpen(false)} />
       <CleanupHost
-        active={menu === 'organiser' || (active !== 'accueil' && categoryOf(active)?.id === 'organiser')}
+        active={!dayOpen && (menu === 'organiser' || (active !== 'accueil' && categoryOf(active)?.id === 'organiser'))}
         onLeave={() => { setActive('accueil'); setMenu(null); }}
       />
 

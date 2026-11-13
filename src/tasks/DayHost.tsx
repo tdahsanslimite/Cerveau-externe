@@ -1,13 +1,13 @@
-// Pop-up « ta journée » (13 nov., Valentin) : une fois par jour, à la première ouverture de l'appli, on voit le jour J
-// avant toute autre chose. Les rappels de date butoir y viennent en plus : la première fois on les voit simplement,
+// Pop-up « ta journée » (13 nov., Valentin) : à CHAQUE ouverture de l'appli (lancement ou retour dedans), on voit le jour J
+// avant toute autre chose, et on coche au fur et à mesure (ça allège le ménage du lendemain). L'ouverture est gérée par AppTabs. Les rappels de date butoir y viennent en plus : la première fois on les voit simplement,
 // dès le lendemain (et chaque jour tant que ce n'est pas fait) ils proposent de programmer la tâche.
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { Checkbox } from './components';
 import { useCalendar } from '../calendar/CalendarContext';
 import { labelDayLong, labelDayShort, minutesToLabel, todayKey } from '../calendar/dates';
 import { EditorState, EventEditor } from '../calendar/EventEditor';
-import { CalendarEvent, endOf, isRappel, kindsOf, natureLabel, natureOf, occurrencesOn, pendingRappels, rappelActionable } from '../calendar/model';
-import { useSettings } from '../settings/SettingsContext';
+import { CalendarEvent, endOf, isCheckable, isDoneOn, isRappel, kindsOf, natureLabel, natureOf, occurrencesOn, pendingRappels, rappelActionable } from '../calendar/model';
 import { colors, radius } from '../theme';
 import { Button, Icon, Sheet, Txt } from '../ui';
 import { byQuadrant } from './model';
@@ -19,9 +19,8 @@ const kindLabel = (e: CalendarEvent) => {
   return e.phone ? e.phone.calendarTitle : k.includes('rdv') ? natureLabel(natureOf(e)) : k.includes('objet') ? 'Liste' : 'Tâche';
 };
 
-export function DayHost() {
-  const { events, loaded, saveEvent, domain } = useCalendar();
-  const { settings, loaded: settingsLoaded, update } = useSettings();
+export function DayHost({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { events, loaded, saveEvent, domain, toggleDone } = useCalendar();
   const items = useTaskItems();
   const [today, setToday] = useState(todayKey());
   const [programming, setProgramming] = useState<{ start: ProgramStart; rappel: CalendarEvent } | null>(null);
@@ -33,7 +32,7 @@ export function DayHost() {
     return () => clearInterval(timer);
   }, []);
 
-  const open = loaded && settingsLoaded && settings.dayPopupDay !== today;
+  const open = loaded && visible;
   const day = useMemo(() => occurrencesOn(events.filter((e) => !isRappel(e)), today), [events, today]);
   const rappels = useMemo(() => pendingRappels(events, today), [events, today]);
   const one = byQuadrant(items, 'one')[0];
@@ -44,7 +43,7 @@ export function DayHost() {
     for (const r of rappels) if (!r.firstSeen) saveEvent({ ...r, firstSeen: today });
   }, [open, rappels, today, saveEvent]);
 
-  const close = () => update({ dayPopupDay: today });
+  const close = onClose;
   const program = (r: CalendarEvent) =>
     setProgramming({
       rappel: r,
@@ -82,19 +81,26 @@ export function DayHost() {
 
           {timed.length ? (
             <View style={st.list}>
-              {timed.map((o) => (
-                <View key={`${o.event.id}-${o.day}`} style={st.row}>
-                  <View style={{ width: 56 }}>
-                    <Txt bold size={15}>{minutesToLabel(o.event.start as number)}</Txt>
-                    <Txt size={12} color={colors.faint}>{minutesToLabel(endOf(o.event))}</Txt>
+              {timed.map((o) => {
+                const can = isCheckable(o.event);
+                const done = can && isDoneOn(o.event, today);
+                return (
+                  <View key={`${o.event.id}-${o.day}`} style={st.row}>
+                    {can ? (
+                      <Checkbox compact checked={done} onToggle={() => toggleDone(o.event.id, today)} label={done ? `Décocher ${o.event.title}` : `Cocher ${o.event.title}`} />
+                    ) : <View style={{ width: 8 }} />}
+                    <View style={{ width: 52 }}>
+                      <Txt bold size={15} color={done ? colors.faint : colors.ink}>{minutesToLabel(o.event.start as number)}</Txt>
+                      <Txt size={12} color={colors.faint}>{minutesToLabel(endOf(o.event))}</Txt>
+                    </View>
+                    <View style={[st.bar, { backgroundColor: domain(o.event.category).color }]} />
+                    <View style={{ flex: 1 }}>
+                      <Txt bold size={15} color={done ? colors.faint : colors.ink} style={done ? { textDecorationLine: 'line-through' } : undefined}>{o.event.title}</Txt>
+                      <Txt size={13} color={colors.muted}>{kindLabel(o.event)}</Txt>
+                    </View>
                   </View>
-                  <View style={[st.bar, { backgroundColor: domain(o.event.category).color }]} />
-                  <View style={{ flex: 1 }}>
-                    <Txt bold size={15}>{o.event.title}</Txt>
-                    <Txt size={13} color={colors.muted}>{kindLabel(o.event)}</Txt>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : !allDay.length ? (
             <Txt size={15} color={colors.muted}>Rien de prévu au calendrier aujourd’hui.</Txt>
@@ -148,7 +154,7 @@ const st = StyleSheet.create({
   box: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 14, borderRadius: radius.l, borderWidth: 1.5, backgroundColor: colors.card },
   band: { paddingVertical: 8, paddingHorizontal: 12, borderLeftWidth: 4, borderRadius: radius.s, backgroundColor: colors.card },
   list: { backgroundColor: colors.card, borderRadius: radius.l, borderWidth: 1, borderColor: colors.line },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, paddingRight: 14, paddingLeft: 4, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
   bar: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
   cta: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.accent },
   ghost: { minHeight: 40, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, justifyContent: 'center' },
