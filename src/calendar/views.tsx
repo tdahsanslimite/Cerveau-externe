@@ -1,11 +1,11 @@
 // Les trois vues du calendrier : Jour, Semaine, Mois.
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useDayLoad } from '../load';
 import { useSettings } from '../settings/SettingsContext';
 import { DayTaskRows, DayTasks } from '../tasks/DayTasks';
 import { colors, fonts, radius } from '../theme';
-import { Card, Icon, SectionLabel, Txt } from '../ui';
+import { Card, Chip, Icon, SectionLabel, Txt } from '../ui';
 import { useCalendar } from './CalendarContext';
 import { EmptyState, EventRow, LOAD_COLOR, LoadLine } from './components';
 import { DAY_SHORT, DayKey, fromKey, labelDayShort, monthGrid, relativeLabel, startOfWeek, todayKey, weekDays } from './dates';
@@ -57,46 +57,72 @@ export function DayView({ day, onEdit }: ViewProps) {
 
 // ---------------- SEMAINE ----------------
 
+/**
+ * Semaine : chaque jour est un tiroir (13 nov., Valentin : « une petite roulette ; je peux tous les fermer, en ouvrir un seul
+ * ou tous »). Toucher l'en-tête d'un jour l'ouvre ou le ferme ; la flèche ouvre la vue Jour. Par défaut : aujourd'hui ouvert.
+ */
 export function WeekView({ day, onEdit, onOpenDay }: ViewProps) {
   const { events } = useCalendar();
   const { settings } = useSettings();
   const load = useDayLoad();
   const today = todayKey();
+  const days = weekDays(day);
+  const weekKey = days[0];
+  const [open, setOpen] = useState<DayKey[]>(() => (days.includes(today) ? [today] : []));
+  // Autre semaine : on repart de « aujourd'hui ouvert » (ou tout fermé).
+  useEffect(() => setOpen(days.includes(today) ? [today] : []), [weekKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (d: DayKey) => setOpen((o) => (o.includes(d) ? o.filter((x) => x !== d) : [...o, d]));
+  const allOpen = open.length === days.length;
 
   return (
-    <View style={{ gap: 14 }}>
-      {weekDays(day).map((d) => {
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+        <Chip label="Tout ouvrir" selected={allOpen} onPress={() => setOpen(days)} />
+        <Chip label="Tout fermer" selected={open.length === 0} onPress={() => setOpen([])} />
+      </View>
+      {days.map((d) => {
         const occs = occurrencesOn(events, d);
         const count = load(d);
         const level = loadLevel(count, settings.dailyLimit);
         const isToday = d === today;
         const rel = relativeLabel(d, today);
+        const isOpen = open.includes(d);
         return (
           <Card key={d} style={isToday ? { borderColor: colors.accent, borderWidth: 1.5 } : undefined}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Ouvrir ${labelDayShort(d)}`}
-              onPress={() => onOpenDay(d)}
-              style={({ pressed }) => [st.weekHead, isToday && { backgroundColor: colors.accentSoft }, pressed && { opacity: 0.7 }]}
-            >
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-                <Txt bold size={16}>{labelDayShort(d)}</Txt>
-                {rel ? <Txt size={13} color={colors.accent}>{rel}</Txt> : null}
-              </View>
-              <View style={st.loadPill}>
-                <View style={[st.loadDot, { backgroundColor: count ? LOAD_COLOR[level] : colors.border }]} />
-                <Txt size={13} color={level === 'trop' ? colors.danger : colors.muted}>
-                  {count}/{settings.dailyLimit}
-                </Txt>
-              </View>
-              <Icon name="chevron-right" size={18} color={colors.faint} />
-            </Pressable>
-            {occs.map((o) => <EventRow key={o.event.id} occ={o} compact onPress={() => onEdit(o)} />)}
-            <DayTaskRows day={d} />
+            <View style={[st.weekHead, isToday && { backgroundColor: colors.accentSoft }]}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isOpen }}
+                accessibilityLabel={`${isOpen ? 'Fermer' : 'Ouvrir'} ${labelDayShort(d)}`}
+                onPress={() => toggle(d)}
+                style={({ pressed }) => [{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }, pressed && { opacity: 0.7 }]}
+              >
+                <Icon name={isOpen ? 'chevron-down' : 'chevron-right'} size={18} color={colors.muted} />
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
+                  <Txt bold size={16} numberOfLines={1} style={{ flexShrink: 0 }}>{labelDayShort(d)}</Txt>
+                  {rel ? <Txt size={13} color={colors.accent} numberOfLines={1} style={{ flexShrink: 1 }}>{rel}</Txt> : null}
+                </View>
+                <View style={st.loadPill}>
+                  <View style={[st.loadDot, { backgroundColor: count ? LOAD_COLOR[level] : colors.border }]} />
+                  <Txt size={13} color={level === 'trop' ? colors.danger : colors.muted}>
+                    {count}/{settings.dailyLimit}
+                  </Txt>
+                </View>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Voir ${labelDayShort(d)} en vue Jour`} onPress={() => onOpenDay(d)} hitSlop={6} style={({ pressed }) => [st.dayLink, pressed && { opacity: 0.6 }]}>
+                <Icon name="arrow-right" size={18} color={colors.accent} />
+              </Pressable>
+            </View>
+            {isOpen ? (
+              <>
+                {occs.map((o) => <EventRow key={o.event.id} occ={o} compact onPress={() => onEdit(o)} />)}
+                <DayTaskRows day={d} />
+                {!occs.length ? <EmptyState text="Rien de prévu." /> : null}
+              </>
+            ) : null}
           </Card>
         );
       })}
-
     </View>
   );
 }
@@ -198,6 +224,7 @@ function Legend() {
 }
 
 const st = StyleSheet.create({
+  dayLink: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   weekHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, minHeight: 52, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
   loadPill: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   loadDot: { width: 10, height: 10, borderRadius: 5 },
