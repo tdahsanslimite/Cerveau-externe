@@ -14,7 +14,8 @@ import {
 } from './model';
 import { notificationsSupported } from './notifications';
 import { DomainPicker } from './DomainPicker';
-import { ItemListEditor, TriChips } from './ItemListEditor';
+import { ItemListEditor } from './ItemListEditor';
+import { PriorityWords } from '../tasks/fields';
 import { TimeWheel } from './TimeWheel';
 
 const DAY_END = 24 * 60;
@@ -86,7 +87,8 @@ export function EventEditor({ state, onClose, onSaved }: {
   // Version « telle qu'elle sera enregistrée » (fin sur plusieurs jours seulement si journée entière, sans répétition).
   const asSaved: CalendarEvent = { ...e, endDate: e.start === null && !recurring && lastDay > e.date ? lastDay : undefined };
   const conflict = findConflict(events, asSaved);
-  const suggestion = conflict ? nextFreeStart(events, { ...e, date: conflict.day }, start) : null;
+  // Proposer un décalage plutôt que bloquer : on place quand même, on ajuste ensuite (pas de fiche fermée et oubliée).
+  const suggestion = conflict ? nextFreeStart(events, { ...e, date: conflict.day }, start) ?? nextFreeStart(events, { ...e, date: conflict.day }, 0) : null;
   const canSave = titleOk && itemOk && !conflict;
 
   // Charge du jour visé (événements + tâches), sans compter l'événement en cours d'édition.
@@ -119,7 +121,7 @@ export function EventEditor({ state, onClose, onSaved }: {
     <>
       {tried && !canSave ? (
         <Txt size={14} color={colors.danger} style={{ textAlign: 'center' }}>
-          {!titleOk ? 'Donne un intitulé.' : !itemOk ? 'Ajoute au moins un objet à la liste.' : 'Ce créneau est déjà pris.'}
+          {!titleOk ? 'Donne un intitulé.' : !itemOk ? 'Écris au moins une ligne dans la check-liste.' : 'Ce créneau est déjà pris : décale l’horaire.'}
         </Txt>
       ) : null}
       <Button label={state.isNew ? 'Ajouter' : 'Enregistrer'} kind="dark" onPress={save} style={!canSave && { opacity: 0.45 }} />
@@ -141,7 +143,7 @@ export function EventEditor({ state, onClose, onSaved }: {
   );
 
   return (
-    <Sheet visible onClose={onClose} title={state.isNew ? 'Nouvel événement' : 'Modifier'} footer={footer}>
+    <Sheet visible onClose={onClose} title={state.isNew ? (natureOf(e) === 'evenement' ? 'Nouvel événement' : 'Nouveau rendez-vous') : 'Modifier'} footer={footer}>
       <Field label="Intitulé">
         <TextInput
           accessibilityLabel="Intitulé"
@@ -167,17 +169,18 @@ export function EventEditor({ state, onClose, onSaved }: {
 
       {inMatrix ? (
         <>
-          <Field label="Important ?" hint="Pour la matrice des Idées. « Ne sais pas » : elle ira En vrac, à trier.">
-            <TriChips value={e.important ?? null} onChange={(v) => patch({ important: v })} />
-          </Field>
-          <Field label="Urgent ?">
-            <TriChips value={e.urgent ?? null} onChange={(v) => patch({ urgent: v })} />
+          <Field label="Priorité" hint="Pour la matrice de Programmer.">
+            <PriorityWords important={e.important ?? null} urgent={e.urgent ?? null} onChange={(p) => patch(p)} />
           </Field>
         </>
       ) : null}
 
+      {!hasItem ? (
+        <Button label="Ajouter une check-liste" kind="ghost" icon="list" onPress={() => patch({ kinds: [...kinds, 'objet'], items: itemList.length ? itemList : [{ id: newId(), text: '' }] })} />
+      ) : null}
+
       {hasItem ? (
-        <Field label="Objets à prendre / acheter">
+        <Field label="Check-liste">
           <ItemListEditor items={itemList} onChange={setItems} error={tried && !itemOk} />
           <Pressable accessibilityRole="switch" accessibilityState={{ checked: !!e.itemEveReminder }} onPress={() => patch({ itemEveReminder: !e.itemEveReminder })} style={st.checkRow}>
             <View style={[st.box, e.itemEveReminder && st.boxOn]}>{e.itemEveReminder ? <Icon name="check" size={16} color="#FFFFFF" /> : null}</View>
@@ -231,13 +234,11 @@ export function EventEditor({ state, onClose, onSaved }: {
           <View style={{ gap: 8 }}>
             <Notice
               tone="danger"
-              text={`Tu as déjà un événement ${conflict.day === e.date ? 'ce jour-là' : `le ${labelDayShort(conflict.day)}`} : « ${conflict.event.title} » ${
-                conflict.event.start === null
-                  ? (conflict.event.endDate ? `du ${labelDayShort(conflict.event.date)} au ${labelDayShort(conflict.event.endDate)}` : 'toute la journée')
-                  : `de ${minutesToLabel(conflict.event.start)} à ${minutesToLabel(conflict.event.start + conflict.event.durationMin)}`
-              }. Tu ne peux pas être à deux endroits : choisis un autre moment, ou fais-en une tâche.`}
+              text={`Ce créneau est déjà pris ${conflict.day === e.date ? 'ce jour-là' : `le ${labelDayShort(conflict.day)}`} par « ${conflict.event.title} » ${
+                conflict.event.start === null ? 'toute la journée' : `de ${minutesToLabel(conflict.event.start)} à ${minutesToLabel(conflict.event.start + conflict.event.durationMin)}`
+              }. Deux choses ne peuvent pas avoir lieu à la même heure : décale l’horaire.`}
             />
-            {suggestion !== null && conflict.day === e.date && conflict.event.start !== null ? (
+            {suggestion !== null && conflict.day === e.date ? (
               <Button label={`Décaler à ${minutesToLabel(suggestion)}`} kind="ghost" icon="corner-down-right" onPress={() => patch({ start: suggestion })} />
             ) : null}
           </View>

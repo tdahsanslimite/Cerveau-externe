@@ -120,7 +120,7 @@ export function YearView() {
               onPress={() => lead(year, info.id)}
             />
             <Txt size={12} color={colors.faint} style={{ marginTop: -10 }}>
-              Un seul thème en tête à la fois : c’est son One Thing qui s’affiche au-dessus de « Trier mes idées ».
+              Un seul thème en tête à la fois : c’est son One Thing qui s’affiche au-dessus de « Programmer ».
             </Txt>
 
             {THEME_FIELDS.map((f) => (

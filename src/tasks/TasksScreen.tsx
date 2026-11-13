@@ -1,5 +1,5 @@
-// Écran « Trier mes idées » : on note une idée par son titre, une fenêtre aide à la développer et la prioriser.
-// Une nouvelle idée tombe dans « Abandonner ? » (le « Ne sais pas » par défaut) : pas de longue liste au-dessus de The One Thing.
+// Écran « Programmer » (ex-« Trier mes idées », 13 nov.) : la seule porte d'entrée. On note un titre, puis ProgramSheet guide :
+// rendez-vous / événement → calendrier ; tâche / idée → la matrice ci-dessous. Le calendrier, lui, ne crée plus rien.
 // Au-dessus, The One Thing ; dessous, la matrice d'Eisenhower en 4 cases (2 × 2) comme l'originale.
 // Appui long sur une idée = on la déplace d'une case à l'autre, ou plus haut / plus bas dans sa case.
 import React, { useRef, useState } from 'react';
@@ -15,7 +15,8 @@ import { colors, fonts, radius } from '../theme';
 import { Card, Icon, IconButton, Txt } from '../ui';
 import { useApplyUpdates } from './apply';
 import { TaskRow } from './components';
-import { byQuadrant, moveIdea, QuadrantId, QUADRANTS, newTask, Task, TaskItem } from './model';
+import { byQuadrant, moveIdea, QuadrantId, QUADRANTS, Task, TaskItem } from './model';
+import { ProgramSheet } from './ProgramSheet';
 import { TaskEditor } from './TaskEditor';
 import { useTasks } from './TasksContext';
 import { useTaskItems } from './useTaskItems';
@@ -48,7 +49,7 @@ export function TasksScreen() {
   const apply = useApplyUpdates();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<Task | null>(null);
-  const [creating, setCreating] = useState<Task | null>(null);
+  const [creating, setCreating] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<EditorState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -68,7 +69,7 @@ export function TasksScreen() {
   const submit = () => {
     const title = draft.trim();
     if (!title) return;
-    setCreating(newTask(title, today));
+    setCreating(title);
     setDraft('');
   };
 
@@ -216,7 +217,7 @@ export function TasksScreen() {
       <View style={st.header}>
         <View style={{ flex: 1 }}>
           <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>{labelDayLong(today)}</Txt>
-          <Txt bold size={24}>Trier mes idées</Txt>
+          <Txt bold size={24}>Programmer</Txt>
         </View>
         <IconButton icon="sliders" label="Réglages" onPress={() => setSettingsOpen(true)} />
       </View>
@@ -224,10 +225,10 @@ export function TasksScreen() {
       <View style={st.capture}>
         <TextInput
           ref={input}
-          accessibilityLabel="Titre de l’idée"
+          accessibilityLabel="Que veux-tu programmer ?"
           value={draft}
           onChangeText={setDraft}
-          placeholder="Une idée, par son titre"
+          placeholder="Que veux-tu programmer ?"
           placeholderTextColor={colors.faint}
           returnKeyType="done"
           submitBehavior="submit"
@@ -236,7 +237,7 @@ export function TasksScreen() {
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Développer cette idée"
+          accessibilityLabel="Programmer"
           onPress={submit}
           style={({ pressed }) => [st.captureBtn, !draft.trim() && { opacity: 0.4 }, pressed && { opacity: 0.7 }]}
         >
@@ -244,7 +245,7 @@ export function TasksScreen() {
         </Pressable>
       </View>
       <View style={st.captureNote}>
-        <Txt size={13} color={colors.muted} numberOfLines={1}>Le titre suffit : l’idée arrive « En vrac », tu la tries ensuite.</Txt>
+        <Txt size={13} color={colors.muted} numberOfLines={1}>Un titre, puis : rendez-vous, événement, tâche ou idée.</Txt>
       </View>
 
       <ScrollView
@@ -284,7 +285,11 @@ export function TasksScreen() {
         </View>
       </ScrollView>
 
-      <TaskEditor task={creating} isNew onClose={() => setCreating(null)} />
+      <ProgramSheet
+        title={creating}
+        onClose={() => setCreating(null)}
+        onEvent={(event) => { setCreating(null); setEditingEvent({ event, isNew: true, day: event.date }); }}
+      />
       <TaskEditor task={editing} onClose={() => setEditing(null)} />
       <EventEditor state={editingEvent} onClose={() => setEditingEvent(null)} />
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />

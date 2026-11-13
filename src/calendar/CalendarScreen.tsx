@@ -1,4 +1,5 @@
-// Écran principal du module Calendrier : en-tête, navigation, vue active, bouton +.
+// Écran principal du module Calendrier : en-tête, navigation, vue active.
+// On y consulte, coche, modifie ou décale ; on n'y crée rien (13 nov. : tout entre par « Programmer »).
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +11,7 @@ import { colors, radius } from '../theme';
 import { Icon, IconButton, Txt } from '../ui';
 import { addDays, addMonths, DayKey, fromKey, isoWeek, labelDayLong, labelMonth, labelWeekRange, relativeLabel, startOfWeek, todayKey } from './dates';
 import { useCalendar } from './CalendarContext';
-import { blankEvent, EditorState, EventEditor } from './EventEditor';
+import { EditorState, EventEditor } from './EventEditor';
 import { CalendarEvent, Occurrence } from './model';
 import { PhoneEventSheet } from './PhoneEventSheet';
 import { DayView, MonthView, WeekView } from './views';
@@ -28,7 +29,6 @@ const TABS: { id: CalendarView; label: string; full: string }[] = [
 export function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
-  const { domains } = useCalendar();
   const [view, setView] = useState<CalendarView>(settings.startView);
   const [day, setDay] = useState<DayKey>(todayKey());
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -70,13 +70,11 @@ export function CalendarScreen() {
   // Un événement lu depuis le téléphone (Google…) ne se modifie pas ici : fiche en lecture seule.
   const onEdit = (occ: Occurrence) =>
     occ.event.phone ? setPhoneEvent(occ.event) : setEditor({ event: occ.event, isNew: false, day: occ.day });
-  const onAdd = (d: DayKey, start?: number) =>
-    setEditor({ event: blankEvent(d, start ?? 9 * 60, domains[0]?.id), isNew: true, day: d });
   const onOpenDay = (d: DayKey) => {
     setDay(d);
     setView('jour');
   };
-  const viewProps = { day, onEdit, onAdd, onOpenDay };
+  const viewProps = { day, onEdit, onOpenDay };
 
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
@@ -115,7 +113,7 @@ export function CalendarScreen() {
         <IconButton icon="chevron-right" label="Période suivante" onPress={() => step(1)} />
       </View>
 
-      <ScrollView contentContainerStyle={[st.content, { paddingBottom: 110 + insets.bottom }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[st.content, { paddingBottom: 32 + insets.bottom }]} keyboardShouldPersistTaps="handled">
         <Txt bold size={20} style={{ paddingHorizontal: 4, marginBottom: -4 }} accessibilityRole="header">{title}</Txt>
         {(view === 'semaine' || view === 'mois' || view === 'trimestre') && <PeriodLine kind={view} day={day} />}
         {view === 'jour' && (
@@ -129,16 +127,6 @@ export function CalendarScreen() {
         {view === 'trimestre' && <QuarterView day={day} onOpenDay={onOpenDay} />}
         {view === 'annee' && <YearView day={day} onOpenMonth={(m) => { setDay(m.slice(0, 7) === today.slice(0, 7) ? today : m); setView('mois'); }} />}
       </ScrollView>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Ajouter un événement"
-        onPress={() => onAdd(day)}
-        style={({ pressed }) => [st.fab, { bottom: 24 + insets.bottom }, pressed && { opacity: 0.85 }]}
-      >
-        <Icon name="plus" size={22} color="#FFFFFF" />
-        <Txt bold size={15} color="#FFFFFF">Ajouter</Txt>
-      </Pressable>
 
       <EventEditor state={editor} onClose={() => setEditor(null)} />
       <PhoneEventSheet event={phoneEvent} onClose={() => setPhoneEvent(null)} />
@@ -157,9 +145,4 @@ const st = StyleSheet.create({
   segment: { flex: 1, minHeight: 40, paddingHorizontal: 2, borderRadius: radius.s, alignItems: 'center', justifyContent: 'center' },
   segmentOn: { backgroundColor: colors.card, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   content: { paddingHorizontal: 16, gap: 14, maxWidth: 640, width: '100%', alignSelf: 'center' },
-  fab: {
-    position: 'absolute', right: 18, height: 56, paddingHorizontal: 20, borderRadius: 28, backgroundColor: colors.accent,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
-  },
 });

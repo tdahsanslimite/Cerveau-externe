@@ -79,14 +79,15 @@ export const KINDS: { id: EventKind; label: string; hint: string }[] = [
   { id: 'objet', label: 'Objet à prendre', hint: 'Une chose à ne pas oublier d’emporter.' },
 ];
 
-/** Nature d'un rendez-vous du calendrier (le calendrier ne crée plus que ça ; tâches et listes viennent des idées). */
-export type Nature = 'rdv' | 'deplacement' | 'activite' | 'autre';
+/**
+ * Nature d'un créneau du calendrier, choisie dans « Programmer » (13 nov.) : Rendez-vous ou Événement.
+ * Les anciennes valeurs (déplacement, activité, autre, avant le 13 nov.) sont relues par `natureOf`.
+ */
+export type Nature = 'rdv' | 'evenement' | 'deplacement' | 'activite' | 'autre';
 
 export const NATURES: { id: Nature; label: string; hint: string }[] = [
-  { id: 'rdv', label: 'Rendez-vous', hint: 'Tu y es en personne : rien d’autre ne peut se faire en même temps.' },
-  { id: 'deplacement', label: 'Déplacement', hint: 'Voyage, vacances, trajet : tu peux y glisser une tâche ou une liste.' },
-  { id: 'activite', label: 'Activité', hint: 'Sport, sortie, loisir : rien d’autre en même temps.' },
-  { id: 'autre', label: 'Autre', hint: 'Compte comme un rendez-vous : rien d’autre en même temps.' },
+  { id: 'rdv', label: 'Rendez-vous', hint: 'Médecin, coiffeur… Rien d’autre ne peut se faire à la même heure.' },
+  { id: 'evenement', label: 'Événement', hint: 'Soirée, vacances… Sur toute la journée, il ne bloque rien : c’est un bandeau.' },
 ];
 
 export const natureLabel = (n: Nature) => NATURES.find((x) => x.id === n)?.label ?? 'Rendez-vous';
@@ -183,7 +184,9 @@ export function itemsOf(e: CalendarEvent): ItemLine[] {
 export const pendingItems = (e: CalendarEvent) => itemsOf(e).filter((i) => !i.done && i.text.trim());
 
 export const kindsOf = (e: CalendarEvent): EventKind[] => (e.kinds && e.kinds.length ? e.kinds : ['rdv']);
-export const natureOf = (e: CalendarEvent): Nature => e.nature ?? 'rdv';
+/** Rendez-vous ou Événement. Ancien « déplacement » ou « activité » = événement ; ancien « autre » = rendez-vous. */
+export const natureOf = (e: CalendarEvent): 'rdv' | 'evenement' =>
+  e.nature === 'evenement' || e.nature === 'deplacement' || e.nature === 'activite' ? 'evenement' : 'rdv';
 export const isTask = (e: CalendarEvent) => kindsOf(e).includes('tache');
 export const isDoneOn = (e: CalendarEvent, day: DayKey) => !!e.doneDays?.includes(day);
 export const endOf = (e: CalendarEvent) => (e.start ?? 0) + e.durationMin;
@@ -275,9 +278,6 @@ const overlaps = (a: CalendarEvent, b: CalendarEvent) =>
 /** « Événement » = on y est en personne (ex-Rendez-vous). Tâches et objets seuls ne réservent pas le créneau. */
 export const isPresence = (e: CalendarEvent) => kindsOf(e).includes('rdv');
 
-/** Deux occurrences du même jour se chevauchent-elles ? « Toute la journée » occupe le jour entier. */
-const overlapsOnDay = (a: CalendarEvent, b: CalendarEvent) => a.start === null || b.start === null || overlaps(a, b);
-
 /** Jours occupés par `e` à vérifier : la période d'un événement sur plusieurs jours, ou les prochaines semaines d'une série. */
 function daysToCheck(e: CalendarEvent, horizonDays: number): DayKey[] {
   const count = e.repeat === 'none' ? (e.endDate ? Math.max(0, diffDays(e.date, e.endDate)) + 1 : 1) : horizonDays;
@@ -285,22 +285,15 @@ function daysToCheck(e: CalendarEvent, horizonDays: number): DayKey[] {
 }
 
 /**
- * Est-ce que `existing` empêche `cand` d'avoir lieu en même temps ? (règle de Valentin, 10 nov.)
- * - deux rendez-vous (de n'importe quelle nature) : on ne peut pas être à deux endroits ;
- * - une tâche ou une liste ne peut pas tomber sur un rendez-vous, une activité ou un « autre » (et inversement) ;
- * - pendant un déplacement (vacances, trajet…), tâches et listes passent ;
- * - deux tâches/listes peuvent se superposer, et celles sans heure ne bloquent ni ne sont bloquées.
- * Un rendez-vous « toute la journée » occupe tout le jour.
+ * Est-ce que `existing` empêche `cand` d'avoir lieu en même temps ? (règle de Valentin, 13 nov.)
+ * Tout ce qui a une heure bloque tout ce qui a une heure : deux rendez-vous, un rendez-vous et un événement,
+ * deux tâches, une tâche et un rendez-vous ou un événement. Une liste est une tâche ou un rendez-vous avec sa check-liste.
+ * Ce qui dure toute la journée (vacances, anniversaire, plusieurs jours) ne bloque rien et n'est jamais bloqué :
+ * c'est un bandeau, on peut poser des tâches et des rendez-vous dedans.
+ * Une tâche sans heure n'est pas au calendrier (seulement dans la matrice).
  */
 function blocks(existing: CalendarEvent, cand: CalendarEvent): boolean {
-  const ep = isPresence(existing);
-  const cp = isPresence(cand);
-  if (ep && cp) return true;
-  if (!ep && !cp) return false;
-  const presence = ep ? existing : cand;
-  const other = ep ? cand : existing;
-  if (natureOf(presence) === 'deplacement') return false;
-  return other.start !== null;
+  return existing.start !== null && cand.start !== null;
 }
 
 /** Premier événement déjà prévu qui bloque `candidate` (voir `blocks`). */
@@ -308,7 +301,7 @@ export function findConflict(events: CalendarEvent[], candidate: CalendarEvent, 
   const others = events.filter((e) => e.id !== candidate.id && blocks(e, candidate));
   if (!others.length) return null;
   for (const day of daysToCheck(candidate, horizonDays)) {
-    const hit = others.find((o) => occursOn(o, day) && overlapsOnDay(candidate, o));
+    const hit = others.find((o) => occursOn(o, day) && overlaps(candidate, o));
     if (hit) return { event: hit, day };
   }
   return null;

@@ -1,11 +1,11 @@
 // Briques d'interface propres aux tâches.
 import React from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
-import { labelDayShort, minutesToLabel, relativeLabel } from '../calendar/dates';
+import { labelDayShort, minutesToLabel, relativeLabel, todayKey } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
 import { colors, radius, TOUCH } from '../theme';
 import { Icon, Txt } from '../ui';
-import { isStuck, quadrantInfo, quadrantOf, slideLabel, TaskItem } from './model';
+import { deadlineLabel, deadlineNear, isStuck, quadrantInfo, quadrantOf, slideLabel, TaskItem } from './model';
 
 export function Checkbox({ checked, onToggle, label, compact = false }: { checked: boolean; onToggle: () => void; label: string; compact?: boolean }) {
   return (
@@ -43,7 +43,10 @@ export function TaskRow({ task, onPress, onToggle, showDay = false, listed = fal
   const slot = task.start === null ? null : `${minutesToLabel(task.start)}–${minutesToLabel(task.start + task.durationMin)}`;
   const lines = (task.items ?? []).filter((i) => i.text.trim());
   const progress = task.kind === 'liste' ? `Liste ${lines.filter((i) => i.done).length}/${lines.length}` : null;
+  const today = todayKey();
+  const deadline = task.deadline && task.status === 'todo' ? deadlineLabel(task.deadline, today) : null;
   const meta = [
+    task.type === 'idee' ? 'Idée' : null,
     progress,
     !listed ? quadrantInfo(q).label : null,
     showDay && task.day ? (relativeLabel(task.day) ?? labelDayShort(task.day)) : null,
@@ -72,6 +75,9 @@ export function TaskRow({ task, onPress, onToggle, showDay = false, listed = fal
               {meta && slide ? ' · ' : ''}
               {slide ? <Txt size={13} color={stuck ? colors.warnDark : colors.muted} bold={stuck}>{slide}</Txt> : null}
             </Txt>
+          ) : null}
+          {deadline ? (
+            <Txt size={compact ? 12 : 13} bold={deadlineNear(task, today)} color={deadlineNear(task, today) ? colors.warnDark : colors.muted}>{deadline}</Txt>
           ) : null}
         </View>
         {task.source === 'event' ? <Icon name="calendar" size={16} color={colors.faint} /> : null}

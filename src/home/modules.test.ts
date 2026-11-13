@@ -14,7 +14,7 @@ test('la barre du bas montre les modules de la catégorie où l\'on est', () => 
   assert.deepEqual(barModulesFor('taches').map((m) => m.id), ['taches', 'calendrier']);
   assert.deepEqual(barModulesFor('routines').map((m) => m.id), ['journal', 'routines', 'objectifs']);
   assert.deepEqual(barModulesFor('meditation').map((m) => m.id), ['respiration', 'meditation']);
-  assert.equal(moduleById('taches').barLabel, 'Trier');
+  assert.equal(moduleById('taches').barLabel, 'Programmer');
 });
 
 test('l\'accueil propose les 8 modules', () => {

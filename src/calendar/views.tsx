@@ -14,7 +14,6 @@ import { loadLevel, Occurrence, occurrencesOn, topDomains } from './model';
 export interface ViewProps {
   day: DayKey;
   onEdit: (occ: Occurrence) => void;
-  onAdd: (day: DayKey, start?: number) => void;
   onOpenDay: (day: DayKey) => void;
 }
 

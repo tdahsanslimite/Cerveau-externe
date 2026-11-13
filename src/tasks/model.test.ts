@@ -402,3 +402,34 @@ test('toSortCount : compte les idées sans priorité encore à faire, pas les tr
   assert.equal(toSortCount(items), 2);
   assert.equal(toSortCount([]), 0);
 });
+
+test('date limite : urgente à 2 jours, pas vidée la nuit, libellé', async () => {
+  const { deadlineUpdates, nightlyReset, applyDeadline, deadlineLabel, taskToItem, newTask } = await import('./model.ts');
+  const today = '2026-11-13';
+  const base = newTask('Payer les impôts', today);
+  const loin = taskToItem({ ...base, id: 'a', important: true, urgent: false, deadline: '2026-11-30' });
+  const proche = taskToItem({ ...base, id: 'b', important: true, urgent: false, deadline: '2026-11-15' });
+  const vrac = taskToItem({ ...base, id: 'c', deadline: '2026-11-14' });
+  const items = [loin, proche, vrac];
+  assert.deepEqual(deadlineUpdates(items, today).map((u) => [u.key, u.important, u.urgent]), [['task:b', true, true], ['task:c', false, true]]);
+  assert.deepEqual(nightlyReset(items, today).map((u) => u.key), ['task:a']); // la proche reste dans la matrice
+  assert.equal(applyDeadline({ ...base, deadline: '2026-11-14' }, today).urgent, true);
+  assert.equal(applyDeadline({ ...base, deadline: '2026-12-14' }, today).urgent, null);
+  assert.equal(deadlineLabel('2026-11-20', today), 'Avant le 20 nov.');
+  assert.equal(deadlineLabel('2026-11-12', today), 'Date limite dépassée');
+  assert.equal(taskToItem(base).type, 'tache');
+});
+
+test('les 3 mots de la priorité : Urgent, Important, Ne sais pas', async () => {
+  const { pickPriority, priorityWordOn, quadrantOf } = await import('./model.ts');
+  let p = pickPriority({ important: null, urgent: null }, 'urgent');
+  assert.equal(quadrantOf(p), 'alleger');
+  p = pickPriority(p, 'important');
+  assert.equal(quadrantOf(p), 'faire');                       // les deux : Urgent et important
+  p = pickPriority(p, 'urgent');
+  assert.equal(quadrantOf(p), 'planifier');
+  assert.equal(quadrantOf(pickPriority(p, 'important')), 'vrac'); // plus rien de coché : Ne sais pas
+  assert.equal(quadrantOf(pickPriority(p, 'nsp')), 'vrac');
+  assert.ok(priorityWordOn({ important: null, urgent: null }, 'nsp'));
+  assert.ok(!priorityWordOn({ important: false, urgent: false }, 'nsp')); // Abandonner ? : aucun mot allumé
+});

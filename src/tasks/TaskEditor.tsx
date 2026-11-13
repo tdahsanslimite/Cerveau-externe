@@ -1,4 +1,5 @@
-// Fiche d'une idée : Tâche ou Liste (à cocher), puis 1) la note, 2) le domaine, 3) la priorité (Oui / Non / Ne sais pas).
+// Fiche d'une tâche ou d'une idée déjà notée : type, contenu (encart ou check-liste), priorité (Urgent / Important / Ne sais pas),
+// date limite (tâche), domaine.
 // Pour une idée existante, on peut la mettre au calendrier, mais seulement si elle est dans The One Thing ou « Urgent et important » :
 // on crée l'idée, on juge sa priorité, et si elle le mérite on la programme (évite la surcharge).
 import React, { useEffect, useState } from 'react';
@@ -8,11 +9,11 @@ import type { DayKey } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
 import { findConflict, nextFreeStart } from '../calendar/model';
 import { DomainPicker } from '../calendar/DomainPicker';
-import { ItemListEditor, TriChips } from '../calendar/ItemListEditor';
 import { TimeWheel } from '../calendar/TimeWheel';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
-import { canSchedule, continueList, eventFromTask, IDEA_KINDS, isStuck, quadrantInfo, quadrantOf, Task } from './model';
+import { ContentField, DeadlineField, PriorityWords } from './fields';
+import { applyDeadline, canSchedule, eventFromTask, isStuck, PROGRAM_TYPES, quadrantInfo, quadrantOf, Task } from './model';
 import { useTasks } from './TasksContext';
 
 const DURATIONS = [15, 30, 45, 60, 90, 120];
@@ -39,15 +40,15 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
   const today = todayKey();
   const titleOk = t.title.trim().length > 0;
   const q = quadrantOf({ important: t.important, urgent: t.urgent, oneThing: t.oneThing });
-  const isList = t.kind === 'liste';
   const schedulable = canSchedule({ important: t.important, urgent: t.urgent, oneThing: t.oneThing });
 
-  const clean = (next: Task): Task => ({
+  const clean = (next: Task): Task => applyDeadline({
     ...next,
+    deadline: next.type === 'idee' ? undefined : next.deadline,
     title: next.title.trim(),
     note: next.note?.trim() || undefined,
     items: next.kind === 'liste' ? (next.items ?? []).filter((i) => i.text.trim()).map((i) => ({ ...i, text: i.text.trim() })) : next.items,
-  });
+  }, today);
   const setKind = (kind: 'tache' | 'liste') =>
     patch({ kind, ...(kind === 'liste' && !(t.items ?? []).length ? { items: [{ id: `l${Date.now().toString(36)}`, text: '' }] } : {}) });
 
@@ -95,7 +96,7 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
   );
 
   return (
-    <Sheet visible onClose={close} title={isNew ? 'Nouvelle idée' : 'Modifier l’idée'} footer={footer}>
+    <Sheet visible onClose={close} title={isNew ? 'Nouvelle idée' : t.type === 'idee' ? 'Modifier l’idée' : 'Modifier la tâche'} footer={footer}>
       <Field label="Titre">
         <TextInput
           accessibilityLabel="Titre"
@@ -109,8 +110,8 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
 
       <Field label="C’est…">
         <View style={st.wrap}>
-          {IDEA_KINDS.map((k) => (
-            <Chip key={k.id} label={k.label} selected={(t.kind ?? 'tache') === k.id} onPress={() => setKind(k.id)} />
+          {PROGRAM_TYPES.filter((k) => k.id === 'tache' || k.id === 'idee').map((k) => (
+            <Chip key={k.id} label={k.label} selected={(t.type ?? 'tache') === k.id} onPress={() => patch({ type: k.id as 'tache' | 'idee' })} />
           ))}
         </View>
       </Field>
@@ -124,40 +125,29 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
         </View>
       ) : null}
 
-      {isList ? (
-        <Field label="1 · Ta liste" hint="Une ligne par chose. Tu les coches une à une.">
-          <ItemListEditor items={t.items ?? []} onChange={(items) => patch({ items })} placeholder="Ex. lait" />
-        </Field>
-      ) : (
-        <Field label="1 · Développe ton idée" hint="Une note libre. Un retour à la ligne après un tiret continue la liste.">
-        <TextInput
-          accessibilityLabel="Note"
-          value={t.note ?? ''}
-          onChangeText={(note) => patch({ note: continueList(t.note ?? '', note) })}
-          placeholder={'- première étape\n- ce qu’il faut prévoir'}
-          placeholderTextColor={colors.faint}
-          multiline
-          style={[st.input, { minHeight: 110, paddingTop: 12, textAlignVertical: 'top' }]}
+      <Field label="Note ou check-liste">
+        <ContentField
+          kind={t.kind ?? 'tache'}
+          note={t.note ?? ''}
+          items={t.items ?? []}
+          onKind={setKind}
+          onNote={(note) => patch({ note })}
+          onItems={(items) => patch({ items })}
         />
-        </Field>
-
-      )}
-
-      <Field label="2 · Domaine" hint="Une simple étiquette, pour les calculs.">
-        <DomainPicker value={t.category} onChange={(category) => patch({ category })} allowNone />
       </Field>
 
-      <Field label="3 · Priorité" hint={`Rangée dans « ${quadrantInfo(q).label} ». « Ne sais pas » : elle reste En vrac, à trier.`}>
-        <View style={{ gap: 10 }}>
-          <View style={{ gap: 6 }}>
-            <Txt bold size={14}>Important ?</Txt>
-            <TriChips value={t.important} onChange={(important) => patch({ important })} />
-          </View>
-          <View style={{ gap: 6 }}>
-            <Txt bold size={14}>Urgent ?</Txt>
-            <TriChips value={t.urgent} onChange={(urgent) => patch({ urgent })} />
-          </View>
-        </View>
+      <Field label="Priorité" hint={`Rangée dans « ${quadrantInfo(q).label} ».`}>
+        <PriorityWords important={t.important} urgent={t.urgent} onChange={(p) => patch(p)} />
+      </Field>
+
+      {(t.type ?? 'tache') === 'tache' ? (
+        <Field label="Date limite" hint="Deux jours avant, elle passe en urgent toute seule.">
+          <DeadlineField value={t.deadline} today={today} onChange={(deadline) => patch({ deadline })} />
+        </Field>
+      ) : null}
+
+      <Field label="Domaine" hint="Une simple étiquette, pour les bilans.">
+        <DomainPicker value={t.category} onChange={(category) => patch({ category })} allowNone />
       </Field>
 
       {!isNew ? (

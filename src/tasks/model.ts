@@ -31,16 +31,36 @@ export interface Task {
   rank?: number;
   /** Placée dans « The One Thing » (seulement en la déplaçant à la main) : à faire tout de suite. */
   oneThing?: boolean;
-  /** Absent = tâche. 'liste' = liste à cocher (courses, étapes…) : ses lignes sont dans `items`. */
+  /** Contenu : absent ou 'tache' = encart libre (note) ; 'liste' = check-liste (courses, étapes…) dans `items`. */
   kind?: IdeaKind;
   items?: ItemLine[];
+  /** Tâche (administratif, ménage, courses…) ou Idée (projet, pense-bête…). Absent = tâche. */
+  type?: TaskType;
+  /** « À faire avant le… » : deux jours avant, elle devient urgente (voir `deadlineUpdates`). */
+  deadline?: DayKey;
 }
 
+export type TaskType = 'tache' | 'idee';
+
 export type IdeaKind = 'tache' | 'liste';
+/** Le contenu : un encart vide ou une check-liste, quel que soit le type (rendez-vous, événement, tâche ou idée). */
 export const IDEA_KINDS: { id: IdeaKind; label: string }[] = [
-  { id: 'tache', label: 'Tâche' },
-  { id: 'liste', label: 'Liste' },
+  { id: 'tache', label: 'Encart libre' },
+  { id: 'liste', label: 'Check-liste' },
 ];
+
+/** Ce qu'on programme (13 nov., Valentin) : la première question après le titre. */
+export type ProgramType = 'rdv' | 'evenement' | TaskType;
+
+export const PROGRAM_TYPES: { id: ProgramType; label: string; examples: string; icon: 'clock' | 'sun' | 'check-square' | 'zap' }[] = [
+  { id: 'rdv', label: 'Rendez-vous', examples: 'Médecin, coiffeur…', icon: 'clock' },
+  { id: 'evenement', label: 'Événement', examples: 'Soirée, vacances…', icon: 'sun' },
+  { id: 'tache', label: 'Tâche', examples: 'Administratif, ménage, courses…', icon: 'check-square' },
+  { id: 'idee', label: 'Idée', examples: 'Projet, pense-bête…', icon: 'zap' },
+];
+
+/** Une tâche devient urgente quand sa date limite est à 2 jours ou moins. */
+export const DEADLINE_URGENT_DAYS = 2;
 
 // ---- Matrice d'Eisenhower ----
 
@@ -91,6 +111,25 @@ export const toSort = (t: Pick<Triable, 'important' | 'urgent'>) => t.important 
 export const toSortCount = (items: Pick<Triable, 'important' | 'urgent' | 'status'>[]): number =>
   items.reduce((n, t) => (t.status === 'todo' && toSort(t) ? n + 1 : n), 0);
 
+/**
+ * Les 3 mots de la priorité (13 nov.) : Urgent, Important, Ne sais pas.
+ * Urgent et Important se cumulent (les deux = « Urgent et important ») ; Ne sais pas = En vrac.
+ * Enlever le dernier mot coché revient à Ne sais pas.
+ */
+export type PriorityWord = 'urgent' | 'important' | 'nsp';
+
+export function pickPriority(cur: Pick<Triable, 'important' | 'urgent'>, word: PriorityWord): { important: boolean | null; urgent: boolean | null } {
+  if (word === 'nsp') return { important: null, urgent: null };
+  const known = cur.important !== null && cur.urgent !== null;
+  const important = known ? !!cur.important : false;
+  const urgent = known ? !!cur.urgent : false;
+  const next = word === 'urgent' ? { important, urgent: !urgent } : { important: !important, urgent };
+  return next.important || next.urgent ? next : { important: null, urgent: null };
+}
+
+export const priorityWordOn = (cur: Pick<Triable, 'important' | 'urgent'>, word: PriorityWord) =>
+  word === 'nsp' ? cur.important === null || cur.urgent === null : word === 'urgent' ? cur.urgent === true : cur.important === true;
+
 /** Peut-on la mettre au calendrier ? Seulement si elle est dans The One Thing ou « Urgent et important ». */
 export const canSchedule = (t: Pick<Triable, 'important' | 'urgent' | 'oneThing'>) => {
   const q = quadrantOf(t);
@@ -113,6 +152,8 @@ export interface TaskItem extends Triable {
   note?: string;
   kind: IdeaKind;
   items?: ItemLine[];
+  type: TaskType;
+  deadline?: DayKey;
 }
 
 export function taskToItem(t: Task): TaskItem {
@@ -120,6 +161,7 @@ export function taskToItem(t: Task): TaskItem {
     key: `task:${t.id}`, source: 'task', id: t.id, title: t.title, day: t.day, start: null, durationMin: 0,
     important: t.important, urgent: t.urgent, status: t.status, slides: t.slides, category: t.category,
     rank: t.rank, note: t.note, oneThing: t.oneThing, kind: t.kind ?? 'tache', items: t.items,
+    type: t.type ?? 'tache', deadline: t.deadline,
   };
 }
 
@@ -138,6 +180,7 @@ export function eventToItem(e: CalendarEvent): TaskItem | null {
     status: e.doneDays?.includes(e.date) ? 'done' : 'todo',
     slides: 0, category: e.category, rank: e.rank, note: e.note, oneThing: e.oneThing,
     kind: k.includes('objet') ? 'liste' : 'tache', items: k.includes('objet') ? (e.items ?? (e.item ? [{ id: 'old', text: e.item }] : [])) : undefined,
+    type: 'tache',
   };
 }
 
@@ -191,11 +234,34 @@ export interface PriorityUpdate {
  * pour refaire le tri et s'assurer que chaque idée est encore pertinente. The One Thing et Urgent et important restent
  * jusqu'à ce qu'elles soient faites ; une idée déjà programmée au calendrier ne bouge pas.
  */
-export function nightlyReset(items: TaskItem[]): PriorityUpdate[] {
+export function nightlyReset(items: TaskItem[], today?: DayKey): PriorityUpdate[] {
   const out = ['planifier', 'alleger', 'lacher'] as QuadrantId[];
   return items
-    .filter((i) => i.status === 'todo' && i.day === null && out.includes(quadrantOf(i)))
+    .filter((i) => i.status === 'todo' && i.day === null && out.includes(quadrantOf(i)) && !(today && deadlineNear(i, today)))
     .map((i) => ({ key: i.key, important: null, urgent: null, rank: undefined, oneThing: false }));
+}
+
+/** Date limite à 2 jours ou moins (ou dépassée). */
+export const deadlineNear = (t: Pick<TaskItem, 'deadline'>, today: DayKey) => !!t.deadline && t.deadline <= addDays(today, DEADLINE_URGENT_DAYS);
+
+/**
+ * Date limite qui approche : la tâche devient urgente (son importance ne change pas ; « Ne sais pas » devient « pas important »
+ * pour qu'elle sorte d'En vrac et se voie dans Urgent).
+ */
+export function deadlineUpdates(items: TaskItem[], today: DayKey): PriorityUpdate[] {
+  return items
+    .filter((i) => i.status === 'todo' && i.urgent !== true && deadlineNear(i, today))
+    .map((i) => ({ key: i.key, important: i.important ?? false, urgent: true, rank: i.rank, oneThing: !!i.oneThing }));
+}
+
+/** Libellé court d'une date limite. */
+export function deadlineLabel(deadline: DayKey, today: DayKey): string {
+  if (deadline < today) return 'Date limite dépassée';
+  if (deadline === today) return 'À faire aujourd’hui au plus tard';
+  if (deadline === addDays(today, 1)) return 'Avant demain soir';
+  const [y, m, d] = deadline.split('-').map(Number);
+  const mois = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'][m - 1];
+  return `Avant le ${d} ${mois}${y !== Number(today.slice(0, 4)) ? ` ${y}` : ''}`;
 }
 
 /** Jour « de la matrice » : la nuit finit à 3 h (avant 3 h on est encore la veille). */
@@ -313,6 +379,12 @@ export function newId(): string {
 
 export function newTask(title: string, today: DayKey): Task {
   return { id: newId(), title: title.trim(), createdAt: today, important: null, urgent: null, day: null, status: 'todo', slides: 0 };
+}
+
+/** À l'enregistrement : une date limite proche rend la tâche urgente tout de suite (sans attendre la nuit). */
+export function applyDeadline(t: Task, today: DayKey): Task {
+  if (t.status !== 'todo' || t.urgent === true || !deadlineNear(t, today)) return t;
+  return { ...t, urgent: true, important: t.important ?? false };
 }
 
 /** Le tri guidé : répond aux deux questions et choisit éventuellement un jour. */
