@@ -167,8 +167,10 @@ export interface CalendarEvent {
   butoir?: DayKey;
   /** Rappel traité : la tâche a été programmée (ou c'était déjà fait). Le pop-up ne revient plus. */
   handled?: boolean;
-  /** Rappel : dernier jour où son pop-up a été montré (il revient une fois par jour jusqu'à ce qu'il soit traité). */
-  shownDay?: DayKey;
+  /** Rappel : premier jour où il a été vu dans le pop-up « ta journée ». Dès le lendemain, il propose de programmer la tâche. */
+  firstSeen?: DayKey;
+  /** Jours passés vus au ménage de la veille sans être cochés (reprogrammés ailleurs, ou qui n'ont pas eu lieu). */
+  reviewedDays?: DayKey[];
   /** Jours où une occurrence d'une série a été supprimée. */
   skipped?: DayKey[];
   note?: string;
@@ -199,15 +201,50 @@ export const isTask = (e: CalendarEvent) => kindsOf(e).includes('tache');
 // ---------------- Rappels de date butoir (13 nov., Valentin) ----------------
 // 5ᵉ choix de Programmer : ni rendez-vous, ni événement, ni tâche. Un jour (sans heure) et une date butoir facultative.
 // Au calendrier : un bandeau « toute la journée », le jour du rappel seulement (il ne bloque rien).
-// À partir de ce jour, un pop-up s'ouvre une fois par jour pour programmer la tâche, jusqu'à ce que ce soit fait.
+// Dans le pop-up « ta journée » (à l'ouverture de l'appli), à partir de ce jour et tant que la tâche n'est pas programmée :
+// la première fois on le voit simplement ; dès le lendemain, il propose de programmer la tâche.
 
 export const isRappel = (e: CalendarEvent) => kindsOf(e).includes('rappel');
 
-/** Le rappel à montrer maintenant (le plus ancien d'abord), ou null. Un seul à la fois : le suivant viendra après. */
-export function rappelToShow(events: CalendarEvent[], today: DayKey): CalendarEvent | null {
+/** Rappels à montrer dans le pop-up du jour : arrivés (jour du rappel passé ou aujourd'hui) et pas encore traités, le plus ancien d'abord. */
+export function pendingRappels(events: CalendarEvent[], today: DayKey): CalendarEvent[] {
   return events
-    .filter((e) => isRappel(e) && !e.handled && !e.phone && e.date <= today && e.shownDay !== today)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))[0] ?? null;
+    .filter((e) => isRappel(e) && !e.handled && !e.phone && e.date <= today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+}
+
+/** Déjà vu un jour précédent : il propose maintenant de programmer la tâche. */
+export const rappelActionable = (e: CalendarEvent, today: DayKey) => !!e.firstSeen && e.firstSeen < today;
+
+// ---------------- Ménage de la veille (13 nov., Valentin) ----------------
+// En entrant dans « Organiser et planifier » : tout ce qui avait une heure les jours passés et n'a été ni coché,
+// ni vu au ménage, revient un par un (le plus ancien d'abord). Fait / Reprogrammer / N'a pas eu lieu.
+
+/** Se coche dans le calendrier : tout ce qui a une heure et vient de l'appli (pas les agendas du téléphone, pas les rappels). */
+export const isCheckable = (e: CalendarEvent) => !e.phone && !isRappel(e) && e.start !== null && !e.sentToSas;
+
+/** Combien de jours en arrière le ménage remonte au plus. */
+export const REVIEW_DAYS = 7;
+
+/** Prochaine occurrence passée à revoir, ou null. `from` = premier jour pris en compte. */
+export function nextToReview(events: CalendarEvent[], today: DayKey, from?: DayKey): Occurrence | null {
+  let start = addDays(today, -REVIEW_DAYS);
+  if (from && from > start) start = from;
+  const mine = events.filter(isCheckable);
+  for (let day = start; day < today; day = addDays(day, 1)) {
+    const hit = occurrencesOn(mine, day).find((o) => !isDoneOn(o.event, day) && !o.event.reviewedDays?.includes(day));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** Copie à reprogrammer d'une occurrence passée : un créneau neuf, une seule fois, proposé aujourd'hui à la même heure. */
+export function reprogramCopy(e: CalendarEvent, today: DayKey): CalendarEvent {
+  return {
+    ...e, id: newId(), date: today, repeat: 'none', endDate: undefined, doneDays: undefined, skipped: undefined,
+    reviewedDays: undefined, sentToSas: undefined, oneThing: undefined, rank: undefined,
+    items: e.items?.map((i) => ({ ...i })),
+  };
 }
 
 export function blankRappel(day: DayKey, category: string): CalendarEvent {

@@ -274,15 +274,35 @@ test('heures regroupées par domaine, avec le détail des sous-domaines', () => 
   assert.equal(groups.reduce((s, g) => s + g.done, 0), 315);
 });
 
-test('rappel de date butoir : un pop-up par jour, du plus ancien, jusqu’à ce qu’il soit traité ; ne bloque rien', async () => {
-  const { rappelToShow, blankRappel } = await import('./model.ts');
+test('rappel de date butoir : vu une fois, puis à programmer dès le lendemain, jusqu’à ce qu’il soit traité ; ne bloque rien', async () => {
+  const { pendingRappels, rappelActionable, blankRappel } = await import('./model.ts');
   const impots = { ...blankRappel('2026-06-01', 'perso'), id: 'i', title: 'Impôts', butoir: '2026-06-15' };
   const velo = { ...blankRappel('2026-06-03', 'perso'), id: 'v', title: 'Révision vélo' };
-  assert.equal(rappelToShow([impots, velo], '2026-05-31'), null);                // pas avant le jour
-  assert.equal(rappelToShow([velo, impots], '2026-06-04')?.id, 'i');            // le plus ancien d'abord
-  assert.equal(rappelToShow([{ ...impots, shownDay: '2026-06-04' }, velo], '2026-06-04')?.id, 'v'); // déjà vu aujourd'hui : le suivant
-  assert.equal(rappelToShow([{ ...impots, shownDay: '2026-06-03' }], '2026-06-04')?.id, 'i');      // revient le lendemain
-  assert.equal(rappelToShow([{ ...impots, handled: true }], '2026-06-04'), null);
-  assert.ok(occursOn(impots, '2026-06-01') && !occursOn(impots, '2026-06-02')); // bandeau le jour du rappel seulement
+  assert.deepEqual(pendingRappels([impots, velo], '2026-05-31'), []);
+  assert.deepEqual(pendingRappels([velo, impots], '2026-06-04').map((r) => r.id), ['i', 'v']);
+  assert.deepEqual(pendingRappels([{ ...impots, handled: true }], '2026-06-04'), []);
+  assert.ok(!rappelActionable(impots, '2026-06-01'));
+  assert.ok(!rappelActionable({ ...impots, firstSeen: '2026-06-01' }, '2026-06-01'));
+  assert.ok(rappelActionable({ ...impots, firstSeen: '2026-06-01' }, '2026-06-02'));
+  assert.ok(occursOn(impots, '2026-06-01') && !occursOn(impots, '2026-06-02'));
   assert.equal(findConflict([impots], ev({ id: 'r', date: '2026-06-01', start: 9 * 60 })), null);
+});
+
+test('ménage de la veille : un par un, du plus ancien, ni coché ni revu ; à partir de l’installation, 7 jours au plus', async () => {
+  const { nextToReview, reprogramCopy, blankRappel } = await import('./model.ts');
+  const dentiste = ev({ id: 'd', date: '2026-11-12', start: 9 * 60 });
+  const trampo = ev({ id: 't', date: '2026-11-01', start: 18 * 60, repeat: 'daily', kinds: ['tache'] });
+  const vacances = ev({ id: 'v', date: '2026-11-12', start: null });
+  const rappel = { ...blankRappel('2026-11-12', 'perso'), id: 'r', title: 'Impôts' };
+  const google = ev({ id: 'g', date: '2026-11-12', start: 8 * 60, phone: { calendarId: 'x', calendarTitle: 'Google' } });
+  const all = [dentiste, trampo, vacances, rappel, google];
+  const today = '2026-11-13';
+  assert.equal(nextToReview(all, today, '2026-11-12')?.event.id, 'd');
+  const done = { ...dentiste, doneDays: ['2026-11-12'] };
+  assert.equal(nextToReview([done, trampo], today, '2026-11-12')?.event.id, 't');
+  assert.equal(nextToReview([done, { ...trampo, reviewedDays: ['2026-11-12'] }], today, '2026-11-12'), null);
+  assert.deepEqual([nextToReview([trampo], today)?.day], ['2026-11-06']);
+  assert.equal(nextToReview([trampo], today, today), null);
+  const copy = reprogramCopy({ ...trampo, doneDays: ['2026-11-02'] }, today);
+  assert.deepEqual([copy.date, copy.repeat, copy.doneDays, copy.id === 't'], [today, 'none', undefined, false]);
 });

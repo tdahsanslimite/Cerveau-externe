@@ -143,7 +143,7 @@ export function EventEditor({ state, onClose, onSaved }: {
   );
 
   return (
-    <Sheet visible onClose={onClose} title={state.isNew ? (natureOf(e) === 'evenement' ? 'Nouvel événement' : 'Nouveau rendez-vous') : 'Modifier'} footer={footer}>
+    <Sheet visible onClose={onClose} title={state.isNew ? (kinds.includes('tache') ? 'Nouvelle tâche' : natureOf(e) === 'evenement' ? 'Nouvel événement' : 'Nouveau rendez-vous') : 'Modifier'} footer={footer}>
       <Field label="Intitulé">
         <TextInput
           accessibilityLabel="Intitulé"

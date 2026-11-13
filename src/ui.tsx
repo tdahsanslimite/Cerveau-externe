@@ -94,18 +94,23 @@ export function SectionLabel({ children, right }: { children: string; right?: Re
 }
 
 /** Feuille qui monte du bas de l'écran. */
-export function Sheet({ visible, onClose, title, children, footer }: {
-  visible: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode;
+export function Sheet({ visible, onClose, title, children, footer, closable = true }: {
+  visible: boolean;
+  /** Croix, fond et bouton retour (si `closable`). Sans `closable`, seul le bouton retour du téléphone l'appelle. */
+  onClose: () => void;
+  title: string; children: ReactNode; footer?: ReactNode;
+  /** false : pas de croix, toucher le fond ne ferme pas (il faut répondre). */
+  closable?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Fermer" />
+        {closable ? <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Fermer" /> : <View style={{ flex: 1 }} />}
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.sheetHead}>
             <Txt bold size={22} style={{ flex: 1 }}>{title}</Txt>
-            <IconButton icon="x" label="Fermer" onPress={onClose} bordered={false} />
+            {closable ? <IconButton icon="x" label="Fermer" onPress={onClose} bordered={false} /> : null}
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 18, paddingBottom: 8 }}>
             {children}

@@ -4,7 +4,7 @@ import { colors, radius } from '../theme';
 import { Icon, Txt } from '../ui';
 import { durationLabel, labelDayShort, minutesToLabel } from './dates';
 import { useCalendar } from './CalendarContext';
-import { endOf, isDoneOn, isRappel, itemsOf, kindsOf, LOAD_LABEL, LoadLevel, Occurrence } from './model';
+import { endOf, isCheckable, isDoneOn, isRappel, itemsOf, kindsOf, LOAD_LABEL, LoadLevel, Occurrence } from './model';
 
 export const LOAD_COLOR: Record<LoadLevel, string> = {
   vide: colors.ok,
@@ -72,7 +72,9 @@ export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: 
   const kinds = kindsOf(e);
   const sent = !!e.sentToSas;
   const task = kinds.includes('tache') && !sent;
-  const done = task && isDoneOn(e, occ.day);
+  // Tout ce qui a une heure se coche une fois fait (13 nov. : rendez-vous et événements aussi), ça barre la ligne.
+  const checkable = isCheckable(e);
+  const done = checkable && isDoneOn(e, occ.day);
   const time = e.start === null ? 'Journée' : minutesToLabel(e.start);
   const timeEnd = e.start === null ? null : minutesToLabel(endOf(e));
   const rappel = isRappel(e);
@@ -91,11 +93,11 @@ export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: 
 
   return (
     <View style={[s.eventRow, compact && s.eventRowCompact]}>
-      {task ? (
+      {checkable ? (
         <Pressable
           accessibilityRole="checkbox"
           accessibilityState={{ checked: done }}
-          accessibilityLabel={done ? `Marquer « ${e.title} » comme non faite` : `Marquer « ${e.title} » comme faite`}
+          accessibilityLabel={done ? `Marquer « ${e.title} » comme pas fait` : `Marquer « ${e.title} » comme fait`}
           onPress={() => toggleDone(e.id, occ.day)}
           hitSlop={8}
           style={[s.check, compact && s.checkCompact, done && s.checkOn]}

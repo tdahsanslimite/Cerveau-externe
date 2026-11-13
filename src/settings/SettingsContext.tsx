@@ -20,6 +20,10 @@ export interface Settings {
   hiddenPhoneCalendars?: string[];
   /** Dernier jour (la nuit finit à 3 h) où la matrice des idées a été vidée de Important / Urgent / Abandonner. */
   ideasResetDay?: string;
+  /** Dernier jour où le pop-up « ta journée » a été montré (une fois par jour, à la première ouverture). */
+  dayPopupDay?: string;
+  /** Premier jour pris en compte par le ménage de la veille (jour d'installation de cette version : pas d'historique à rattraper). */
+  reviewFrom?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true, defaultAlert: 'sonnerie' };

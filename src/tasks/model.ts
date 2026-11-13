@@ -174,6 +174,8 @@ export function eventToItem(e: CalendarEvent): TaskItem | null {
   const k = e.kinds ?? [];
   // Tâche ou liste (« objet » sans rendez-vous) ; un rendez-vous, même avec des objets, reste dans le calendrier.
   if (!(k.includes('tache') || (k.includes('objet') && !k.includes('rdv'))) || e.repeat !== 'none' || e.sentToSas) return null;
+  // Revue au ménage de la veille sans être faite (reprogrammée ailleurs, ou qui n'a pas eu lieu) : elle sort des listes.
+  if (e.reviewedDays?.includes(e.date)) return null;
   return {
     key: `event:${e.id}`, source: 'event', id: e.id, title: e.title, day: e.date,
     start: e.start, durationMin: e.durationMin,

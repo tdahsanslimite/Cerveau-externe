@@ -11,7 +11,7 @@ import { BreathingScreen } from './breathing/BreathingScreen';
 import { CalendarScreen } from './calendar/CalendarScreen';
 import { GoalsScreen } from './goals/GoalsScreen';
 import { HomeScreen } from './home/HomeScreen';
-import { barModulesFor, CategoryId, ModuleId, TileInfo } from './home/modules';
+import { barModulesFor, categoryOf, CategoryId, ModuleId, TileInfo } from './home/modules';
 import { JournalScreen } from './journal/JournalScreen';
 import { MeditationScreen } from './meditation/MeditationScreen';
 import { nextOverall, whenText } from './reveil/model';
@@ -22,7 +22,8 @@ import { useRoutineAlert } from './routines/useRoutineAlert';
 import { toSortCount } from './tasks/model';
 import { TasksScreen } from './tasks/TasksScreen';
 import { useNightlyReset } from './tasks/useNightlyReset';
-import { RappelHost } from './tasks/RappelHost';
+import { CleanupHost } from './tasks/CleanupHost';
+import { DayHost } from './tasks/DayHost';
 import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
@@ -104,8 +105,12 @@ export function AppTabs() {
           ) : null}
         </View>
       </SafeAreaInsetsContext.Provider>
-      {/* Pop-up des rappels de date butoir, quel que soit l'écran ouvert. */}
-      <RappelHost />
+      {/* À l'ouverture : ta journée (et les rappels). En entrant dans Organiser et planifier : le ménage de la veille. */}
+      <DayHost />
+      <CleanupHost
+        active={menu === 'organiser' || (active !== 'accueil' && categoryOf(active)?.id === 'organiser')}
+        onLeave={() => { setActive('accueil'); setMenu(null); }}
+      />
 
       {active !== 'accueil' ? (
         <View style={[st.bar, { paddingBottom: Math.max(insets.bottom, 8) }]} accessibilityRole="tablist">

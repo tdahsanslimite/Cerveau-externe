@@ -1,9 +1,8 @@
 // Données des tâches, stockées sur le téléphone (clé ce.tasks.v1).
-import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useMemo } from 'react';
 import { usePersistentState } from '../storage';
 import { todayKey } from '../calendar/dates';
-import { useCalendar } from '../calendar/CalendarContext';
-import { eventTasksToReturn, newTask, returnOverdueToSas, setDone, Task, taskFromMissedEvent } from './model';
+import { newTask, returnOverdueToSas, setDone, Task } from './model';
 
 interface TasksData {
   tasks: Task[];
@@ -24,7 +23,6 @@ const TasksCtx = createContext<Ctx | null>(null);
 export function TasksProvider({ children }: { children: ReactNode }) {
   const [data, setData, loaded] = usePersistentState<TasksData>('ce.tasks.v1', { tasks: [] });
 
-  const { events, loaded: calendarLoaded, saveEvent } = useCalendar();
 
   // Au chargement, puis chaque minute (passage de minuit appli ouverte) : les tâches pas cochées
   // un jour passé repassent par le sas (pas d'accumulation sur le lendemain).
@@ -39,21 +37,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(timer);
   }, [loaded, setData]);
 
-  // Même règle pour les événements « Tâche » du calendrier : le créneau reste (c'était prévu ce jour-là),
-  // une nouvelle tâche part dans le sas. Revérifié à chaque changement du calendrier et chaque minute.
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setTick((n) => n + 1), 60 * 1000);
-    return () => clearInterval(timer);
-  }, []);
-  useEffect(() => {
-    if (!loaded || !calendarLoaded) return;
-    const today = todayKey();
-    const missed = eventTasksToReturn(events, today);
-    if (!missed.length) return;
-    setData((d) => ({ ...d, tasks: [...d.tasks, ...missed.map((e) => taskFromMissedEvent(e, today))] }));
-    for (const e of missed) saveEvent({ ...e, sentToSas: true });
-  }, [events, loaded, calendarLoaded, saveEvent, setData, tick]);
+  // Les tâches du calendrier pas cochées ne repartent plus toutes seules au sas (13 nov.) :
+  // c'est le ménage de la veille (CleanupHost) qui les montre une par une : fait, reprogrammer, ou n'a pas eu lieu.
 
   const value = useMemo<Ctx>(() => ({
     tasks: data.tasks,
