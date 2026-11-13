@@ -22,6 +22,7 @@ import { useRoutineAlert } from './routines/useRoutineAlert';
 import { toSortCount } from './tasks/model';
 import { TasksScreen } from './tasks/TasksScreen';
 import { useNightlyReset } from './tasks/useNightlyReset';
+import { RappelHost } from './tasks/RappelHost';
 import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
 import { Icon, IconName, Txt } from './ui';
@@ -103,6 +104,8 @@ export function AppTabs() {
           ) : null}
         </View>
       </SafeAreaInsetsContext.Provider>
+      {/* Pop-up des rappels de date butoir, quel que soit l'écran ouvert. */}
+      <RappelHost />
 
       {active !== 'accueil' ? (
         <View style={[st.bar, { paddingBottom: Math.max(insets.bottom, 8) }]} accessibilityRole="tablist">

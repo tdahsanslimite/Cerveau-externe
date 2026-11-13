@@ -140,7 +140,8 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
         <PriorityWords important={t.important} urgent={t.urgent} onChange={(p) => patch(p)} />
       </Field>
 
-      {(t.type ?? 'tache') === 'tache' ? (
+      {/* Ancienne date limite (13 nov. matin) : gardée pour les tâches qui en ont une ; les nouvelles échéances passent par Rappel. */}
+      {(t.type ?? 'tache') === 'tache' && task.deadline ? (
         <Field label="Date limite" hint="Deux jours avant, elle passe en urgent toute seule.">
           <DeadlineField value={t.deadline} today={today} onChange={(deadline) => patch({ deadline })} />
         </Field>

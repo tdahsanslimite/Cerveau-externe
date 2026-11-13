@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import { useCalendar } from './calendar/CalendarContext';
 import type { DayKey } from './calendar/dates';
-import { occurrencesOn } from './calendar/model';
+import { isRappel, occurrencesOn } from './calendar/model';
 import { taskCountOn } from './tasks/model';
 import { useTasks } from './tasks/TasksContext';
 
@@ -13,7 +13,7 @@ export function useDayLoad() {
   /** `except` : élément en cours d'édition, à ne pas compter deux fois. */
   return useCallback(
     (day: DayKey, except?: { eventId?: string; taskId?: string }): number =>
-      occurrencesOn(events.filter((e) => e.id !== except?.eventId), day).length +
+      occurrencesOn(events.filter((e) => e.id !== except?.eventId && !isRappel(e)), day).length + // un rappel n'est pas du travail du jour
       taskCountOn(tasks.filter((t) => t.id !== except?.taskId), day),
     [events, tasks],
   );

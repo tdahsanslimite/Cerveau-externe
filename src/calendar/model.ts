@@ -71,7 +71,8 @@ export const REPEATS: { id: Repeat; label: string }[] = [
 ];
 
 /** Nature d'un événement. Plusieurs possibles : un IRM est un rendez-vous ET un objet à prendre. */
-export type EventKind = 'rdv' | 'tache' | 'objet';
+/** 'rappel' (13 nov.) : un rappel de date butoir, créé dans Programmer (voir `isRappel`). */
+export type EventKind = 'rdv' | 'tache' | 'objet' | 'rappel';
 
 export const KINDS: { id: EventKind; label: string; hint: string }[] = [
   { id: 'rdv', label: 'Événement', hint: 'Tu y es en personne : deux événements ne peuvent pas se chevaucher.' },
@@ -162,6 +163,12 @@ export interface CalendarEvent {
   oneThing?: boolean;
   /** Tâche pas cochée le jour prévu : le créneau reste (historique) et une nouvelle tâche est repartie dans le sas. */
   sentToSas?: boolean;
+  /** Rappel : date butoir (« Impôts avant le 15 juin »). Facultative. */
+  butoir?: DayKey;
+  /** Rappel traité : la tâche a été programmée (ou c'était déjà fait). Le pop-up ne revient plus. */
+  handled?: boolean;
+  /** Rappel : dernier jour où son pop-up a été montré (il revient une fois par jour jusqu'à ce qu'il soit traité). */
+  shownDay?: DayKey;
   /** Jours où une occurrence d'une série a été supprimée. */
   skipped?: DayKey[];
   note?: string;
@@ -188,6 +195,24 @@ export const kindsOf = (e: CalendarEvent): EventKind[] => (e.kinds && e.kinds.le
 export const natureOf = (e: CalendarEvent): 'rdv' | 'evenement' =>
   e.nature === 'evenement' || e.nature === 'deplacement' || e.nature === 'activite' ? 'evenement' : 'rdv';
 export const isTask = (e: CalendarEvent) => kindsOf(e).includes('tache');
+
+// ---------------- Rappels de date butoir (13 nov., Valentin) ----------------
+// 5ᵉ choix de Programmer : ni rendez-vous, ni événement, ni tâche. Un jour (sans heure) et une date butoir facultative.
+// Au calendrier : un bandeau « toute la journée », le jour du rappel seulement (il ne bloque rien).
+// À partir de ce jour, un pop-up s'ouvre une fois par jour pour programmer la tâche, jusqu'à ce que ce soit fait.
+
+export const isRappel = (e: CalendarEvent) => kindsOf(e).includes('rappel');
+
+/** Le rappel à montrer maintenant (le plus ancien d'abord), ou null. Un seul à la fois : le suivant viendra après. */
+export function rappelToShow(events: CalendarEvent[], today: DayKey): CalendarEvent | null {
+  return events
+    .filter((e) => isRappel(e) && !e.handled && !e.phone && e.date <= today && e.shownDay !== today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))[0] ?? null;
+}
+
+export function blankRappel(day: DayKey, category: string): CalendarEvent {
+  return { id: newId(), title: '', date: day, start: null, durationMin: 0, category, repeat: 'none', kinds: ['rappel'], reminders: [] };
+}
 export const isDoneOn = (e: CalendarEvent, day: DayKey) => !!e.doneDays?.includes(day);
 export const endOf = (e: CalendarEvent) => (e.start ?? 0) + e.durationMin;
 

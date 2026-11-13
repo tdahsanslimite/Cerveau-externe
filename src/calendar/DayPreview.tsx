@@ -42,7 +42,7 @@ function lanes(blocks: Block[]): { block: Block; lane: number; of: number }[] {
 
 const kindLabel = (e: CalendarEvent) => {
   const k = kindsOf(e);
-  return k.includes('rdv') ? natureLabel(natureOf(e)) : k.includes('objet') ? 'Liste' : 'Tâche';
+  return k.includes('rappel') ? 'Rappel' : k.includes('rdv') ? natureLabel(natureOf(e)) : k.includes('objet') ? 'Liste' : 'Tâche';
 };
 
 export function DayPreview({ day, candidate, blockingId }: { day: DayKey; candidate: CalendarEvent; blockingId: string | null }) {

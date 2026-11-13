@@ -29,22 +29,28 @@ export function PriorityWords({ important, urgent, onChange }: {
   );
 }
 
-/** « À faire avant le… » : facultatif. */
-export function DeadlineField({ value, today, onChange }: { value: DayKey | undefined; today: DayKey; onChange: (d: DayKey | undefined) => void }) {
+/** Une date facultative : « À faire avant le… » (ancienne date limite d'une tâche) ou la date butoir d'un rappel. */
+export function DeadlineField({ value, today, onChange, prefix = 'À faire avant le', removeLabel = 'Pas de date limite', min }: {
+  value: DayKey | undefined; today: DayKey; onChange: (d: DayKey | undefined) => void;
+  prefix?: string; removeLabel?: string;
+  /** Jour minimum (par défaut aujourd'hui). */
+  min?: DayKey;
+}) {
+  const floor = min && min > today ? min : today;
   if (!value) {
     return (
-      <Pressable accessibilityRole="button" onPress={() => onChange(addDays(today, 7))} style={({ pressed }) => [st.addLine, pressed && { opacity: 0.6 }]}>
+      <Pressable accessibilityRole="button" onPress={() => onChange(addDays(floor, 7))} style={({ pressed }) => [st.addLine, pressed && { opacity: 0.6 }]}>
         <Icon name="flag" size={16} color={colors.accent} />
-        <Txt bold size={14} color={colors.accent}>À faire avant le…</Txt>
+        <Txt bold size={14} color={colors.accent}>{prefix}…</Txt>
       </Pressable>
     );
   }
   return (
     <View style={{ gap: 6 }}>
       <View style={st.stepper}>
-        <StepBtn icon="chevron-left" label="Un jour plus tôt" onPress={() => onChange(value <= today ? today : addDays(value, -1))} />
+        <StepBtn icon="chevron-left" label="Un jour plus tôt" onPress={() => onChange(value <= floor ? floor : addDays(value, -1))} />
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Txt size={13} color={colors.muted}>À faire avant le</Txt>
+          <Txt size={13} color={colors.muted}>{prefix}</Txt>
           <Txt bold size={16}>{labelDayLong(value)}</Txt>
           {relativeLabel(value) ? <Txt size={13} color={colors.accent}>{relativeLabel(value)}</Txt> : null}
         </View>
@@ -52,7 +58,7 @@ export function DeadlineField({ value, today, onChange }: { value: DayKey | unde
       </View>
       <View style={st.wrap}>
         <Chip label="+1 semaine" onPress={() => onChange(addDays(value, 7))} />
-        <Chip label="Pas de date limite" onPress={() => onChange(undefined)} />
+        <Chip label={removeLabel} onPress={() => onChange(undefined)} />
       </View>
     </View>
   );
@@ -83,6 +89,26 @@ export function ContentField({ kind, note, items, onKind, onNote, onItems }: {
           style={[st.input, { minHeight: 110, paddingTop: 12, textAlignVertical: 'top' }]}
         />
       )}
+    </View>
+  );
+}
+
+/** Un jour obligatoire (jour du rappel). */
+export function DayField({ value, onChange, min }: { value: DayKey; onChange: (d: DayKey) => void; min: DayKey }) {
+  return (
+    <View style={{ gap: 6 }}>
+      <View style={st.stepper}>
+        <StepBtn icon="chevron-left" label="Jour précédent" onPress={() => onChange(value <= min ? min : addDays(value, -1))} />
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Txt bold size={16}>{labelDayLong(value)}</Txt>
+          {relativeLabel(value) ? <Txt size={13} color={colors.accent}>{relativeLabel(value)}</Txt> : null}
+        </View>
+        <StepBtn icon="chevron-right" label="Jour suivant" onPress={() => onChange(addDays(value, 1))} />
+      </View>
+      <View style={st.wrap}>
+        <Chip label="+1 semaine" onPress={() => onChange(addDays(value, 7))} />
+        <Chip label="+1 mois" onPress={() => onChange(addDays(value, 30))} />
+      </View>
     </View>
   );
 }

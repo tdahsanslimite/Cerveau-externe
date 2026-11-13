@@ -2,9 +2,9 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, radius } from '../theme';
 import { Icon, Txt } from '../ui';
-import { durationLabel, minutesToLabel } from './dates';
+import { durationLabel, labelDayShort, minutesToLabel } from './dates';
 import { useCalendar } from './CalendarContext';
-import { endOf, isDoneOn, itemsOf, kindsOf, LOAD_LABEL, LoadLevel, Occurrence } from './model';
+import { endOf, isDoneOn, isRappel, itemsOf, kindsOf, LOAD_LABEL, LoadLevel, Occurrence } from './model';
 
 export const LOAD_COLOR: Record<LoadLevel, string> = {
   vide: colors.ok,
@@ -75,7 +75,12 @@ export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: 
   const done = task && isDoneOn(e, occ.day);
   const time = e.start === null ? 'Journée' : minutesToLabel(e.start);
   const timeEnd = e.start === null ? null : minutesToLabel(endOf(e));
-  const meta = [
+  const rappel = isRappel(e);
+  const meta = rappel ? [
+    'Rappel',
+    e.butoir ? `à faire avant le ${labelDayShort(e.butoir)}` : null,
+    e.handled ? 'tâche programmée' : null,
+  ].filter(Boolean).join(' · ') : [
     cat.label,
     sent ? 'Pas cochée · repassée au sas' : task ? 'Tâche' : null,
     REPEAT_HINT[e.repeat] || null,
@@ -108,14 +113,14 @@ export function EventRow({ occ, onPress, compact }: { occ: Occurrence; onPress: 
           <Txt bold size={compact ? 13 : 14} color={colors.muted}>{time}</Txt>
           {!compact && timeEnd ? <Txt size={12} color={colors.faint}>{timeEnd}</Txt> : null}
         </View>
-        <View style={[s.catBar, { backgroundColor: cat.color }]} />
+        {rappel ? <Icon name="bell" size={16} color={e.handled ? colors.faint : colors.warnDark} /> : <View style={[s.catBar, { backgroundColor: cat.color }]} />}
         <View style={{ flex: 1, gap: 2 }}>
           <Txt
             bold
             size={compact ? 14 : 15}
             numberOfLines={compact ? 1 : 2}
-            color={done ? colors.faint : colors.ink}
-            style={done ? { textDecorationLine: 'line-through' } : undefined}
+            color={done || (rappel && e.handled) ? colors.faint : colors.ink}
+            style={done || (rappel && e.handled) ? { textDecorationLine: 'line-through' } : undefined}
           >
             {e.title}
           </Txt>

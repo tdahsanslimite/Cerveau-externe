@@ -50,13 +50,14 @@ export const IDEA_KINDS: { id: IdeaKind; label: string }[] = [
 ];
 
 /** Ce qu'on programme (13 nov., Valentin) : la première question après le titre. */
-export type ProgramType = 'rdv' | 'evenement' | TaskType;
+export type ProgramType = 'rdv' | 'evenement' | TaskType | 'rappel';
 
-export const PROGRAM_TYPES: { id: ProgramType; label: string; examples: string; icon: 'clock' | 'sun' | 'check-square' | 'zap' }[] = [
+export const PROGRAM_TYPES: { id: ProgramType; label: string; examples: string; icon: 'clock' | 'sun' | 'check-square' | 'zap' | 'bell' }[] = [
   { id: 'rdv', label: 'Rendez-vous', examples: 'Médecin, coiffeur…', icon: 'clock' },
   { id: 'evenement', label: 'Événement', examples: 'Soirée, vacances…', icon: 'sun' },
   { id: 'tache', label: 'Tâche', examples: 'Administratif, ménage, courses…', icon: 'check-square' },
   { id: 'idee', label: 'Idée', examples: 'Projet, pense-bête…', icon: 'zap' },
+  { id: 'rappel', label: 'Rappel', examples: 'Date butoir : impôts avant le 15…', icon: 'bell' },
 ];
 
 /** Une tâche devient urgente quand sa date limite est à 2 jours ou moins. */

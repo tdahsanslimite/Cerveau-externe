@@ -16,7 +16,7 @@ import { Card, Icon, IconButton, Txt } from '../ui';
 import { useApplyUpdates } from './apply';
 import { TaskRow } from './components';
 import { byQuadrant, moveIdea, QuadrantId, QUADRANTS, Task, TaskItem } from './model';
-import { ProgramSheet } from './ProgramSheet';
+import { ProgramSheet, ProgramStart } from './ProgramSheet';
 import { TaskEditor } from './TaskEditor';
 import { useTasks } from './TasksContext';
 import { useTaskItems } from './useTaskItems';
@@ -49,7 +49,7 @@ export function TasksScreen() {
   const apply = useApplyUpdates();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<Task | null>(null);
-  const [creating, setCreating] = useState<string | null>(null);
+  const [creating, setCreating] = useState<ProgramStart | null>(null);
   const [editingEvent, setEditingEvent] = useState<EditorState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -69,7 +69,7 @@ export function TasksScreen() {
   const submit = () => {
     const title = draft.trim();
     if (!title) return;
-    setCreating(title);
+    setCreating({ title });
     setDraft('');
   };
 
@@ -245,7 +245,7 @@ export function TasksScreen() {
         </Pressable>
       </View>
       <View style={st.captureNote}>
-        <Txt size={13} color={colors.muted} numberOfLines={1}>Un titre, puis : rendez-vous, événement, tâche ou idée.</Txt>
+        <Txt size={13} color={colors.muted} numberOfLines={1}>Un titre, puis on te guide pas à pas.</Txt>
       </View>
 
       <ScrollView
@@ -286,7 +286,7 @@ export function TasksScreen() {
       </ScrollView>
 
       <ProgramSheet
-        title={creating}
+        start={creating}
         onClose={() => setCreating(null)}
         onEvent={(event) => { setCreating(null); setEditingEvent({ event, isNew: true, day: event.date }); }}
       />

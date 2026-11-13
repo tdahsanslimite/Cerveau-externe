@@ -12,7 +12,8 @@ import { Icon, IconButton, Txt } from '../ui';
 import { addDays, addMonths, DayKey, fromKey, isoWeek, labelDayLong, labelMonth, labelWeekRange, relativeLabel, startOfWeek, todayKey } from './dates';
 import { useCalendar } from './CalendarContext';
 import { EditorState, EventEditor } from './EventEditor';
-import { CalendarEvent, Occurrence } from './model';
+import { CalendarEvent, isRappel, Occurrence } from './model';
+import { RappelEditor } from '../tasks/RappelEditor';
 import { PhoneEventSheet } from './PhoneEventSheet';
 import { DayView, MonthView, WeekView } from './views';
 import { labelQuarter, QuarterView, quarterOf, WeekStrip, YearView } from './longViews';
@@ -68,8 +69,11 @@ export function CalendarScreen() {
 
   const [phoneEvent, setPhoneEvent] = useState<CalendarEvent | null>(null);
   // Un événement lu depuis le téléphone (Google…) ne se modifie pas ici : fiche en lecture seule.
+  const [rappelEdit, setRappelEdit] = useState<CalendarEvent | null>(null);
   const onEdit = (occ: Occurrence) =>
-    occ.event.phone ? setPhoneEvent(occ.event) : setEditor({ event: occ.event, isNew: false, day: occ.day });
+    occ.event.phone ? setPhoneEvent(occ.event)
+      : isRappel(occ.event) ? setRappelEdit(occ.event)
+        : setEditor({ event: occ.event, isNew: false, day: occ.day });
   const onOpenDay = (d: DayKey) => {
     setDay(d);
     setView('jour');
@@ -130,6 +134,7 @@ export function CalendarScreen() {
 
       <EventEditor state={editor} onClose={() => setEditor(null)} />
       <PhoneEventSheet event={phoneEvent} onClose={() => setPhoneEvent(null)} />
+      <RappelEditor rappel={rappelEdit} onClose={() => setRappelEdit(null)} />
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <HoursBilan visible={bilanOpen} onClose={() => setBilanOpen(false)} />
     </View>
