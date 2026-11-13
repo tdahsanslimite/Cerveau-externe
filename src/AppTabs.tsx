@@ -22,6 +22,7 @@ import { useRoutineAlert } from './routines/useRoutineAlert';
 import { toSortCount } from './tasks/model';
 import { TasksScreen } from './tasks/TasksScreen';
 import { useNightlyReset } from './tasks/useNightlyReset';
+import { useWidgetSync } from './widget/useWidgetSync';
 import { CleanupHost } from './tasks/CleanupHost';
 import { DayHost } from './tasks/DayHost';
 import { useTaskItems } from './tasks/useTaskItems';
@@ -57,6 +58,7 @@ export function AppTabs() {
   const { alarms } = useReveil();
   const nextAlarm = active === 'accueil' ? nextOverall(alarms, new Date()) : null;
   useNightlyReset();
+  useWidgetSync();
 
   // Le bouton retour d'Android remonte d'un niveau : module → sous-menu (ou accueil) → accueil → quitter l'appli.
   useEffect(() => {

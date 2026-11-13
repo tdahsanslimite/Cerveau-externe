@@ -53,6 +53,24 @@
         {
           "calendarPermission": "Cerveau Externe lit tes agendas (Google Agenda, planning du travail) pour tout afficher au même endroit."
         }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Journee",
+              "label": "Ma journée",
+              "description": "Ta journée, The One Thing et tes rappels",
+              "minWidth": "250dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 3,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
       ]
     ]
   }
