@@ -7,7 +7,7 @@
 //   3. Les objectifs d'une période (semaine, mois, trimestre) : « qui je suis pour cette période » apparaît en tout
 //      petit au-dessus de la vue correspondante du calendrier.
 // Tout est facultatif et enregistré tel quel ; un champ vidé est retiré (pas de fiches fantômes).
-import { addDays, fromKey, weekdayIndex } from '../calendar/dates.ts';
+import { addDays, fromKey, startOfWeek, weekdayIndex } from '../calendar/dates.ts';
 import type { DayKey } from '../calendar/dates.ts';
 import { average, recentDays } from '../journal/model.ts';
 import type { EntryMap, ScoreField } from '../journal/model.ts';
@@ -309,4 +309,78 @@ export function weekGoals(tp: Partial<Record<ThemeId, PeriodMap>>, chosen: Theme
     for (const f of ['who', 'todo', 'avoid'] as const) if (isFilled(card?.[f])) g[f] = card![f]!.trim();
     return g.who || g.todo || g.avoid ? [g] : [];
   });
+}
+
+// ---------------- Zoom enchaîné année → trimestre → mois → semaine (17 nov.) ----------------
+// Valentin : « évite d'embrouiller le TDAH qui pense remplir la bonne semaine alors qu'il n'est pas dans le bon mois ».
+// Le trimestre choisi limite les mois proposés, le mois choisi limite les semaines proposées.
+// Une semaine (lundi → dimanche) appartient au mois de son JEUDI (même règle que les numéros de semaine ISO) :
+// chaque semaine est dans un seul mois, et son année ISO est celle de ce mois.
+
+export type MonthKey = string; // '2026-11'
+
+export interface Zoom {
+  year: number;
+  quarter: 1 | 2 | 3 | 4;
+  month: MonthKey;
+  /** Lundi de la semaine. */
+  week: DayKey;
+}
+
+const MONTH_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+export const monthShort = (m: MonthKey) => MONTH_SHORT[Number(m.slice(5, 7)) - 1];
+
+const quarterOfMonthKey = (m: MonthKey) => (Math.floor((Number(m.slice(5, 7)) - 1) / 3) + 1) as 1 | 2 | 3 | 4;
+
+/** Mois (AAAA-MM) auquel appartient la semaine qui contient `day` : celui de son jeudi. */
+export function weekMonth(day: DayKey): MonthKey {
+  return addDays(startOfWeek(day), 3).slice(0, 7);
+}
+
+export function monthsOfQuarter(year: number, quarter: number): MonthKey[] {
+  return [0, 1, 2].map((i) => `${year}-${String((quarter - 1) * 3 + i + 1).padStart(2, '0')}`);
+}
+
+/** Lundis des semaines qui appartiennent au mois (4 ou 5). */
+export function weeksOfMonth(month: MonthKey): DayKey[] {
+  // Le 4 du mois est toujours dans la 1re semaine du mois (règle du jeudi).
+  let monday = startOfWeek(`${month}-04`);
+  const out: DayKey[] = [];
+  while (weekMonth(monday) === month) {
+    out.push(monday);
+    monday = addDays(monday, 7);
+  }
+  return out;
+}
+
+/** Le zoom sur les périodes en cours. */
+export function zoomToday(today: DayKey): Zoom {
+  const month = weekMonth(today);
+  return { year: Number(month.slice(0, 4)), quarter: quarterOfMonthKey(month), month, week: startOfWeek(today) };
+}
+
+/** Choisir un mois : la semaine en cours si elle est dans ce mois, sinon la 1re semaine du mois. */
+export function zoomMonth(month: MonthKey, today: DayKey): Zoom {
+  const now = zoomToday(today);
+  return {
+    year: Number(month.slice(0, 4)), quarter: quarterOfMonthKey(month), month,
+    week: now.month === month ? now.week : weeksOfMonth(month)[0],
+  };
+}
+
+/** Choisir un trimestre : le mois en cours s'il est dans ce trimestre, sinon le 1er mois du trimestre. */
+export function zoomQuarter(year: number, quarter: number, today: DayKey): Zoom {
+  const now = zoomToday(today);
+  return zoomMonth(now.year === year && now.quarter === quarter ? now.month : monthsOfQuarter(year, quarter)[0], today);
+}
+
+/** Choisir une année : le trimestre en cours si c'est l'année en cours, sinon T1. */
+export function zoomYear(year: number, today: DayKey): Zoom {
+  const now = zoomToday(today);
+  return zoomQuarter(year, now.year === year ? now.quarter : 1, today);
+}
+
+/** Clés des fiches du zoom (mêmes clés qu'avant : S…-W.., M…, T…-Q.). */
+export function zoomKeys(z: Zoom): { trimestre: string; mois: string; semaine: string } {
+  return { trimestre: `T${z.year}-Q${z.quarter}`, mois: `M${z.month}`, semaine: periodKey('semaine', z.week) };
 }

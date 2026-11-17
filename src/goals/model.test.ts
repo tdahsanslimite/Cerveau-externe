@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  annualOneThing, BLASON, effectiveLeading, normalizeGoals, periodWhoByTheme, setThemePeriodField, toggleChosen, weekGoals, blasonCount, isoYear, linesOf, periodKey, periodWho, setBlason, setPeriodField, setThemeField,
+  annualOneThing, BLASON, effectiveLeading, monthsOfQuarter, weekMonth, weeksOfMonth, zoomKeys, zoomMonth, zoomQuarter, zoomToday, zoomYear, normalizeGoals, periodWhoByTheme, setThemePeriodField, toggleChosen, weekGoals, blasonCount, isoYear, linesOf, periodKey, periodWho, setBlason, setPeriodField, setThemeField,
   themeIndicator, themeProgress, THEMES, toggleLeading,
 } from './model.ts';
 import type { YearGoals } from './model.ts';
@@ -179,4 +179,32 @@ test('fiches de période par thème : Business et Santé ont chacun leur semaine
   assert.deepEqual(weekGoals(tp, ['business'], '2026-11-24'), []); // semaine suivante vide
   tp = setThemePeriodField(tp, 'business', w, 'who', '');
   assert.equal('business' in tp, false);
+});
+
+test('zoom : une semaine appartient au mois de son jeudi', () => {
+  assert.equal(weekMonth('2026-11-17'), '2026-11');
+  assert.equal(weekMonth('2026-11-30'), '2026-12'); // lundi 30 nov. → jeudi 3 déc.
+  assert.equal(weekMonth('2026-10-01'), '2026-10'); // semaine du 28 sept. : jeudi 1er oct. → octobre
+  assert.deepEqual(weeksOfMonth('2026-11'), ['2026-11-02', '2026-11-09', '2026-11-16', '2026-11-23']);
+  assert.deepEqual(weeksOfMonth('2026-10'), ['2026-09-28', '2026-10-05', '2026-10-12', '2026-10-19', '2026-10-26']);
+  assert.deepEqual(monthsOfQuarter(2026, 4), ['2026-10', '2026-11', '2026-12']);
+  // Chaque semaine d'une année est dans un seul mois, et son numéro est bien celui du calendrier.
+  const all = Array.from({ length: 12 }, (_, i) => weeksOfMonth(`2026-${String(i + 1).padStart(2, '0')}`)).flat();
+  assert.equal(new Set(all).size, all.length);
+  assert.equal(all.length, 53); // 2026 a 53 semaines ISO
+  assert.equal(periodKey('semaine', all[0]), 'S2026-W01');
+  assert.equal(periodKey('semaine', all[52]), 'S2026-W53');
+});
+
+test('zoom : périodes en cours par défaut, changer de trimestre ou de mois recale ce qui est dessous', () => {
+  const today = '2026-11-17';
+  assert.deepEqual(zoomToday(today), { year: 2026, quarter: 4, month: '2026-11', week: '2026-11-16' });
+  assert.deepEqual(zoomQuarter(2026, 3, today), { year: 2026, quarter: 3, month: '2026-07', week: weeksOfMonth('2026-07')[0] });
+  assert.deepEqual(zoomQuarter(2026, 4, today), zoomToday(today)); // retour au trimestre en cours = période en cours
+  assert.deepEqual(zoomMonth('2026-12', today), { year: 2026, quarter: 4, month: '2026-12', week: '2026-11-30' });
+  assert.deepEqual(zoomYear(2027, today), { year: 2027, quarter: 1, month: '2027-01', week: '2027-01-04' });
+  assert.deepEqual(zoomYear(2026, today), zoomToday(today));
+  assert.deepEqual(zoomKeys(zoomToday(today)), { trimestre: 'T2026-Q4', mois: 'M2026-11', semaine: 'S2026-W47' });
+  // Le lundi 30 nov. appartient à décembre : aujourd'hui = ce jour-là → zoom sur décembre.
+  assert.equal(zoomToday('2026-11-30').month, '2026-12');
 });
