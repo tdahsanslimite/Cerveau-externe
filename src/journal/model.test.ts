@@ -136,3 +136,86 @@ test('virgule française', () => {
   assert.equal(formatScore(6.5), '6,5');
   assert.equal(formatScore(7), '7');
 });
+
+// ——— Sommeil et réglages (17 nov.) ———
+import {
+  asksSleepTimes, CLASSIC_FIELDS, defaultPrefs, FIELDS, formatClock, formatDuration, nightMinute, setSleepTime, shortSummary,
+  sleepDuration, sleepStats, toggleField, totalRange,
+} from './model.ts';
+
+test('« Bien dormi » est une 4e note, avec son commentaire, à la fin', () => {
+  assert.deepEqual(FIELDS, ['mood', 'mind', 'body', 'sleep']);
+  let e: EntryMap = setScore({}, '2026-11-17', 'sleep', 6);
+  e = setNote(e, '2026-11-17', 'sleep', 'Réveillé à 4 h');
+  assert.deepEqual(e['2026-11-17'], { sleep: 6, sleepNote: 'Réveillé à 4 h' });
+  assert.equal(noteOf(e['2026-11-17'], 'sleep'), 'Réveillé à 4 h');
+  assert.equal(shortSummary({ mood: 7, sleep: 4 }), 'Journée 7 · Sommeil 4');
+  assert.equal(shortSummary({ mood: 7, sleep: 4 }, ['mood']), 'Journée 7'); // une note non suivie n'apparaît pas
+});
+
+test('heures de coucher / lever : enregistrées, effacées, une entrée qui n’a qu’une heure n’est pas vide', () => {
+  let e = setSleepTime({}, '2026-11-17', 'bedTime', 23 * 60 + 30);
+  assert.equal(e['2026-11-17'].bedTime, 1410);
+  assert.equal(isEmptyEntry(e['2026-11-17']), false);
+  e = setSleepTime(e, '2026-11-17', 'bedTime', null);
+  assert.deepEqual(e, {});
+  assert.deepEqual(setSleepTime({}, '2026-11-17', 'wakeTime', 1440), {}); // hors horloge : ignoré
+});
+
+test('durée de la nuit : coucher avant ou après minuit', () => {
+  assert.equal(sleepDuration({ bedTime: 23 * 60, wakeTime: 7 * 60 }), 8 * 60);
+  assert.equal(sleepDuration({ bedTime: 60, wakeTime: 8 * 60 + 15 }), 7 * 60 + 15);
+  assert.equal(sleepDuration({ bedTime: 23 * 60 }), null);
+  assert.equal(sleepDuration({ bedTime: 420, wakeTime: 420 }), null);
+  assert.equal(formatDuration(465), '7 h 45');
+  assert.equal(formatDuration(480), '8 h');
+  assert.equal(formatClock(7 * 60 + 5), '07:05');
+  assert.equal(formatClock(nightMinute(30)), '00:30');
+});
+
+test('moyennes des nuits : un coucher à 1 h compte après minuit, pas avant 23 h', () => {
+  const e: EntryMap = {
+    '2026-11-15': { bedTime: 23 * 60, wakeTime: 7 * 60 },
+    '2026-11-16': { bedTime: 60, wakeTime: 9 * 60 },
+    '2026-11-17': { bedTime: 0 }, // nuit incomplète : compte pour le coucher, pas pour la durée
+  };
+  const s = sleepStats(e, ['2026-11-15', '2026-11-16', '2026-11-17']);
+  assert.equal(s.nights, 2);
+  assert.equal(formatClock(s.bed!), '00:00'); // (23:00 + 01:00 + 00:00) / 3 : minuit, pas midi
+  assert.equal(formatClock(s.wake!), '08:00');
+  assert.equal(s.duration, 8 * 60);
+  assert.deepEqual(sleepStats(e, ['2026-11-01']), { nights: 0, bed: null, wake: null, duration: null });
+});
+
+test('total : seulement les notes suivies, et seulement si elles sont toutes posées', () => {
+  const day = { mood: 6, mind: 7, body: 4 };
+  assert.equal(totalScore(day), 17); // par défaut : les 3 notes de la 1re version
+  assert.equal(totalScore(day, FIELDS), null); // sommeil suivi mais pas noté : pas de total
+  assert.equal(totalScore({ ...day, sleep: 5 }, FIELDS), 22);
+  assert.equal(totalScore({ mood: 6, sleep: 3 }, ['mood', 'sleep']), 9);
+  assert.deepEqual(CLASSIC_FIELDS, ['mood', 'mind', 'body']);
+});
+
+test('échelle du total selon le nombre de notes', () => {
+  assert.deepEqual(totalRange(3), { min: 3, max: 30, levels: [5, 10, 15, 20, 25] });
+  assert.deepEqual(totalRange(2), { min: 2, max: 20, levels: [5, 10, 15] });
+  assert.deepEqual(totalRange(4), { min: 4, max: 40, levels: [10, 20, 30] });
+});
+
+test('réglages proposés : les notes déjà utilisées, sinon seulement « Bonnes journées »', () => {
+  assert.deepEqual(defaultPrefs({}).fields, ['mood']);
+  assert.deepEqual(defaultPrefs({ a: { mood: 5, mind: 6 }, b: { bodyNote: 'genou' } }).fields, ['mood', 'mind', 'body']);
+  assert.equal(defaultPrefs({}).picker, 'wheel');
+});
+
+test('cocher / décocher une note garde l’ordre ; on ne retire jamais la dernière', () => {
+  assert.deepEqual(toggleField(['body'], 'mood'), ['mood', 'body']);
+  assert.deepEqual(toggleField(['mood', 'sleep'], 'sleep'), ['mood']);
+  assert.deepEqual(toggleField(['mood'], 'mood'), ['mood']);
+});
+
+test('heures de sommeil demandées seulement avec « Bien dormi » suivi et l’option cochée', () => {
+  assert.equal(asksSleepTimes({ fields: ['mood', 'sleep'], sleepTimes: true, picker: 'clock' }), true);
+  assert.equal(asksSleepTimes({ fields: ['mood'], sleepTimes: true, picker: 'clock' }), false);
+  assert.equal(asksSleepTimes({ fields: ['sleep'], sleepTimes: false, picker: 'wheel' }), false);
+});

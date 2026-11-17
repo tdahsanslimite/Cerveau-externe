@@ -115,3 +115,21 @@ test('liste des mois : 12 sans filtre ; un seul si on choisit un mois ; mois san
   assert.deepEqual(recapMonths(E, 2026, null, TODAY, 'total', avg, 'bad').map((m) => m.month), [9, 10]);
   assert.deepEqual(recapMonths(E, 2026, null, TODAY, 'total', null, 'good'), []); // pas de moyenne : rien n'est classé
 });
+
+// ——— Notes suivies (17 nov.) ———
+import { metricsFor, metricValue as mv, overallAverage as oa, validMetric } from './recap.ts';
+
+test('note comparée : le total seulement à partir de 2 notes suivies', () => {
+  assert.deepEqual(metricsFor(['mood', 'sleep']).map((m) => m.id), ['total', 'mood', 'sleep']);
+  assert.equal(metricsFor(['mood', 'mind', 'body', 'sleep'])[0].label, 'Les 4 notes (total)');
+  assert.deepEqual(metricsFor(['sleep']).map((m) => m.id), ['sleep']);
+  assert.equal(validMetric('total', ['sleep']), 'sleep');
+  assert.equal(validMetric('mind', ['mood', 'sleep']), 'total');
+});
+
+test('total avec le sommeil : un jour sans note de sommeil n’a pas de total', () => {
+  const f = ['mood', 'mind', 'body', 'sleep'] as const;
+  assert.equal(mv(E['2026-10-10'], 'total', [...f]), null);
+  assert.equal(mv({ ...E['2026-10-10'], sleep: 8 }, 'total', [...f]), 28);
+  assert.equal(oa(E, 'total', TODAY, [...f]), null);
+});

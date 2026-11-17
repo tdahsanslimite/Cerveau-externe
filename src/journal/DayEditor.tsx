@@ -1,13 +1,18 @@
-// La fiche d'un jour : 3 notes de 1 à 10, chacune avec son commentaire. Enregistrement automatique.
+// La fiche d'un jour : les notes suivies (1 à 10), chacune avec son commentaire, + l'heure de coucher et de lever
+// si « Bien dormi » est suivi. Enregistrement automatique.
 // Partagée par l'onglet Journal (le jour du jour) et par le Recap (revoir / corriger un jour passé).
-import React from 'react';
+import React, { ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { colors, fonts, radius } from '../theme';
-import { Card, Txt } from '../ui';
-import type { DayKey } from '../calendar/dates';
+import { Card, Icon, IconName, Txt } from '../ui';
+import { addDays, DayKey } from '../calendar/dates';
 import { useJournal } from './JournalContext';
-import { baseline, FIELD_LABEL, FIELDS, formatScore, isScore, noteOf, relativeTo, SCORE_MAX } from './model';
+import {
+  asksSleepTimes, baseline, EntryMap, FIELD_LABEL, formatClock, formatDuration, formatScore, isClockTime, isScore, noteOf,
+  relativeTo, SCORE_MAX, sleepDuration, SleepTimeKey,
+} from './model';
 import type { ScoreField } from './model';
+import { TimeSheet } from './TimePicker';
 
 /** Texte propre à chaque note : question posée, repères 1 et 10, aide du commentaire. */
 const COPY: Record<ScoreField, { hint: string; low: string; high: string; placeholder: string }> = {
@@ -27,9 +32,27 @@ const COPY: Record<ScoreField, { hint: string; low: string; high: string; placeh
     hint: 'Est-ce que je me sens en forme ?',
     low: 'pas en forme',
     high: 'en pleine forme',
-    placeholder: 'Fatigue, douleurs, sommeil, énergie…',
+    placeholder: 'Fatigue, douleurs, énergie…',
+  },
+  sleep: {
+    hint: "Est-ce que j'ai bien dormi cette nuit ?",
+    low: 'très mal dormi',
+    high: 'très bien dormi',
+    placeholder: 'Réveils, rêves, écrans avant de dormir…',
   },
 };
+
+/** Heures proposées la première fois (ensuite : la dernière heure notée). */
+const DEFAULT_TIME: Record<SleepTimeKey, number> = { bedTime: 23 * 60, wakeTime: 7 * 60 };
+
+/** Dernière heure notée dans les 14 jours d'avant (pour ne pas repartir de zéro chaque soir). */
+function lastTime(entries: EntryMap, day: DayKey, key: SleepTimeKey): number {
+  for (let i = 1; i <= 14; i++) {
+    const v = entries[addDays(day, -i)]?.[key];
+    if (isClockTime(v)) return v;
+  }
+  return DEFAULT_TIME[key];
+}
 
 /** Couleur d'une note : basse = orange, milieu = ambre, haute = vert-bleu (le chiffre reste toujours écrit). */
 export function tone(n: number): string {
@@ -41,11 +64,11 @@ export function tone(n: number): string {
 const SCORE_ROWS = [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]];
 
 export function DayEditor({ day }: { day: DayKey }) {
-  const { entries, score, note } = useJournal();
+  const { entries, score, note, prefs } = useJournal();
   const entry = entries[day] ?? {};
   return (
     <>
-      {FIELDS.map((f) => (
+      {prefs.fields.map((f) => (
         <ScoreBlock
           key={f}
           field={f}
@@ -54,6 +77,7 @@ export function DayEditor({ day }: { day: DayKey }) {
           note={noteOf(entry, f)}
           onPick={(n) => score(day, f, n)}
           onNote={(t) => note(day, f, t)}
+          extra={f === 'sleep' && asksSleepTimes(prefs) ? <SleepTimes day={day} /> : null}
         />
       ))}
       <Txt size={12} color={colors.faint}>Enregistré automatiquement, uniquement sur ce téléphone.</Txt>
@@ -61,9 +85,9 @@ export function DayEditor({ day }: { day: DayKey }) {
   );
 }
 
-function ScoreBlock({ field, value, base, note, onPick, onNote }: {
+function ScoreBlock({ field, value, base, note, onPick, onNote, extra }: {
   field: ScoreField; value: number | undefined; base: number | null; note: string;
-  onPick: (n: number) => void; onNote: (text: string) => void;
+  onPick: (n: number) => void; onNote: (text: string) => void; extra?: ReactNode;
 }) {
   const copy = COPY[field];
   return (
@@ -102,6 +126,7 @@ function ScoreBlock({ field, value, base, note, onPick, onNote }: {
         <Txt size={12} color={colors.muted}>{`10 = ${copy.high}`}</Txt>
       </View>
       <Relative value={value} base={base} />
+      {extra}
       <TextInput
         accessibilityLabel={`Commentaire : ${FIELD_LABEL[field]}`}
         value={note}
@@ -113,6 +138,55 @@ function ScoreBlock({ field, value, base, note, onPick, onNote }: {
         style={st.noteInput}
       />
     </Card>
+  );
+}
+
+/** Heure de coucher (la veille au soir) et de lever (ce matin), avec la durée de la nuit. */
+function SleepTimes({ day }: { day: DayKey }) {
+  const { entries, sleepTime, prefs } = useJournal();
+  const entry = entries[day] ?? {};
+  const [editing, setEditing] = useState<SleepTimeKey | null>(null);
+  const duration = sleepDuration(entry);
+
+  const button = (key: SleepTimeKey, label: string, icon: IconName) => {
+    const v = entry[key];
+    const set = isClockTime(v);
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label} : ${set ? formatClock(v) : 'pas notée'}`}
+        onPress={() => setEditing(key)}
+        style={({ pressed }) => [st.timeBtn, set && st.timeBtnSet, pressed && { opacity: 0.7 }]}
+      >
+        <Icon name={icon} size={18} color={set ? colors.accent : colors.muted} />
+        <View>
+          <Txt size={12} color={colors.muted}>{label}</Txt>
+          <Txt bold size={20} color={set ? colors.ink : colors.faint}>{set ? formatClock(v) : '--:--'}</Txt>
+        </View>
+      </Pressable>
+    );
+  };
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {button('bedTime', 'Coucher', 'moon')}
+        {button('wakeTime', 'Lever', 'sun')}
+      </View>
+      <Txt size={13} color={duration === null ? colors.faint : colors.muted}>
+        {duration === null ? 'Coucher la veille au soir, lever ce matin.' : `Nuit de ${formatDuration(duration)}.`}
+      </Txt>
+      <TimeSheet
+        visible={editing !== null}
+        title={editing === 'bedTime' ? 'Heure de coucher' : 'Heure de lever'}
+        initial={editing ? (isClockTime(entry[editing]) ? entry[editing]! : lastTime(entries, day, editing)) : 0}
+        hasValue={editing !== null && isClockTime(entry[editing])}
+        picker={prefs.picker}
+        onClose={() => setEditing(null)}
+        onSave={(m) => { if (editing) sleepTime(day, editing, m); setEditing(null); }}
+        onClear={() => { if (editing) sleepTime(day, editing, null); setEditing(null); }}
+      />
+    </View>
   );
 }
 
@@ -137,6 +211,11 @@ const st = StyleSheet.create({
     flex: 1, minHeight: 52, borderRadius: radius.m, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
     alignItems: 'center', justifyContent: 'center',
   },
+  timeBtn: {
+    flex: 1, minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12,
+    borderRadius: radius.m, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
+  },
+  timeBtnSet: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   scoreEnds: { flexDirection: 'row', justifyContent: 'space-between' },
   noteInput: {
     minHeight: 96, borderRadius: radius.m, borderWidth: 1, borderColor: colors.paperLine, backgroundColor: colors.paper,

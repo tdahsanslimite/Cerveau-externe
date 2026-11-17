@@ -1,5 +1,6 @@
-// Écran du Journal : le jour choisi (3 notes de 1 à 10, chacune avec son commentaire), puis de quoi comprendre et relativiser :
-// moyennes et les 14 derniers jours en courbes. Revoir les jours passés se fait dans le « Recap » (bouton flottant).
+// Écran du Journal : le jour choisi (les notes suivies, de 1 à 10, chacune avec son commentaire), puis de quoi comprendre
+// et relativiser : moyennes et les 14 derniers jours en courbes (+ les nuits si le sommeil est suivi).
+// Revoir les jours passés se fait dans le « Recap » (bouton flottant). Réglages : bouton en haut à gauche.
 import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,15 +11,17 @@ import { DayEditor, tone } from './DayEditor';
 import { useJournal } from './JournalContext';
 import { describeDay, LineChart } from './LineChart';
 import {
-  average, FIELD_LABEL, FIELDS, formatScore, recentDays, ScoreField, SCORE_LEVELS, SCORE_MAX, SCORE_MIN, shortSummary, totalScore,
-  TOTAL_LEVELS, TOTAL_MAX, TOTAL_MIN,
+  asksSleepTimes, average, FIELD_LABEL, formatClock, formatDuration, formatScore, recentDays, ScoreField, SCORE_LEVELS, SCORE_MAX,
+  SCORE_MIN, shortSummary, sleepStats, totalRange, totalScore,
 } from './model';
+import { JournalSettingsSheet } from './JournalSettings';
 import { RecapScreen } from './RecapScreen';
+import { SLEEP_COLOR, SleepChart } from './SleepChart';
 
 const CHART_DAYS = 14;
 
 /** Une couleur par courbe (la légende les nomme). */
-const FIELD_COLOR: Record<ScoreField, string> = { mood: colors.accent, mind: '#5B6FA8', body: colors.amber };
+const FIELD_COLOR: Record<ScoreField, string> = { mood: colors.accent, mind: '#5B6FA8', body: colors.amber, sleep: SLEEP_COLOR };
 
 function Stat({ label, value }: { label: string; value: number | null }) {
   return (
@@ -31,20 +34,38 @@ function Stat({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-export function JournalScreen() {
+function SleepStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Txt size={12} color={colors.muted} numberOfLines={1}>{label}</Txt>
+      <Txt bold size={18} color={SLEEP_COLOR}>{value}</Txt>
+    </View>
+  );
+}
+
+/** `shown` : le Journal est l'écran affiché (il reste monté en mémoire quand on va ailleurs). */
+export function JournalScreen({ shown = true }: { shown?: boolean }) {
   const insets = useSafeAreaInsets();
-  const { entries } = useJournal();
+  const { entries, prefs, prefsChosen, loaded } = useJournal();
   const [day, setDay] = useState<DayKey>(todayKey());
   const [recapOpen, setRecapOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const scroller = useRef<ScrollView>(null);
 
+  // Première ouverture du Journal depuis la mise à jour : on demande d'abord ce que la personne veut suivre.
+  // Pas dès le lancement de l'appli : elle s'empilerait sur le pop-up « Ta journée ».
+  const firstTime = loaded && !prefsChosen && shown;
+  const fields = prefs.fields;
   const today = todayKey();
   const week = recentDays(today, 7);
   const chart = recentDays(today, CHART_DAYS);
   const chartHasData = chart.some((d) => entries[d]);
-  const totals = chart.map((d) => totalScore(entries[d]));
+  const range = totalRange(fields.length);
+  const totals = chart.map((d) => totalScore(entries[d], fields));
   const totalDays = totals.filter((t) => t !== null).length;
-  const describe = (d: DayKey) => describeDay(d, entries[d] ? shortSummary(entries[d]) : '');
+  const sleepTimes = asksSleepTimes(prefs);
+  const nights = sleepStats(entries, chart);
+  const describe = (d: DayKey) => describeDay(d, entries[d] ? shortSummary(entries[d], fields) : '');
   const anyData = Object.keys(entries).some((d) => d <= today);
 
   const openDay = (d: DayKey) => {
@@ -55,6 +76,7 @@ export function JournalScreen() {
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       <View style={st.header}>
+        <IconButton icon="sliders" label="Réglages du journal" onPress={() => setSettingsOpen(true)} />
         <View style={{ flex: 1 }}>
           <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
             {relativeLabel(day, today) ?? `Semaine ${isoWeek(day)}`}
@@ -77,7 +99,7 @@ export function JournalScreen() {
           <View style={{ gap: 8 }}>
             <SectionLabel>7 derniers jours</SectionLabel>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              {FIELDS.map((f) => <Stat key={f} label={FIELD_LABEL[f]} value={average(entries, week, f)} />)}
+              {fields.map((f) => <Stat key={f} label={FIELD_LABEL[f]} value={average(entries, week, f)} />)}
             </View>
           </View>
         ) : null}
@@ -88,7 +110,7 @@ export function JournalScreen() {
             <Card style={{ padding: 12, gap: 10 }}>
               <LineChart
                 days={chart}
-                series={FIELDS.map((f) => ({ key: f, color: FIELD_COLOR[f], values: chart.map((d) => entries[d]?.[f] ?? null) }))}
+                series={fields.map((f) => ({ key: f, color: FIELD_COLOR[f], values: chart.map((d) => entries[d]?.[f] ?? null) }))}
                 min={SCORE_MIN}
                 max={SCORE_MAX}
                 levels={SCORE_LEVELS}
@@ -97,7 +119,7 @@ export function JournalScreen() {
                 describe={describe}
               />
               <View style={st.legend}>
-                {FIELDS.map((f) => (
+                {fields.map((f) => (
                   <View key={f} style={st.legendItem}>
                     <View style={[st.legendDot, { backgroundColor: FIELD_COLOR[f] }]} />
                     <Txt size={12} color={colors.muted}>{FIELD_LABEL[f]}</Txt>
@@ -107,26 +129,55 @@ export function JournalScreen() {
               <Txt size={12} color={colors.faint}>Lignes fines : 2,5 · 5 · 7,5. Un jour sans note coupe la courbe.</Txt>
             </Card>
 
-            <SectionLabel>{`Total des 3 notes (de ${TOTAL_MIN} à ${TOTAL_MAX})`}</SectionLabel>
+            {fields.length >= 2 ? (
+              <>
+                <SectionLabel>{`Total des ${fields.length} notes (de ${range.min} à ${range.max})`}</SectionLabel>
+                <Card style={{ padding: 12, gap: 10 }}>
+                  {totalDays === 0 ? (
+                    <Txt size={14} color={colors.muted}>{`Pose les ${fields.length} notes d'une même journée pour voir son total.`}</Txt>
+                  ) : (
+                    <>
+                      <LineChart
+                        days={chart}
+                        series={[{ key: 'total', color: colors.ink, values: totals }]}
+                        min={range.min}
+                        max={range.max}
+                        levels={range.levels}
+                        selected={day}
+                        onPickDay={openDay}
+                        describe={(d) => {
+                          const t = totalScore(entries[d], fields);
+                          return describeDay(d, t === null ? '' : `total ${t} sur ${range.max}`);
+                        }}
+                      />
+                      <Txt size={12} color={colors.faint}>
+                        {`Lignes fines : ${range.levels.map(formatScore).join(' · ')}. Seuls les jours avec les ${fields.length} notes comptent.`}
+                      </Txt>
+                    </>
+                  )}
+                </Card>
+              </>
+            ) : null}
+          </View>
+        ) : null}
+
+        {sleepTimes ? (
+          <View style={{ gap: 8 }}>
+            <SectionLabel>{`Mes nuits (${CHART_DAYS} derniers jours)`}</SectionLabel>
             <Card style={{ padding: 12, gap: 10 }}>
-              {totalDays === 0 ? (
-                <Txt size={14} color={colors.muted}>Pose les 3 notes d'une même journée pour voir son total.</Txt>
+              {nights.bed === null && nights.wake === null ? (
+                <Txt size={14} color={colors.muted}>Note ton heure de coucher et de lever (dans « Bien dormi ») pour voir tes nuits ici.</Txt>
               ) : (
                 <>
-                  <LineChart
-                    days={chart}
-                    series={[{ key: 'total', color: colors.ink, values: totals }]}
-                    min={TOTAL_MIN}
-                    max={TOTAL_MAX}
-                    levels={TOTAL_LEVELS}
-                    selected={day}
-                    onPickDay={openDay}
-                    describe={(d) => {
-                      const t = totalScore(entries[d]);
-                      return describeDay(d, t === null ? '' : `total ${t} sur ${TOTAL_MAX}`);
-                    }}
-                  />
-                  <Txt size={12} color={colors.faint}>Lignes fines : 5 · 10 · 15 · 20 · 25. Seuls les jours avec les 3 notes comptent.</Txt>
+                  <View style={st.sleepStats}>
+                    <SleepStat label="Coucher moyen" value={nights.bed === null ? '–' : formatClock(nights.bed)} />
+                    <SleepStat label="Lever moyen" value={nights.wake === null ? '–' : formatClock(nights.wake)} />
+                    <SleepStat label="Nuit moyenne" value={nights.duration === null ? '–' : formatDuration(nights.duration)} />
+                  </View>
+                  <SleepChart days={chart} entries={entries} selected={day} onPickDay={openDay} />
+                  <Txt size={12} color={colors.faint}>
+                    Une barre = une nuit, du coucher (en haut) au lever (en bas), avec sa durée en heures dessous. Traits dorés : tes horaires moyens. Des barres alignées = un rythme régulier.
+                  </Txt>
                 </>
               )}
             </Card>
@@ -145,6 +196,7 @@ export function JournalScreen() {
       </Pressable>
 
       <RecapScreen visible={recapOpen} onClose={() => setRecapOpen(false)} />
+      <JournalSettingsSheet visible={settingsOpen || firstTime} firstTime={firstTime} onClose={() => setSettingsOpen(false)} />
     </View>
   );
 }
@@ -160,6 +212,7 @@ const st = StyleSheet.create({
   todayBtn: { minHeight: 44, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.accentSoft, justifyContent: 'center' },
   content: { paddingHorizontal: 16, gap: 18, maxWidth: 640, width: '100%', alignSelf: 'center' },
   stat: { flex: 1, backgroundColor: colors.card, borderRadius: radius.l, borderWidth: 1, borderColor: colors.line, padding: 12, gap: 2 },
+  sleepStats: { flexDirection: 'row', gap: 8 },
   legend: { flexDirection: 'row', gap: 14, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },

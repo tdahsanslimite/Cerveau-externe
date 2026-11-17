@@ -31,12 +31,12 @@ import { Icon, IconName, Txt } from './ui';
 
 type Where = 'accueil' | ModuleId;
 
-/** Écrans gardés en mémoire une fois ouverts. */
-const KEPT: { id: ModuleId; screen: () => React.ReactElement }[] = [
+/** Écrans gardés en mémoire une fois ouverts (`shown` = l'écran est celui affiché). */
+const KEPT: { id: ModuleId; screen: (shown: boolean) => React.ReactElement }[] = [
   { id: 'calendrier', screen: () => <CalendarScreen /> },
   { id: 'taches', screen: () => <TasksScreen /> },
   { id: 'routines', screen: () => <RoutinesScreen /> },
-  { id: 'journal', screen: () => <JournalScreen /> },
+  { id: 'journal', screen: (shown) => <JournalScreen shown={shown} /> },
   { id: 'objectifs', screen: () => <GoalsScreen /> },
   { id: 'reveil', screen: () => <ReveilScreen /> },
 ];
@@ -103,7 +103,7 @@ export function AppTabs() {
         <View style={{ flex: 1 }}>
           {KEPT.map((t) => (
             <View key={t.id} style={[StyleSheet.absoluteFill, active !== t.id && { display: 'none' }]}>
-              {t.screen()}
+              {t.screen(active === t.id)}
             </View>
           ))}
           {LIVE.map((t) =>

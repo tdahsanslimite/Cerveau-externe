@@ -6,23 +6,33 @@
 // sinon, en regardant un seul mois, la moitié des jours serait toujours « bonne » et l'autre « mauvaise ».
 import { monthDays } from '../calendar/dates.ts';
 import type { DayKey } from '../calendar/dates.ts';
-import { BASELINE_MIN_DAYS, FIELDS, FIELD_LABEL, isEmptyEntry, isScore, totalScore } from './model.ts';
+import { BASELINE_MIN_DAYS, CLASSIC_FIELDS, FIELD_LABEL, isEmptyEntry, isScore, totalScore } from './model.ts';
 import type { EntryMap, JournalEntry, ScoreField } from './model.ts';
 
-/** Ce qu'on compare à la moyenne : le total des 3 notes, ou une seule des notes. */
+/** Ce qu'on compare à la moyenne : le total des notes suivies, ou une seule des notes. */
 export type Metric = 'total' | ScoreField;
 
-export const METRICS: { id: Metric; label: string }[] = [
-  { id: 'total', label: 'Les 3 notes (total)' },
-  ...FIELDS.map((f) => ({ id: f as Metric, label: FIELD_LABEL[f] })),
-];
+/** Choix « Note comparée » selon les notes suivies : le total seulement s'il y a au moins 2 notes. */
+export function metricsFor(fields: ScoreField[]): { id: Metric; label: string }[] {
+  const total = fields.length >= 2 ? [{ id: 'total' as Metric, label: `Les ${fields.length} notes (total)` }] : [];
+  return [...total, ...fields.map((f) => ({ id: f as Metric, label: FIELD_LABEL[f] }))];
+}
+
+/** La note comparée, ramenée à un choix possible si les réglages ont changé (sinon : le premier choix). */
+export function validMetric(metric: Metric, fields: ScoreField[]): Metric {
+  const options = metricsFor(fields);
+  return options.some((m) => m.id === metric) ? metric : options[0].id;
+}
+
+/** Les 3 notes de la 1re version (compatibilité). */
+export const METRICS = metricsFor(CLASSIC_FIELDS);
 
 export type Rel = 'good' | 'bad' | 'usual';
 export type DayFilter = 'all' | 'good' | 'bad';
 
-/** Valeur d'un jour pour la note choisie. Le total n'existe que si les 3 notes sont posées. */
-export function metricValue(e: JournalEntry | undefined, metric: Metric): number | null {
-  if (metric === 'total') return totalScore(e);
+/** Valeur d'un jour pour la note choisie. Le total n'existe que si toutes les notes suivies sont posées. */
+export function metricValue(e: JournalEntry | undefined, metric: Metric, fields: ScoreField[] = CLASSIC_FIELDS): number | null {
+  if (metric === 'total') return totalScore(e, fields);
   const v = e?.[metric];
   return isScore(v) ? v : null;
 }
@@ -30,10 +40,10 @@ export function metricValue(e: JournalEntry | undefined, metric: Metric): number
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /** Moyenne de la note sur tous les jours notés jusqu'à `today` (valeur exacte). Null s'il y a moins de 3 jours. */
-export function overallAverage(entries: EntryMap, metric: Metric, today: DayKey): number | null {
+export function overallAverage(entries: EntryMap, metric: Metric, today: DayKey, fields: ScoreField[] = CLASSIC_FIELDS): number | null {
   const values = Object.keys(entries)
     .filter((d) => d <= today)
-    .map((d) => metricValue(entries[d], metric))
+    .map((d) => metricValue(entries[d], metric, fields))
     .filter((v): v is number => v !== null);
   if (values.length < BASELINE_MIN_DAYS) return null;
   return values.reduce((a, b) => a + b, 0) / values.length;
@@ -80,6 +90,7 @@ export interface RecapMonth {
 /** Le mois `month` (1-12) de `year`, avec tous ses jours jusqu'à `today`. */
 export function recapMonth(
   entries: EntryMap, year: number, month: number, today: DayKey, metric: Metric, avg: number | null, filter: DayFilter,
+  fields: ScoreField[] = CLASSIC_FIELDS,
 ): RecapMonth {
   const first = `${year}-${String(month).padStart(2, '0')}-01`;
   const future = first > today;
@@ -88,7 +99,7 @@ export function recapMonth(
     : monthDays(first)
         .filter((d) => d <= today)
         .map((d) => {
-          const value = metricValue(entries[d], metric);
+          const value = metricValue(entries[d], metric, fields);
           return { day: d, entry: entries[d], value, rel: relation(value, avg) };
         });
   const values = all.map((d) => d.value).filter((v): v is number => v !== null);
@@ -106,9 +117,10 @@ export function recapMonth(
 /** Les mois à afficher : tous, ou un seul. Avec un filtre bon / mauvais, les mois sans jour correspondant disparaissent. */
 export function recapMonths(
   entries: EntryMap, year: number, month: number | null, today: DayKey, metric: Metric, avg: number | null, filter: DayFilter,
+  fields: ScoreField[] = CLASSIC_FIELDS,
 ): RecapMonth[] {
   const months = month === null ? Array.from({ length: 12 }, (_, i) => i + 1) : [month];
   return months
-    .map((m) => recapMonth(entries, year, m, today, metric, avg, filter))
+    .map((m) => recapMonth(entries, year, m, today, metric, avg, filter, fields))
     .filter((m) => filter === 'all' || m.days.length > 0);
 }

@@ -10,8 +10,8 @@ import { colors, radius } from '../theme';
 import { Button, Card, Chip, Field, Icon, IconButton, Sheet, Txt } from '../ui';
 import { DayEditor } from './DayEditor';
 import { useJournal } from './JournalContext';
-import { FIELDS, formatScore, noteOf, shortSummary } from './model';
-import { DayFilter, Metric, METRICS, overallAverage, RecapDay, recapMonths, recapYearTabs, Rel } from './recap';
+import { asksSleepTimes, formatDuration, formatScore, noteOf, ScoreField, shortSummary, sleepDuration } from './model';
+import { DayFilter, Metric, metricsFor, overallAverage, RecapDay, recapMonths, recapYearTabs, Rel, validMetric } from './recap';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
@@ -23,7 +23,8 @@ function relColor(rel: Rel | null): string {
 
 export function RecapScreen({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
-  const { entries } = useJournal();
+  const { entries, prefs } = useJournal();
+  const fields = prefs.fields;
   const today = todayKey();
   const currentYear = Number(today.slice(0, 4));
   const yearTabs = recapYearTabs(today);
@@ -31,7 +32,11 @@ export function RecapScreen({ visible, onClose }: { visible: boolean; onClose: (
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | null>(null);
   const [filter, setFilter] = useState<DayFilter>('all');
-  const [metric, setMetric] = useState<Metric>('total');
+  const [metricChoice, setMetric] = useState<Metric>('total');
+  // Les notes suivies peuvent changer dans les réglages : on retombe toujours sur un choix possible.
+  const metrics = metricsFor(fields);
+  const metric = validMetric(metricChoice, fields);
+  const defaultMetric = metrics[0].id;
   /** Mois dont l'état est inversé par rapport à l'état par défaut (fermé, ou ouvert quand un filtre est actif). */
   const [toggled, setToggled] = useState<number[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -41,19 +46,19 @@ export function RecapScreen({ visible, onClose }: { visible: boolean; onClose: (
   // Les écrans reçoivent un bas de zone de sécurité à 0 (la barre d'onglets le gère) : on le retrouve ici.
   const bottom = Math.max(insets.bottom, initialWindowMetrics?.insets.bottom ?? 0, 12);
 
-  const avg = overallAverage(entries, metric, today);
-  const months = recapMonths(entries, year, month, today, metric, avg, filter);
-  const metricLabel = METRICS.find((m) => m.id === metric)!.label;
+  const avg = overallAverage(entries, metric, today, fields);
+  const months = recapMonths(entries, year, month, today, metric, avg, filter, fields);
+  const metricLabel = metrics.find((m) => m.id === metric)!.label;
   const openByDefault = filter !== 'all' || month !== null;
   const isOpen = (m: number) => openByDefault !== toggled.includes(m);
 
-  const activeCount = (month !== null ? 1 : 0) + (filter !== 'all' ? 1 : 0) + (metric !== 'total' ? 1 : 0);
+  const activeCount = (month !== null ? 1 : 0) + (filter !== 'all' ? 1 : 0) + (metric !== defaultMetric ? 1 : 0);
 
   const change = (apply: () => void) => {
     apply();
     setToggled([]); // chaque réglage repart de l'état par défaut des mois
   };
-  const reset = () => change(() => { setMonth(null); setFilter('all'); setMetric('total'); });
+  const reset = () => change(() => { setMonth(null); setFilter('all'); setMetric(defaultMetric); });
 
   const subtitle = (m: (typeof months)[number]): string => {
     if (m.future) return 'À venir';
@@ -136,7 +141,7 @@ export function RecapScreen({ visible, onClose }: { visible: boolean; onClose: (
                     m.days.length === 0 ? (
                       <Txt size={14} color={colors.muted} style={st.empty}>Aucun jour.</Txt>
                     ) : (
-                      m.days.map((d) => <DayRow key={d.day} d={d} onPress={() => setOpenDay(d.day)} />)
+                      m.days.map((d) => <DayRow key={d.day} d={d} fields={fields} withNight={asksSleepTimes(prefs)} onPress={() => setOpenDay(d.day)} />)
                     )
                   ) : null}
                 </Card>
@@ -183,7 +188,7 @@ export function RecapScreen({ visible, onClose }: { visible: boolean; onClose: (
           </Field>
           <Field label="Note comparée" hint="La moyenne est celle de tous tes jours notés avec cette note.">
             <View style={st.chips}>
-              {METRICS.map((m) => <Chip key={m.id} label={m.label} selected={metric === m.id} onPress={() => change(() => setMetric(m.id))} />)}
+              {metrics.map((m) => <Chip key={m.id} label={m.label} selected={metric === m.id} onPress={() => change(() => setMetric(m.id))} />)}
             </View>
           </Field>
         </Sheet>
@@ -210,10 +215,11 @@ export function RecapScreen({ visible, onClose }: { visible: boolean; onClose: (
   );
 }
 
-function DayRow({ d, onPress }: { d: RecapDay; onPress: () => void }) {
+function DayRow({ d, onPress, fields, withNight }: { d: RecapDay; onPress: () => void; fields: ScoreField[]; withNight: boolean }) {
   const e = d.entry;
-  const summary = e ? shortSummary(e) : '';
-  const comment = e ? FIELDS.map((f) => noteOf(e, f).trim()).find((t) => t) : undefined;
+  const night = withNight ? sleepDuration(e) : null;
+  const summary = [e ? shortSummary(e, fields) : '', night !== null ? `Nuit ${formatDuration(night)}` : ''].filter(Boolean).join(' · ');
+  const comment = e ? fields.map((f) => noteOf(e, f).trim()).find((t) => t) : undefined;
   const dayNum = fromKey(d.day).getDate();
   const label = `${DAY_SHORT[weekdayIndex(d.day)]} ${dayNum}`;
   const relText = d.rel === 'good' ? ', au-dessus de ta moyenne' : d.rel === 'bad' ? ', en dessous de ta moyenne' : '';
