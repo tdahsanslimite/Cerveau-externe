@@ -355,9 +355,12 @@ export function weeksOfMonth(month: MonthKey): DayKey[] {
   return out;
 }
 
-/** Le zoom sur les périodes en cours. */
+/**
+ * Le zoom sur les périodes en cours. Si la semaine en cours est à cheval sur deux mois, on se place sur le SECOND
+ * (17 nov., Valentin : « autant se projeter sur décembre ») ; au 28 déc., on passe donc déjà sur janvier.
+ */
 export function zoomToday(today: DayKey): Zoom {
-  const month = today.slice(0, 7);
+  const month = addDays(startOfWeek(today), 6).slice(0, 7);
   return { year: Number(month.slice(0, 4)), quarter: quarterOfMonthKey(month), month, week: startOfWeek(today) };
 }
 

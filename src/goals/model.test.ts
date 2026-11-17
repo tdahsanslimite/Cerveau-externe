@@ -207,7 +207,12 @@ test('zoom : périodes en cours par défaut, changer de trimestre ou de mois rec
   assert.deepEqual(zoomYear(2027, today), { year: 2027, quarter: 1, month: '2027-01', week: '2026-12-28' }); // S53, à cheval sur 2026 et 2027
   assert.deepEqual(zoomYear(2026, today), zoomToday(today));
   assert.deepEqual(zoomKeys(zoomToday(today)), { trimestre: 'T2026-Q4', mois: 'M2026-11', semaine: 'S2026-W47' });
-  // Le lundi 30 nov. : on reste en novembre ; choisir décembre garde la même semaine (elle est dans les deux).
-  assert.equal(zoomToday('2026-11-30').month, '2026-11');
-  assert.equal(zoomMonth('2026-12', '2026-11-30').week, '2026-11-30');
+  // Semaine à cheval (30 nov. → 6 déc.) : on se projette sur décembre, même le lundi 30 nov. ;
+  // revenir sur novembre garde la même semaine (elle est dans les deux).
+  assert.deepEqual(zoomToday('2026-11-30'), { year: 2026, quarter: 4, month: '2026-12', week: '2026-11-30' });
+  assert.equal(zoomMonth('2026-11', '2026-11-30').week, '2026-11-30');
+  // Au passage d'année : le 29 déc. 2026, on est déjà sur janvier 2027 (T1).
+  assert.deepEqual(zoomToday('2026-12-29'), { year: 2027, quarter: 1, month: '2027-01', week: '2026-12-28' });
+  // Une semaine qui n'est pas à cheval ne change rien.
+  assert.equal(zoomToday('2026-11-23').month, '2026-11');
 });
