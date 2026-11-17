@@ -314,8 +314,8 @@ export function weekGoals(tp: Partial<Record<ThemeId, PeriodMap>>, chosen: Theme
 // ---------------- Zoom enchaîné année → trimestre → mois → semaine (17 nov.) ----------------
 // Valentin : « évite d'embrouiller le TDAH qui pense remplir la bonne semaine alors qu'il n'est pas dans le bon mois ».
 // Le trimestre choisi limite les mois proposés, le mois choisi limite les semaines proposées.
-// Une semaine (lundi → dimanche) appartient au mois de son JEUDI (même règle que les numéros de semaine ISO) :
-// chaque semaine est dans un seul mois, et son année ISO est celle de ce mois.
+// Une semaine à cheval sur deux mois apparaît dans LES DEUX (17 nov., Valentin : « c'est une convention sociale ») :
+// c'est la même fiche (même clé S…-W..), qu'on l'ouvre depuis l'un ou l'autre mois.
 
 export type MonthKey = string; // '2026-11'
 
@@ -332,21 +332,23 @@ export const monthShort = (m: MonthKey) => MONTH_SHORT[Number(m.slice(5, 7)) - 1
 
 const quarterOfMonthKey = (m: MonthKey) => (Math.floor((Number(m.slice(5, 7)) - 1) / 3) + 1) as 1 | 2 | 3 | 4;
 
-/** Mois (AAAA-MM) auquel appartient la semaine qui contient `day` : celui de son jeudi. */
-export function weekMonth(day: DayKey): MonthKey {
-  return addDays(startOfWeek(day), 3).slice(0, 7);
+/** Mois (AAAA-MM) touchés par la semaine qui contient `day` : un seul, ou deux si elle est à cheval. */
+export function weekMonths(day: DayKey): MonthKey[] {
+  const monday = startOfWeek(day);
+  const a = monday.slice(0, 7);
+  const b = addDays(monday, 6).slice(0, 7);
+  return a === b ? [a] : [a, b];
 }
 
 export function monthsOfQuarter(year: number, quarter: number): MonthKey[] {
   return [0, 1, 2].map((i) => `${year}-${String((quarter - 1) * 3 + i + 1).padStart(2, '0')}`);
 }
 
-/** Lundis des semaines qui appartiennent au mois (4 ou 5). */
+/** Lundis des semaines qui ont au moins un jour dans le mois (4 à 6), y compris celles à cheval. */
 export function weeksOfMonth(month: MonthKey): DayKey[] {
-  // Le 4 du mois est toujours dans la 1re semaine du mois (règle du jeudi).
-  let monday = startOfWeek(`${month}-04`);
+  let monday = startOfWeek(`${month}-01`);
   const out: DayKey[] = [];
-  while (weekMonth(monday) === month) {
+  while (monday.slice(0, 7) <= month) {
     out.push(monday);
     monday = addDays(monday, 7);
   }
@@ -355,7 +357,7 @@ export function weeksOfMonth(month: MonthKey): DayKey[] {
 
 /** Le zoom sur les périodes en cours. */
 export function zoomToday(today: DayKey): Zoom {
-  const month = weekMonth(today);
+  const month = today.slice(0, 7);
   return { year: Number(month.slice(0, 4)), quarter: quarterOfMonthKey(month), month, week: startOfWeek(today) };
 }
 
@@ -364,7 +366,7 @@ export function zoomMonth(month: MonthKey, today: DayKey): Zoom {
   const now = zoomToday(today);
   return {
     year: Number(month.slice(0, 4)), quarter: quarterOfMonthKey(month), month,
-    week: now.month === month ? now.week : weeksOfMonth(month)[0],
+    week: weeksOfMonth(month).includes(now.week) ? now.week : weeksOfMonth(month)[0],
   };
 }
 

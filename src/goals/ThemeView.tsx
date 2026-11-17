@@ -1,7 +1,8 @@
 // La page d'un thème : un zoom enchaîné (17 nov., Valentin).
 //   Année  →  T1 T2 T3 T4  →  les 3 mois du trimestre choisi  →  les semaines du mois choisi.
 // Chaque niveau est un bloc qui se déplie pour remplir sa fiche ; le niveau du dessus reste visible.
-// On ne peut choisir qu'un mois du trimestre affiché et une semaine du mois affiché : pas de semaine « hors du mois ».
+// On ne peut choisir qu'un mois du trimestre affiché et une semaine du mois affiché ; une semaine à cheval sur deux mois
+// apparaît dans les deux (même fiche).
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { isoWeek, labelWeekRange, MONTHS, todayKey } from '../calendar/dates';
@@ -14,7 +15,7 @@ import { useGoals } from './GoalsContext';
 import { TextBlock } from './fields';
 import {
   effectiveLeading, isFilled, monthShort, monthsOfQuarter, PERIOD_FIELDS, PeriodCard, THEME_FIELDS, themeIndicator, themeInfo,
-  ThemeId, weeksOfMonth, Zoom, zoomKeys, zoomMonth, zoomQuarter, zoomToday, zoomYear,
+  ThemeId, weekMonths, weeksOfMonth, Zoom, zoomKeys, zoomMonth, zoomQuarter, zoomToday, zoomYear,
 } from './model';
 import { periodKey } from './model';
 
@@ -210,7 +211,9 @@ export function ThemeView({ theme, zoom, onZoom, open, onToggle, onBack }: {
         ))}
       </Level>
       {periodBlock('semaine', keys.semaine, `Semaine ${isoWeek(zoom.week)}${now.week === zoom.week ? ' · en cours' : ''}`,
-        `${labelWeekRange(zoom.week)} · dans ${monthLong(zoom.month)}`)}
+        weekMonths(zoom.week).length > 1
+          ? `${labelWeekRange(zoom.week)} · à cheval : même fiche en ${weekMonths(zoom.week).map((m) => MONTHS[Number(m.slice(5, 7)) - 1]).join(' et ')}`
+          : labelWeekRange(zoom.week))}
 
       {(zoom.week !== now.week) ? (
         <Pressable accessibilityRole="button" onPress={() => onZoom(now)} style={st.todayBtn}>
@@ -218,7 +221,7 @@ export function ThemeView({ theme, zoom, onZoom, open, onToggle, onBack }: {
         </Pressable>
       ) : null}
       <Txt size={12} color={colors.faint} style={{ paddingHorizontal: 4 }}>
-        Une semaine compte dans le mois où tombe son jeudi. Enregistré automatiquement, uniquement sur ce téléphone.
+        Une semaine à cheval sur deux mois apparaît dans les deux : c’est la même fiche. Enregistré automatiquement, uniquement sur ce téléphone.
       </Txt>
     </>
   );
