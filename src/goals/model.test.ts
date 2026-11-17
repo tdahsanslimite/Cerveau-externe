@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  annualOneThing, BLASON, blasonCount, isoYear, linesOf, periodKey, periodWho, setBlason, setPeriodField, setThemeField,
+  annualOneThing, BLASON, effectiveLeading, normalizeGoals, periodWhoByTheme, setThemePeriodField, toggleChosen, weekGoals, blasonCount, isoYear, linesOf, periodKey, periodWho, setBlason, setPeriodField, setThemeField,
   themeIndicator, themeProgress, THEMES, toggleLeading,
 } from './model.ts';
 import type { YearGoals } from './model.ts';
@@ -110,4 +110,73 @@ test('période : « qui je suis » se retrouve pour tous les jours de la périod
   p = setPeriodField(p, periodKey('semaine', '2026-10-24'), 'who', '');
   assert.equal(periodWho(p, 'semaine', '2026-10-24'), null);
   assert.deepEqual(Object.keys(p), ['M2026-10']);
+});
+
+test('thème en tête effectif : celui marqué s’il est choisi ; un seul thème choisi est en tête d’office', () => {
+  const g: YearGoals = { leading: 'business', themes: {} };
+  assert.equal(effectiveLeading(g, ['business', 'sante']), 'business');
+  assert.equal(effectiveLeading(g, ['sante', 'relation']), undefined); // en tête mais plus choisi
+  assert.equal(effectiveLeading(g, ['sante']), 'sante');
+  assert.equal(effectiveLeading(undefined, ['relation']), 'relation');
+  assert.equal(effectiveLeading(undefined, []), undefined);
+  let y: Record<string, YearGoals> = setThemeField({}, '2026', 'sante', 'oneThing', 'Marcher chaque jour');
+  assert.deepEqual(annualOneThing(y, '2026-11-17', ['sante']), { theme: 'sante', text: 'Marcher chaque jour' });
+  assert.equal(annualOneThing(y, '2026-11-17', ['sante', 'business']), null); // deux thèmes, aucun en tête
+  y = toggleLeading(y, '2026', 'sante');
+  assert.deepEqual(annualOneThing(y, '2026-11-17', ['sante', 'business'])?.theme, 'sante');
+});
+
+test('reprise des données d’avant le 17 nov. : l’ancienne fiche de période va au thème en tête, les thèmes remplis deviennent choisis', () => {
+  const old = {
+    blason: {},
+    years: { '2026': { leading: 'business' as const, themes: { business: { goal: 'Un business simple' }, mindset: { goal: 'Calme' } } } },
+    periods: { 'S2026-W47': { who: 'Régulier' } },
+  };
+  const n = normalizeGoals(old);
+  assert.deepEqual(n.themePeriods, { business: { 'S2026-W47': { who: 'Régulier' } } });
+  assert.deepEqual(n.chosen, ['mindset', 'business']); // ordre des thèmes
+  assert.deepEqual(old.periods, { 'S2026-W47': { who: 'Régulier' } }); // rien n'est modifié
+  // Sans thème en tête : premier thème rempli ; sans rien : Business.
+  assert.deepEqual(Object.keys(normalizeGoals({ ...old, years: { '2026': { themes: { sante: { goal: 'x' } } } } }).themePeriods), ['sante']);
+  assert.deepEqual(Object.keys(normalizeGoals({ ...old, years: {} }).themePeriods), ['business']);
+});
+
+test('reprise : une seule fois, et un tout nouvel utilisateur n’a encore rien choisi', () => {
+  const fresh = normalizeGoals({ blason: {}, years: {}, periods: {} });
+  assert.deepEqual(fresh.chosen, []);
+  assert.deepEqual(fresh.themePeriods, {});
+  // themePeriods existe déjà : l'ancienne fiche n'est pas recopiée une 2e fois, chosen enregistré est respecté.
+  const later = normalizeGoals({ blason: {}, years: {}, periods: { 'S2026-W47': { who: 'x' } }, themePeriods: {}, chosen: ['sante'] });
+  assert.deepEqual(later.themePeriods, {});
+  assert.deepEqual(later.chosen, ['sante']);
+});
+
+test('thèmes choisis : ajout à la suite, retrait, jamais le dernier', () => {
+  let c = toggleChosen([], 'sante');
+  c = toggleChosen(c, 'business');
+  assert.deepEqual(c, ['sante', 'business']);
+  c = toggleChosen(c, 'sante');
+  assert.deepEqual(c, ['business']);
+  assert.deepEqual(toggleChosen(c, 'business'), ['business']);
+});
+
+test('fiches de période par thème : Business et Santé ont chacun leur semaine', () => {
+  const w = periodKey('semaine', '2026-11-17');
+  let tp = setThemePeriodField({}, 'business', w, 'who', 'Une vidéo par semaine');
+  tp = setThemePeriodField(tp, 'sante', w, 'who', 'Je bouge chaque jour');
+  tp = setThemePeriodField(tp, 'sante', w, 'avoid', 'Écrans après 22 h');
+  assert.equal(tp.business?.[w]?.who, 'Une vidéo par semaine');
+  assert.equal(tp.sante?.[w]?.who, 'Je bouge chaque jour');
+  assert.deepEqual(periodWhoByTheme(tp, ['sante', 'business'], 'semaine', '2026-11-20'), [
+    { theme: 'sante', text: 'Je bouge chaque jour' },
+    { theme: 'business', text: 'Une vidéo par semaine' },
+  ]);
+  assert.deepEqual(periodWhoByTheme(tp, ['sante'], 'semaine', '2026-11-20').length, 1); // thème retiré = masqué
+  assert.deepEqual(weekGoals(tp, ['business', 'sante', 'relation'], '2026-11-17'), [
+    { theme: 'business', who: 'Une vidéo par semaine' },
+    { theme: 'sante', who: 'Je bouge chaque jour', avoid: 'Écrans après 22 h' },
+  ]);
+  assert.deepEqual(weekGoals(tp, ['business'], '2026-11-24'), []); // semaine suivante vide
+  tp = setThemePeriodField(tp, 'business', w, 'who', '');
+  assert.equal('business' in tp, false);
 });

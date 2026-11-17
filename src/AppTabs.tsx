@@ -37,7 +37,7 @@ const KEPT: { id: ModuleId; screen: (shown: boolean) => React.ReactElement }[] =
   { id: 'taches', screen: () => <TasksScreen /> },
   { id: 'routines', screen: () => <RoutinesScreen /> },
   { id: 'journal', screen: (shown) => <JournalScreen shown={shown} /> },
-  { id: 'objectifs', screen: () => <GoalsScreen /> },
+  { id: 'objectifs', screen: (shown) => <GoalsScreen shown={shown} /> },
   { id: 'reveil', screen: () => <ReveilScreen /> },
 ];
 

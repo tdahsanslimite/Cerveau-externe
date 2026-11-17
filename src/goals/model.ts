@@ -126,11 +126,21 @@ export interface AnnualOneThing { theme: ThemeId; text: string }
  * Le One Thing annuel à rappeler au quotidien : celui du thème en tête, s'il est écrit.
  * Rien si aucun thème n'est en tête ou si son One Thing est vide.
  */
-export function annualOneThing(years: Record<string, YearGoals>, day: DayKey): AnnualOneThing | null {
+export function annualOneThing(years: Record<string, YearGoals>, day: DayKey, chosen?: ThemeId[]): AnnualOneThing | null {
   const goals = years[yearKey(day)];
-  if (!goals?.leading) return null;
-  const text = goals.themes[goals.leading]?.oneThing;
-  return isFilled(text) ? { theme: goals.leading, text: text!.trim() } : null;
+  const leading = chosen ? effectiveLeading(goals, chosen) : goals?.leading;
+  if (!leading) return null;
+  const text = goals?.themes[leading]?.oneThing;
+  return isFilled(text) ? { theme: leading, text: text!.trim() } : null;
+}
+
+/**
+ * Le thème en tête parmi les thèmes choisis : celui marqué « en tête » s'il est encore choisi ;
+ * avec un seul thème choisi, c'est lui (pas besoin de le marquer). Sinon aucun.
+ */
+export function effectiveLeading(goals: YearGoals | undefined, chosen: ThemeId[]): ThemeId | undefined {
+  if (goals?.leading && chosen.includes(goals.leading)) return goals.leading;
+  return chosen.length === 1 ? chosen[0] : undefined;
 }
 
 export interface ThemeIndicator { label: string; avg7: number | null; avg30: number | null }
@@ -202,4 +212,101 @@ export function setPeriodField(periods: PeriodMap, key: string, field: PeriodFie
 export function periodWho(periods: PeriodMap, kind: PeriodKind, day: DayKey): string | null {
   const text = periods[periodKey(kind, day)]?.who;
   return isFilled(text) ? text!.trim() : null;
+}
+
+// ---------------- Thèmes choisis et fiches de période par thème (17 nov.) ----------------
+// Au départ, on ne choisit qu'UN thème ; les autres s'ajoutent ensuite par le bouton réglages de l'onglet.
+// Chaque thème choisi a ses propres fiches Semaine / Mois / Trimestre (avant : une seule fiche pour tous les thèmes).
+
+export interface GoalsData {
+  blason: BlasonMap;
+  years: Record<string, YearGoals>;
+  /** Ancienne fiche de période commune à tous les thèmes (jusqu'au 17 nov.). Plus écrite : reprise dans `themePeriods`. */
+  periods: PeriodMap;
+  /** Thèmes choisis, dans l'ordre où ils ont été choisis. Absent = jamais choisi (ou données d'avant le 17 nov.). */
+  chosen?: ThemeId[];
+  /** Fiches de période de chaque thème. */
+  themePeriods?: Partial<Record<ThemeId, PeriodMap>>;
+}
+
+export interface Goals extends GoalsData {
+  chosen: ThemeId[];
+  themePeriods: Partial<Record<ThemeId, PeriodMap>>;
+}
+
+const byThemeOrder = (ids: Iterable<ThemeId>): ThemeId[] => {
+  const set = new Set(ids);
+  return THEMES.map((t) => t.id).filter((id) => set.has(id));
+};
+
+/** Thème qui reçoit l'ancienne fiche de période commune : celui en tête (année la plus récente), sinon le premier rempli, sinon Business. */
+function legacyTarget(years: Record<string, YearGoals>): ThemeId {
+  const keys = Object.keys(years).sort().reverse();
+  for (const y of keys) if (years[y].leading) return years[y].leading!;
+  for (const y of keys) {
+    const first = byThemeOrder(Object.keys(years[y].themes) as ThemeId[])[0];
+    if (first) return first;
+  }
+  return 'business';
+}
+
+/**
+ * Remet les données dans la forme du 17 nov., sans rien perdre :
+ * - l'ancienne fiche de période commune va dans le thème en tête (une seule fois : seulement si `themePeriods` n'existe pas encore) ;
+ * - les thèmes choisis, s'ils n'ont jamais été enregistrés, sont ceux qui ont déjà quelque chose d'écrit (ou en tête).
+ *   Aucun = l'utilisateur n'a encore rien choisi (premier choix à faire).
+ */
+export function normalizeGoals(d: GoalsData): Goals {
+  let themePeriods = d.themePeriods;
+  if (!themePeriods) {
+    themePeriods = Object.keys(d.periods ?? {}).length > 0 ? { [legacyTarget(d.years)]: d.periods } : {};
+  }
+  let chosen = d.chosen;
+  if (!chosen) {
+    const used = new Set<ThemeId>();
+    for (const y of Object.values(d.years)) {
+      if (y.leading) used.add(y.leading);
+      for (const id of Object.keys(y.themes) as ThemeId[]) used.add(id);
+    }
+    for (const id of Object.keys(themePeriods) as ThemeId[]) if (Object.keys(themePeriods[id] ?? {}).length > 0) used.add(id);
+    chosen = byThemeOrder(used);
+  }
+  return { ...d, chosen, themePeriods };
+}
+
+/** Ajoute un thème choisi, ou le retire. On ne peut pas retirer le dernier. Retirer ne supprime rien : les fiches reviennent si on le rajoute. */
+export function toggleChosen(chosen: ThemeId[], theme: ThemeId): ThemeId[] {
+  if (chosen.includes(theme)) return chosen.length > 1 ? chosen.filter((t) => t !== theme) : chosen;
+  return [...chosen, theme];
+}
+
+export function setThemePeriodField(
+  tp: Partial<Record<ThemeId, PeriodMap>>, theme: ThemeId, key: string, field: PeriodField, text: string,
+): Partial<Record<ThemeId, PeriodMap>> {
+  const next = setPeriodField(tp[theme] ?? {}, key, field, text);
+  const { [theme]: _old, ...others } = tp;
+  return Object.keys(next).length === 0 ? others : { ...others, [theme]: next };
+}
+
+/** « Qui je suis pour cette période » de chaque thème choisi qui l'a rempli (affiché en petit dans le calendrier). */
+export function periodWhoByTheme(
+  tp: Partial<Record<ThemeId, PeriodMap>>, chosen: ThemeId[], kind: PeriodKind, day: DayKey,
+): { theme: ThemeId; text: string }[] {
+  return chosen.flatMap((theme) => {
+    const text = periodWho(tp[theme] ?? {}, kind, day);
+    return text ? [{ theme, text }] : [];
+  });
+}
+
+export interface WeekGoal { theme: ThemeId; who?: string; todo?: string; avoid?: string }
+
+/** Les objectifs de la semaine de `day`, par thème choisi : seulement les thèmes qui ont écrit quelque chose (hors bilan). */
+export function weekGoals(tp: Partial<Record<ThemeId, PeriodMap>>, chosen: ThemeId[], day: DayKey): WeekGoal[] {
+  const key = periodKey('semaine', day);
+  return chosen.flatMap((theme) => {
+    const card = tp[theme]?.[key];
+    const g: WeekGoal = { theme };
+    for (const f of ['who', 'todo', 'avoid'] as const) if (isFilled(card?.[f])) g[f] = card![f]!.trim();
+    return g.who || g.todo || g.avoid ? [g] : [];
+  });
 }

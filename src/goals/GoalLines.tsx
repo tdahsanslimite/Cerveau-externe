@@ -5,28 +5,37 @@ import type { DayKey } from '../calendar/dates';
 import { colors } from '../theme';
 import { Icon, Txt } from '../ui';
 import { useGoals } from './GoalsContext';
-import { annualOneThing, periodWho, PeriodKind, themeInfo } from './model';
+import { annualOneThing, periodWhoByTheme, PeriodKind, themeInfo } from './model';
 
-/** « Qui je suis pour cette période », en tout petit au-dessus de la vue Semaine / Mois / Trimestre du calendrier. */
+/**
+ * « Qui je suis pour cette période » de chaque thème choisi, en tout petit au-dessus de la vue Semaine / Mois / Trimestre
+ * du calendrier. Avec plusieurs thèmes, chaque ligne commence par le nom du thème.
+ */
 export function PeriodLine({ kind, day }: { kind: PeriodKind; day: DayKey }) {
-  const { periods } = useGoals();
-  const who = periodWho(periods, kind, day);
-  if (!who) return null;
+  const { themePeriods, chosen } = useGoals();
+  const lines = periodWhoByTheme(themePeriods, chosen, kind, day);
+  if (lines.length === 0) return null;
   return (
-    <Txt size={12} color={colors.muted} numberOfLines={2} style={{ paddingHorizontal: 4, marginTop: -6 }}>{who}</Txt>
+    <View style={{ paddingHorizontal: 4, marginTop: -6, gap: 2 }}>
+      {lines.map((l) => (
+        <Txt key={l.theme} size={12} color={colors.muted} numberOfLines={2}>
+          {chosen.length > 1 ? `${themeInfo(l.theme).label} · ${l.text}` : l.text}
+        </Txt>
+      ))}
+    </View>
   );
 }
 
 /** Texte du One Thing de l'année (onglet Objectifs), ou null s'il n'est pas rempli. */
 export function useAnnualOneThingText(day: DayKey): string | null {
-  const { years } = useGoals();
-  return annualOneThing(years, day)?.text?.trim() || null;
+  const { years, chosen } = useGoals();
+  return annualOneThing(years, day, chosen)?.text?.trim() || null;
 }
 
 /** Le One Thing de l'année (thème en tête), au-dessus de la case « The One Thing » de « Trier mes idées ». */
 export function AnnualOneThingLine({ day }: { day: DayKey }) {
-  const { years } = useGoals();
-  const one = annualOneThing(years, day);
+  const { years, chosen } = useGoals();
+  const one = annualOneThing(years, day, chosen);
   if (!one) return null;
   return (
     <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start', paddingHorizontal: 4 }}>

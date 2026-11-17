@@ -1,4 +1,4 @@
-// Les objectifs de l'année : 5 thèmes, une fiche chacun (objectif, One Thing, identité, à faire, à éviter, bilan).
+// Les objectifs de l'année : les thèmes choisis (réglages en haut à gauche), une fiche chacun (objectif, One Thing, identité, à faire, à éviter, bilan).
 // Un seul thème peut être « en tête » : son One Thing oriente l'action du jour.
 // Mindset et Santé affichent en plus les moyennes de leur note du Journal (aucune saisie en plus).
 import React, { useState } from 'react';
@@ -11,18 +11,19 @@ import { tone } from '../journal/DayEditor';
 import { todayKey } from '../calendar/dates';
 import { useGoals } from './GoalsContext';
 import { TextBlock } from './fields';
-import { annualOneThing, THEME_FIELDS, themeIndicator, themeInfo, ThemeId, themeProgress, THEMES } from './model';
+import { annualOneThing, effectiveLeading, THEME_FIELDS, themeIndicator, themeInfo, ThemeId, themeProgress } from './model';
 
 export function YearView() {
-  const { years, themeText, lead } = useGoals();
+  const { years, themeText, lead, chosen } = useGoals();
   const { entries } = useJournal();
   const today = todayKey();
   const [year, setYear] = useState(today.slice(0, 4));
   const [open, setOpen] = useState<ThemeId | null>(null);
 
   const goals = years[year];
-  const one = annualOneThing(years, `${year}-06-15`);
-  const leadingId = goals?.leading;
+  const one = annualOneThing(years, `${year}-06-15`, chosen);
+  const leadingId = effectiveLeading(goals, chosen);
+  const several = chosen.length > 1;
   const info = open ? themeInfo(open) : null;
   const indicator = open ? themeIndicator(entries, open, today) : null;
   const shift = (n: number) => setYear(String(Number(year) + n));
@@ -49,7 +50,9 @@ export function YearView() {
           </>
         ) : (
           <Txt size={14} color={colors.muted} style={{ lineHeight: 21 }}>
-            {leadingId
+            {leadingId && !several
+              ? `Écris le One Thing de « ${themeInfo(leadingId).label} » : il t’aidera à choisir l’action du jour.`
+              : leadingId
               ? `Le thème « ${themeInfo(leadingId).label} » est en tête, mais son One Thing n’est pas encore écrit.`
               : 'Choisis un thème « en tête » et écris son One Thing : il t’aidera à choisir l’action du jour.'}
           </Txt>
@@ -57,7 +60,7 @@ export function YearView() {
       </Card>
 
       <View style={{ gap: 10 }}>
-        {THEMES.map((t) => {
+        {chosen.map(themeInfo).map((t) => {
           const card = goals?.themes[t.id];
           const done = themeProgress(card);
           const leading = leadingId === t.id;
@@ -77,7 +80,7 @@ export function YearView() {
                     <Txt bold size={17}>{t.label}</Txt>
                     <Txt size={13} color={colors.muted}>{t.tagline}</Txt>
                   </View>
-                  {leading ? (
+                  {leading && several ? (
                     <View style={st.badge}><Txt bold size={12} color="#FFFFFF">En tête</Txt></View>
                   ) : null}
                   <Txt bold size={13} color={colors.muted}>{`${done}/${THEME_FIELDS.length}`}</Txt>
@@ -113,15 +116,19 @@ export function YearView() {
               </Card>
             ) : null}
 
-            <Button
-              label={leadingId === info.id ? 'Retirer de la tête' : 'Mettre ce thème en tête'}
-              icon="star"
-              kind={leadingId === info.id ? 'ghost' : 'primary'}
-              onPress={() => lead(year, info.id)}
-            />
-            <Txt size={12} color={colors.faint} style={{ marginTop: -10 }}>
-              Un seul thème en tête à la fois : c’est son One Thing qui s’affiche au-dessus de « Programmer ».
-            </Txt>
+            {several ? (
+              <>
+                <Button
+                  label={leadingId === info.id ? 'Retirer de la tête' : 'Mettre ce thème en tête'}
+                  icon="star"
+                  kind={leadingId === info.id ? 'ghost' : 'primary'}
+                  onPress={() => lead(year, info.id)}
+                />
+                <Txt size={12} color={colors.faint} style={{ marginTop: -10 }}>
+                  Un seul thème en tête à la fois : c’est son One Thing qui s’affiche au-dessus de « Programmer ».
+                </Txt>
+              </>
+            ) : null}
 
             {THEME_FIELDS.map((f) => (
               <TextBlock
