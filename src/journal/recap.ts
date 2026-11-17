@@ -14,7 +14,7 @@ export type Metric = 'total' | ScoreField;
 
 /** Choix « Note comparée » selon les notes suivies : le total seulement s'il y a au moins 2 notes. */
 export function metricsFor(fields: ScoreField[]): { id: Metric; label: string }[] {
-  const total = fields.length >= 2 ? [{ id: 'total' as Metric, label: `Les ${fields.length} notes (total)` }] : [];
+  const total = fields.length >= 2 ? [{ id: 'total' as Metric, label: 'Total des notes' }] : [];
   return [...total, ...fields.map((f) => ({ id: f as Metric, label: FIELD_LABEL[f] }))];
 }
 

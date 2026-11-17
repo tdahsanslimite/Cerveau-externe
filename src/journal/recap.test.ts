@@ -121,7 +121,7 @@ import { metricsFor, metricValue as mv, overallAverage as oa, validMetric } from
 
 test('note comparée : le total seulement à partir de 2 notes suivies', () => {
   assert.deepEqual(metricsFor(['mood', 'sleep']).map((m) => m.id), ['total', 'mood', 'sleep']);
-  assert.equal(metricsFor(['mood', 'mind', 'body', 'sleep'])[0].label, 'Les 4 notes (total)');
+  assert.equal(metricsFor(['mood', 'mind', 'body', 'sleep'])[0].label, 'Total des notes'); // jamais « sur 40 » (Valentin : ça fausse tout)
   assert.deepEqual(metricsFor(['sleep']).map((m) => m.id), ['sleep']);
   assert.equal(validMetric('total', ['sleep']), 'sleep');
   assert.equal(validMetric('mind', ['mood', 'sleep']), 'total');

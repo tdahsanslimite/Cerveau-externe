@@ -131,7 +131,7 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
 
             {fields.length >= 2 ? (
               <>
-                <SectionLabel>{`Total des notes du jour (sur ${range.max})`}</SectionLabel>
+                <SectionLabel>Total des notes</SectionLabel>
                 <Card style={{ padding: 12, gap: 10 }}>
                   {totalDays === 0 ? (
                     <Txt size={14} color={colors.muted}>Pose une note pour voir le total de ta journée.</Txt>
@@ -147,7 +147,7 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
                         onPickDay={openDay}
                         describe={(d) => {
                           const t = totalScore(entries[d], fields);
-                          return describeDay(d, t === null ? '' : `total ${t} sur ${range.max}`);
+                          return describeDay(d, t === null ? '' : `total des notes : ${t}`);
                         }}
                       />
                       <Txt size={12} color={colors.faint}>
