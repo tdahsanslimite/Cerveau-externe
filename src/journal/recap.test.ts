@@ -6,20 +6,20 @@ import type { EntryMap } from './model.ts';
 
 const TODAY = '2026-10-23';
 
-// Totaux : 10/10 = 20, 11/10 = 15 (6+5+4), 10/12 = 27, 2026-09-30 = 9, 2025-12-31 = 12.
+// Totaux : 10/10 = 20, 11/10 = 15 (6+5+4), 10/12 = 27, 14/10 = 10 (2 notes seulement), 2026-09-30 = 9, 2025-12-31 = 12.
 const E: EntryMap = {
   '2025-12-31': { mood: 4, mind: 4, body: 4 },
   '2026-09-30': { mood: 3, mind: 3, body: 3, note: 'Dur.' },
   '2026-10-10': { mood: 7, mind: 7, body: 6 },
   '2026-10-11': { mood: 6, mind: 5, body: 4 },
   '2026-10-12': { mood: 9, mind: 9, body: 9 },
-  '2026-10-14': { mood: 5, mind: 5 }, // corps manquant : pas de total
+  '2026-10-14': { mood: 5, mind: 5 }, // corps manquant : le total ne compte que les 2 notes posées
   '2026-10-20': { note: 'juste un commentaire' },
 };
 
-test('valeur d’un jour : total (3 notes obligatoires) ou une seule note', () => {
+test('valeur d’un jour : total (somme des notes posées) ou une seule note', () => {
   assert.equal(metricValue(E['2026-10-10'], 'total'), 20);
-  assert.equal(metricValue(E['2026-10-14'], 'total'), null);
+  assert.equal(metricValue(E['2026-10-14'], 'total'), 10);
   assert.equal(metricValue(E['2026-10-14'], 'mind'), 5);
   assert.equal(metricValue(E['2026-10-14'], 'body'), null);
   assert.equal(metricValue(E['2026-10-20'], 'mood'), null);
@@ -27,10 +27,10 @@ test('valeur d’un jour : total (3 notes obligatoires) ou une seule note', () =
 });
 
 test('moyenne générale : tous les jours notés jusqu’à aujourd’hui, null sous 3 jours', () => {
-  // totaux : 12, 9, 20, 15, 27 → 83 / 5
-  assert.equal(overallAverage(E, 'total', TODAY), 83 / 5);
+  // totaux : 12, 9, 20, 15, 27, 10 → 93 / 6
+  assert.equal(overallAverage(E, 'total', TODAY), 15.5);
   // le futur ne compte pas
-  assert.equal(overallAverage({ ...E, '2026-11-01': { mood: 10, mind: 10, body: 10 } }, 'total', TODAY), 83 / 5);
+  assert.equal(overallAverage({ ...E, '2026-11-01': { mood: 10, mind: 10, body: 10 } }, 'total', TODAY), 15.5);
   assert.equal(overallAverage({ '2026-10-10': { mood: 5 }, '2026-10-11': { mood: 6 } }, 'mood', TODAY), null);
   assert.equal(overallAverage({}, 'total', TODAY), null);
 });
@@ -69,15 +69,15 @@ test('mois : tous les jours jusqu’à aujourd’hui, avec leurs valeurs et leur
   assert.equal(oct.days[22].day, '2026-10-23');
   const d = (k: string) => oct.days.find((x) => x.day === k)!;
   assert.equal(d('2026-10-10').value, 20);
-  assert.equal(d('2026-10-10').rel, 'good'); // 20 > 16,6
-  assert.equal(d('2026-10-11').rel, 'bad'); // 15 < 16,6
+  assert.equal(d('2026-10-10').rel, 'good'); // 20 > 15,5
+  assert.equal(d('2026-10-11').rel, 'bad'); // 15 < 15,5
   assert.equal(d('2026-10-12').rel, 'good');
-  assert.equal(d('2026-10-14').rel, null); // pas de total ce jour-là
+  assert.equal(d('2026-10-14').rel, 'bad'); // 10 points : 2 notes seulement
   assert.equal(d('2026-10-01').rel, null); // jour vide
   assert.equal(oct.noted, 5); // 10, 11, 12, 14, 20 (le commentaire seul compte comme noté)
   assert.equal(oct.good, 2);
-  assert.equal(oct.bad, 1);
-  assert.equal(oct.average, 20.7); // (20 + 15 + 27) / 3
+  assert.equal(oct.bad, 2);
+  assert.equal(oct.average, 18); // (20 + 15 + 27 + 10) / 4
 });
 
 test('filtre bon / mauvais : seuls les jours correspondants restent, les compteurs ne bougent pas', () => {
@@ -85,7 +85,7 @@ test('filtre bon / mauvais : seuls les jours correspondants restent, les compteu
   const good = recapMonth(E, 2026, 10, TODAY, 'total', avg, 'good');
   assert.deepEqual(good.days.map((x) => x.day), ['2026-10-10', '2026-10-12']);
   const bad = recapMonth(E, 2026, 10, TODAY, 'total', avg, 'bad');
-  assert.deepEqual(bad.days.map((x) => x.day), ['2026-10-11']);
+  assert.deepEqual(bad.days.map((x) => x.day), ['2026-10-11', '2026-10-14']);
   assert.equal(bad.good, 2); // compteurs indépendants du filtre
   assert.equal(bad.noted, 5);
 });
@@ -127,9 +127,9 @@ test('note comparée : le total seulement à partir de 2 notes suivies', () => {
   assert.equal(validMetric('mind', ['mood', 'sleep']), 'total');
 });
 
-test('total avec le sommeil : un jour sans note de sommeil n’a pas de total', () => {
+test('total avec le sommeil : les jours d’avant le sommeil gardent leur total', () => {
   const f = ['mood', 'mind', 'body', 'sleep'] as const;
-  assert.equal(mv(E['2026-10-10'], 'total', [...f]), null);
+  assert.equal(mv(E['2026-10-10'], 'total', [...f]), 20);
   assert.equal(mv({ ...E['2026-10-10'], sleep: 8 }, 'total', [...f]), 28);
-  assert.equal(oa(E, 'total', TODAY, [...f]), null);
+  assert.equal(oa(E, 'total', TODAY, [...f]), 15.5);
 });

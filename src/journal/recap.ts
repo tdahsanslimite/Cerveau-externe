@@ -30,7 +30,7 @@ export const METRICS = metricsFor(CLASSIC_FIELDS);
 export type Rel = 'good' | 'bad' | 'usual';
 export type DayFilter = 'all' | 'good' | 'bad';
 
-/** Valeur d'un jour pour la note choisie. Le total n'existe que si toutes les notes suivies sont posées. */
+/** Valeur d'un jour pour la note choisie. Le total = somme des notes posées ce jour-là (null si aucune). */
 export function metricValue(e: JournalEntry | undefined, metric: Metric, fields: ScoreField[] = CLASSIC_FIELDS): number | null {
   if (metric === 'total') return totalScore(e, fields);
   const v = e?.[metric];

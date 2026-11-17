@@ -116,13 +116,13 @@ test('historique : récent d’abord, filtres Difficiles (≤ 4) et Bons moments
   assert.deepEqual(historyDays(e, 'all', '2026-10-21', 2), ['2026-10-19', '2026-10-18']);
 });
 
-test('total des 3 notes : de 3 à 30, seulement si les 3 sont posées', () => {
+test('total des 3 notes : de 3 à 30 quand tout est posé, sinon la somme de ce qui est posé', () => {
   assert.equal(totalScore({ mood: 1, mind: 1, body: 1 }), TOTAL_MIN);
   assert.equal(TOTAL_MIN, 3);
   assert.equal(totalScore({ mood: 10, mind: 10, body: 10 }), TOTAL_MAX);
   assert.equal(TOTAL_MAX, 30);
   assert.equal(totalScore({ mood: 6, mind: 7, body: 4, note: 'x' }), 17);
-  assert.equal(totalScore({ mood: 6, mind: 7 }), null); // une note manque : pas de total trompeur
+  assert.equal(totalScore({ mood: 6, mind: 7 }), 13); // une note manque : le jour fait moins de points
   assert.equal(totalScore({ note: 'juste un commentaire' }), null);
   assert.equal(totalScore(undefined), null);
 });
@@ -187,19 +187,21 @@ test('moyennes des nuits : un coucher à 1 h compte après minuit, pas avant 23 
   assert.deepEqual(sleepStats(e, ['2026-11-01']), { nights: 0, bed: null, wake: null, duration: null });
 });
 
-test('total : seulement les notes suivies, et seulement si elles sont toutes posées', () => {
+test('total : somme des notes posées parmi celles suivies (accumulation, décision du 17 nov.)', () => {
   const day = { mood: 6, mind: 7, body: 4 };
   assert.equal(totalScore(day), 17); // par défaut : les 3 notes de la 1re version
-  assert.equal(totalScore(day, FIELDS), null); // sommeil suivi mais pas noté : pas de total
+  assert.equal(totalScore(day, FIELDS), 17); // sommeil suivi mais pas noté (jour d'avant) : le total reste
   assert.equal(totalScore({ ...day, sleep: 5 }, FIELDS), 22);
   assert.equal(totalScore({ mood: 6, sleep: 3 }, ['mood', 'sleep']), 9);
+  assert.equal(totalScore({ mood: 6, sleep: 3 }, ['mood']), 6); // une note non suivie ne compte pas
+  assert.equal(totalScore({ sleepNote: 'x' }, FIELDS), null);
   assert.deepEqual(CLASSIC_FIELDS, ['mood', 'mind', 'body']);
 });
 
 test('échelle du total selon le nombre de notes', () => {
-  assert.deepEqual(totalRange(3), { min: 3, max: 30, levels: [5, 10, 15, 20, 25] });
-  assert.deepEqual(totalRange(2), { min: 2, max: 20, levels: [5, 10, 15] });
-  assert.deepEqual(totalRange(4), { min: 4, max: 40, levels: [10, 20, 30] });
+  assert.deepEqual(totalRange(3), { min: 0, max: 30, levels: [5, 10, 15, 20, 25] });
+  assert.deepEqual(totalRange(2), { min: 0, max: 20, levels: [5, 10, 15] });
+  assert.deepEqual(totalRange(4), { min: 0, max: 40, levels: [10, 20, 30] });
 });
 
 test('réglages proposés : les notes déjà utilisées, sinon seulement « Bonnes journées »', () => {

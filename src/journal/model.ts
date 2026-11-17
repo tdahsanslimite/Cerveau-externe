@@ -215,13 +215,14 @@ export const SCORE_LEVELS = [2.5, 5, 7.5];
 export const TOTAL_LEVELS = [5, 10, 15, 20, 25];
 
 /**
- * Total des notes suivies d'un jour (par défaut les 3 de la 1re version). Seulement si TOUTES sont posées :
- * avec une note manquante, le total serait plus bas sans que la journée ait été plus dure (null = pas de total).
+ * Total d'un jour = somme des notes posées parmi celles suivies (par défaut les 3 de la 1re version).
+ * Décision de Valentin (17 nov.) : « ce qui compte c'est l'accumulation chaque jour » ; un jour avec moins de notes
+ * fait simplement moins de points, et les jours d'avant le sommeil gardent leur total. null = aucune note posée.
  */
 export function totalScore(e: JournalEntry | undefined, fields: ScoreField[] = CLASSIC_FIELDS): number | null {
-  if (!e || fields.length === 0) return null;
-  const scores = fields.map((f) => e[f]);
-  return scores.every(isScore) ? (scores as number[]).reduce((a, b) => a + b, 0) : null;
+  if (!e) return null;
+  const scores = fields.map((f) => e[f]).filter(isScore);
+  return scores.length ? scores.reduce((a, b) => a + b, 0) : null;
 }
 
 /**
@@ -230,7 +231,8 @@ export function totalScore(e: JournalEntry | undefined, fields: ScoreField[] = C
  * 4 notes : 4 à 40, repères 10 · 20 · 30 (= 2,5 · 5 · 7,5 par note, comme le graphique des notes ; tous les 5 ferait 7 lignes).
  */
 export function totalRange(count: number): { min: number; max: number; levels: number[] } {
-  const min = SCORE_MIN * count, max = SCORE_MAX * count;
+  // L'échelle part de 0 : un jour avec une seule note posée peut faire moins que `count` points.
+  const min = 0, max = SCORE_MAX * count;
   const step = count >= 4 ? 10 : 5;
   const levels: number[] = [];
   for (let l = step; l < max; l += step) if (l > min) levels.push(l);

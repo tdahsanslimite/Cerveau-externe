@@ -131,10 +131,10 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
 
             {fields.length >= 2 ? (
               <>
-                <SectionLabel>{`Total des ${fields.length} notes (de ${range.min} à ${range.max})`}</SectionLabel>
+                <SectionLabel>{`Total des notes du jour (sur ${range.max})`}</SectionLabel>
                 <Card style={{ padding: 12, gap: 10 }}>
                   {totalDays === 0 ? (
-                    <Txt size={14} color={colors.muted}>{`Pose les ${fields.length} notes d'une même journée pour voir son total.`}</Txt>
+                    <Txt size={14} color={colors.muted}>Pose une note pour voir le total de ta journée.</Txt>
                   ) : (
                     <>
                       <LineChart
@@ -151,7 +151,7 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
                         }}
                       />
                       <Txt size={12} color={colors.faint}>
-                        {`Lignes fines : ${range.levels.map(formatScore).join(' · ')}. Seuls les jours avec les ${fields.length} notes comptent.`}
+                        {`Lignes fines : ${range.levels.map(formatScore).join(' · ')}. Chaque note posée ajoute ses points.`}
                       </Txt>
                     </>
                   )}
