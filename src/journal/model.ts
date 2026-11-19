@@ -239,6 +239,19 @@ export function totalRange(count: number): { min: number; max: number; levels: n
   return { min, max, levels };
 }
 
+/**
+ * Le total « empilé » (19 nov., Valentin : « empile les 4 ») : une ligne par note suivie, chacune posée sur la précédente.
+ * Ligne k = somme des notes 0..k du jour ; la dernière ligne = le total. Une note non posée ajoute 0 (la ligne suivante
+ * se confond avec la précédente) ; un jour sans aucune note = null partout (le trait s'arrête).
+ */
+export function stackedTotals(entries: EntryMap, days: DayKey[], fields: ScoreField[]): (number | null)[][] {
+  return fields.map((_, k) => days.map((d) => {
+    const e = entries[d];
+    if (totalScore(e, fields) === null) return null;
+    return fields.slice(0, k + 1).map((f) => e![f]).filter(isScore).reduce((a, b) => a + b, 0);
+  }));
+}
+
 const FIELD_SHORT: Record<ScoreField, string> = { mood: 'Journée', mind: 'Tête', body: 'Corps', sleep: 'Sommeil' };
 
 /** « Journée 9 · Tête 8 · Corps 6 » (seulement les notes posées, parmi celles suivies). */

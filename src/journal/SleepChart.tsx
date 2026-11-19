@@ -15,6 +15,7 @@ const PLOT_H = 190;
 const PAD_Y = 6;
 const AXIS_W = 42;
 const BAR_MAX = 14;
+const BAR_MIN_GAP = 2;
 const DOT = 8;
 
 /** Durée en très court sous chaque barre (la colonne fait ~20 px) : heures à la demi-heure près, « 7 », « 7,5 ». */
@@ -37,7 +38,9 @@ export function SleepChart({ days, entries, selected, onPickDay }: {
   const stats = sleepStats(entries, days);
 
   const colW = width / days.length;
-  const barW = Math.min(BAR_MAX, colW * 0.55);
+  /** Plus de 14 nuits : colonnes étroites, on n'écrit ni la durée ni chaque jour sous les barres. */
+  const dense = days.length > 14;
+  const barW = Math.min(BAR_MAX, dense ? Math.max(3, colW - BAR_MIN_GAP - 1) : colW * 0.55);
   const y = (m: number) => PAD_Y + ((m - lo) / (hi - lo)) * (PLOT_H - 2 * PAD_Y);
   const stepH = hi - lo > 10 * 60 ? 120 : 60; // une étiquette toutes les 2 h si la plage est large
   const ticks: number[] = [];
@@ -105,6 +108,23 @@ export function SleepChart({ days, entries, selected, onPickDay }: {
         {days.map((d) => {
           const on = d === selected;
           const dur = sleepDuration(entries[d]);
+          if (dense) {
+            // 30 colonnes de ~10 px : pas de place pour chaque jour ; on écrit les lundis (et le jour choisi).
+            // Un lundi collé au jour choisi s'efface pour que les deux étiquettes ne se chevauchent pas.
+            const i = days.indexOf(d);
+            const nextToSelected = days[i - 1] === selected || days[i + 1] === selected;
+            const shown = on || (weekdayIndex(d) === 0 && !nextToSelected);
+            return (
+              <View key={d} style={{ flex: 1, alignItems: 'center', paddingTop: 4, height: 34 }}>
+                {shown ? (
+                  <>
+                    <Txt size={11} bold={on} color={on ? colors.accent : colors.muted} style={st.denseLabel}>{DAY_SHORT[weekdayIndex(d)].charAt(0)}</Txt>
+                    <Txt size={11} bold={on} color={on ? colors.accent : colors.muted} style={st.denseLabel}>{fromKey(d).getDate()}</Txt>
+                  </>
+                ) : null}
+              </View>
+            );
+          }
           return (
             <View key={d} style={{ flex: 1, alignItems: 'center', paddingTop: 4 }}>
               <Txt size={10} bold color={dur === null ? colors.faint : SLEEP_COLOR} numberOfLines={1}>{dur === null ? '·' : compact(dur)}</Txt>
@@ -119,6 +139,7 @@ export function SleepChart({ days, entries, selected, onPickDay }: {
 }
 
 const st = StyleSheet.create({
+  denseLabel: { width: 26, textAlign: 'center' },
   axisLabel: { position: 'absolute', right: 6, textAlign: 'right' },
   level: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: colors.line },
   avg: { position: 'absolute', left: 0, right: 0, height: 1.5, backgroundColor: colors.sand },

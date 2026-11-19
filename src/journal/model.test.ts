@@ -140,7 +140,7 @@ test('virgule française', () => {
 // ——— Sommeil et réglages (17 nov.) ———
 import {
   asksSleepTimes, CLASSIC_FIELDS, defaultPrefs, FIELDS, formatClock, formatDuration, nightMinute, setSleepTime, shortSummary,
-  sleepDuration, sleepStats, toggleField, totalRange,
+  sleepDuration, sleepStats, stackedTotals, toggleField, totalRange,
 } from './model.ts';
 
 test('« Bien dormi » est une 4e note, avec son commentaire, à la fin', () => {
@@ -220,4 +220,14 @@ test('heures de sommeil demandées seulement avec « Bien dormi » suivi et l’
   assert.equal(asksSleepTimes({ fields: ['mood', 'sleep'], sleepTimes: true, picker: 'clock' }), true);
   assert.equal(asksSleepTimes({ fields: ['mood'], sleepTimes: true, picker: 'clock' }), false);
   assert.equal(asksSleepTimes({ fields: ['sleep'], sleepTimes: false, picker: 'wheel' }), false);
+});
+
+test('total empilé : chaque ligne ajoute une note, la dernière est le total ; jour vide = null', () => {
+  const e: EntryMap = { a: { mood: 6, mind: 7, body: 4, sleep: 5 }, b: { mood: 3, sleep: 8 }, c: { note: 'rien' } };
+  assert.deepEqual(stackedTotals(e, ['a', 'b', 'c'], FIELDS), [
+    [6, 3, null],
+    [13, 3, null],
+    [17, 3, null],
+    [22, 11, null], // le sommeil est bien empilé : dernière ligne = total
+  ]);
 });

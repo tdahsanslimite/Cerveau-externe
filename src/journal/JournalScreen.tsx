@@ -12,13 +12,15 @@ import { useJournal } from './JournalContext';
 import { describeDay, LineChart } from './LineChart';
 import {
   asksSleepTimes, average, FIELD_LABEL, formatClock, formatDuration, formatScore, recentDays, ScoreField, SCORE_LEVELS, SCORE_MAX,
-  SCORE_MIN, shortSummary, sleepStats, totalRange, totalScore,
+  SCORE_MIN, shortSummary, sleepStats, stackedTotals, totalRange, totalScore,
 } from './model';
 import { JournalSettingsSheet } from './JournalSettings';
 import { RecapScreen } from './RecapScreen';
 import { SLEEP_COLOR, SleepChart } from './SleepChart';
 
 const CHART_DAYS = 14;
+/** Les nuits se lisent sur 30 jours (19 nov., Valentin : « c'est plus juste »). */
+const SLEEP_DAYS = 30;
 
 /** Une couleur par courbe (la légende les nomme). */
 const FIELD_COLOR: Record<ScoreField, string> = { mood: colors.accent, mind: '#5B6FA8', body: colors.amber, sleep: SLEEP_COLOR };
@@ -63,8 +65,10 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
   const range = totalRange(fields.length);
   const totals = chart.map((d) => totalScore(entries[d], fields));
   const totalDays = totals.filter((t) => t !== null).length;
+  const stacked = stackedTotals(entries, chart, fields);
   const sleepTimes = asksSleepTimes(prefs);
-  const nights = sleepStats(entries, chart);
+  const sleepDays = recentDays(today, SLEEP_DAYS);
+  const nights = sleepStats(entries, sleepDays);
   const describe = (d: DayKey) => describeDay(d, entries[d] ? shortSummary(entries[d], fields) : '');
   const anyData = Object.keys(entries).some((d) => d <= today);
 
@@ -139,7 +143,12 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
                     <>
                       <LineChart
                         days={chart}
-                        series={[{ key: 'total', color: colors.ink, values: totals }]}
+                        series={stacked.map((values, k) => ({
+                          key: fields[k],
+                          // La dernière ligne (le haut de la pile) = le total, en noir.
+                          color: k === fields.length - 1 ? colors.ink : FIELD_COLOR[fields[k]],
+                          values,
+                        }))}
                         min={range.min}
                         max={range.max}
                         levels={range.levels}
@@ -150,8 +159,16 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
                           return describeDay(d, t === null ? '' : `total des notes : ${t}`);
                         }}
                       />
+                      <View style={st.legend}>
+                        {fields.map((f, k) => (
+                          <View key={f} style={st.legendItem}>
+                            <View style={[st.legendDot, { backgroundColor: k === fields.length - 1 ? colors.ink : FIELD_COLOR[f] }]} />
+                            <Txt size={12} color={colors.muted}>{`${k === 0 ? '' : '+ '}${FIELD_LABEL[f]}${k === fields.length - 1 ? ' = total' : ''}`}</Txt>
+                          </View>
+                        ))}
+                      </View>
                       <Txt size={12} color={colors.faint}>
-                        {`Lignes fines : ${range.levels.map(formatScore).join(' · ')}. Chaque note posée ajoute ses points.`}
+                        {`Les notes s'empilent : chaque ligne ajoute la sienne, la ligne noire du haut est le total. Lignes fines : ${range.levels.map(formatScore).join(' · ')}.`}
                       </Txt>
                     </>
                   )}
@@ -163,7 +180,7 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
 
         {sleepTimes ? (
           <View style={{ gap: 8 }}>
-            <SectionLabel>{`Mes nuits (${CHART_DAYS} derniers jours)`}</SectionLabel>
+            <SectionLabel>{`Mes nuits (${SLEEP_DAYS} derniers jours)`}</SectionLabel>
             <Card style={{ padding: 12, gap: 10 }}>
               {nights.bed === null && nights.wake === null ? (
                 <Txt size={14} color={colors.muted}>Note ton heure de coucher et de lever (dans « Bien dormi ») pour voir tes nuits ici.</Txt>
@@ -174,9 +191,9 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
                     <SleepStat label="Lever moyen" value={nights.wake === null ? '–' : formatClock(nights.wake)} />
                     <SleepStat label="Nuit moyenne" value={nights.duration === null ? '–' : formatDuration(nights.duration)} />
                   </View>
-                  <SleepChart days={chart} entries={entries} selected={day} onPickDay={openDay} />
+                  <SleepChart days={sleepDays} entries={entries} selected={day} onPickDay={openDay} />
                   <Txt size={12} color={colors.faint}>
-                    Une barre = une nuit, du coucher (en haut) au lever (en bas), avec sa durée en heures dessous. Traits dorés : tes horaires moyens. Des barres alignées = un rythme régulier.
+                    Une barre = une nuit, du coucher (en haut) au lever (en bas). Traits dorés : tes horaires moyens sur 30 jours. Des barres alignées = un rythme régulier.
                   </Txt>
                 </>
               )}
