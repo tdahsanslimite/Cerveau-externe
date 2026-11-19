@@ -2,7 +2,7 @@
 import React, { ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, StyleProp, StyleSheet, Text, TextProps, TextStyle, View, ViewStyle } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, radius, TOUCH } from './theme';
 
 type TxtProps = TextProps & { bold?: boolean; size?: number; color?: string; style?: StyleProp<TextStyle> };
@@ -93,6 +93,19 @@ export function SectionLabel({ children, right }: { children: string; right?: Re
   );
 }
 
+/** Air laissé sous le dernier bouton d'une feuille, au-dessus des boutons Android (≈ 4 mm). */
+export const SHEET_AIR = 28;
+
+/**
+ * Hauteur réelle des boutons / de la barre de gestes Android en bas de l'écran.
+ * Dans les modules, AppTabs met la zone du bas à 0 (sa barre la gère) ; une fenêtre (Modal) passe pourtant
+ * par-dessus cette barre : on relit donc la mesure du téléphone (initialWindowMetrics).
+ */
+export function useDeviceBottomInset(): number {
+  const insets = useSafeAreaInsets();
+  return Math.max(insets.bottom, initialWindowMetrics?.insets.bottom ?? 0);
+}
+
 /** Feuille qui monte du bas de l'écran. */
 export function Sheet({ visible, onClose, title, children, footer, closable = true }: {
   visible: boolean;
@@ -102,12 +115,12 @@ export function Sheet({ visible, onClose, title, children, footer, closable = tr
   /** false : pas de croix, toucher le fond ne ferme pas (il faut répondre). */
   closable?: boolean;
 }) {
-  const insets = useSafeAreaInsets();
+  const bottom = useDeviceBottomInset() + SHEET_AIR;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         {closable ? <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Fermer" /> : <View style={{ flex: 1 }} />}
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.sheet, { paddingBottom: bottom }]}>
           <View style={styles.sheetHead}>
             <Txt bold size={22} style={{ flex: 1 }}>{title}</Txt>
             {closable ? <IconButton icon="x" label="Fermer" onPress={onClose} bordered={false} /> : null}
