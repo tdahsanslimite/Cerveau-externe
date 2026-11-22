@@ -4,14 +4,14 @@
 // La page ramène dans l'appli par le lien cerveauexterne://envoi-journal → feuille d'envoi du journal (CoachLinkHost).
 // Tout passe par WhatsApp, rien ne part sans que l'utilisateur appuie sur Envoyer.
 import React, { useEffect, useState } from 'react';
-import { AppState, Linking, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { AppState, Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 import { colors, radius } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
 import { todayKey } from '../calendar/dates';
 import { useSettings } from '../settings/SettingsContext';
 import { useJournal } from '../journal/JournalContext';
 import { asksSleepTimes } from '../journal/model';
-import { COACH, furtherOnTop, isSendJournalLink, journalText, markSeen, MAX_TEXT, whatsappUrl } from './model';
+import { canTransmit, COACH, COACH_INBOX, furtherOnTop, inboxPayload, InboxPayload, isSendJournalLink, journalText, markSeen, MAX_TEXT, whatsappUrl } from './model';
 
 /** Page « Envie d'aller plus loin ? » : public/aller-plus-loin/index.html, publiée avec la version web sur GitHub Pages. */
 export const FURTHER_URL = 'https://tdahsanslimite.github.io/cerveau-externe-telechargement/aller-plus-loin/';
@@ -97,20 +97,46 @@ export function SendJournalButton() {
 
 const PERIODS = [7, 14, 30];
 
+/** Envoie les données au script du Drive de Valentin. true si elles sont bien arrivées. */
+async function transmit(payload: InboxPayload): Promise<boolean> {
+  try {
+    // text/plain : pas de requête préalable du navigateur (version web), le script lit le corps tel quel.
+    const res = await fetch(COACH_INBOX.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    return !!data?.ok;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Choisir quoi envoyer, relire le texte exact, puis ouvrir WhatsApp avec le message prêt.
- * Envoyer sur WhatsApp fait sortir de l'appli : la feuille ne se ferme donc pas, elle passe à l'étape « Réserver
- * mon appel » (22 nov., Valentin : au retour on n'est plus sur la page qui montrait Calendly). Données d'abord, appel ensuite.
+ * Choisir quoi envoyer, relire le texte exact, puis transmettre.
+ * - Avec COACH_INBOX.url (22 nov., « go drive ») : prénom + téléphone, un seul appui sur « Transmettre mes données »,
+ *   on reste dans l'appli et on enchaîne sur la réservation.
+ * - Sans : ancien envoi par WhatsApp (qui fait sortir de l'appli ; au retour, la feuille propose la réservation).
+ * Données d'abord, appel ensuite.
  */
 export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { entries, prefs } = useJournal();
+  const { settings, update } = useSettings();
+  const direct = !!COACH_INBOX.url;
   const [days, setDays] = useState(7);
   const [comments, setComments] = useState(true);
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<false | 'drive' | 'whatsapp'>(false);
+  const [status, setStatus] = useState<'idle' | 'sending' | 'error'>('idle');
+  const prenom = settings.coachFirstName ?? '';
+  const tel = settings.coachPhone ?? '';
   const today = todayKey();
   const text = journalText(entries, today, { days, fields: prefs.fields, comments, sleepTimes: asksSleepTimes(prefs) });
   const tooLong = text.length > MAX_TEXT;
-  const close = () => { setSent(false); onClose(); };
+  const close = () => { setSent(false); setStatus('idle'); onClose(); };
+
+  const send = async () => {
+    if (tooLong || !canTransmit(prenom, tel) || status === 'sending') return;
+    setStatus('sending');
+    const ok = await transmit(inboxPayload({ prenom, telephone: tel, jours: days, version: process.env.EXPO_PUBLIC_CE_BUILD ?? '', texte: text }));
+    if (ok) { setStatus('idle'); setSent('drive'); } else setStatus('error');
+  };
 
   if (sent) {
     return (
@@ -121,12 +147,14 @@ export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClo
         footer={
           <>
             <Button label="Réserver mon appel gratuit" icon="calendar" onPress={() => { Linking.openURL(COACH.calendly).catch(() => undefined); close(); }} />
-            <Button label="Je n'ai pas encore envoyé" kind="ghost" icon="send" onPress={() => setSent(false)} />
+            {sent === 'whatsapp' ? <Button label="Je n'ai pas encore envoyé" kind="ghost" icon="send" onPress={() => setSent(false)} /> : null}
           </>
         }
       >
         <Txt size={16} style={{ lineHeight: 23 }}>
-          {`Ton journal est parti sur WhatsApp ? Réserve maintenant ton appel gratuit de 45 min avec ${COACH.name}.`}
+          {sent === 'drive'
+            ? `C'est envoyé : ${COACH.name} a bien reçu tes données. Réserve maintenant ton appel gratuit de 45 min.`
+            : `Ton journal est parti sur WhatsApp ? Réserve maintenant ton appel gratuit de 45 min avec ${COACH.name}.`}
         </Txt>
         <Txt size={14} color={colors.muted} style={{ lineHeight: 20 }}>
           {`${COACH.name} analysera tes données en amont et vous pourrez faire le point lors de l'appel. Tu vois seulement les créneaux au sein desquels ${COACH.name} est disponible.`}
@@ -135,20 +163,40 @@ export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClo
     );
   }
 
+  const ready = !tooLong && canTransmit(prenom, tel);
+  const footer = direct ? (
+    <>
+      <Button
+        label={tooLong ? 'Trop long : réduis la période' : status === 'sending' ? 'Envoi en cours…' : 'Transmettre mes données'}
+        icon="send"
+        kind={ready ? 'primary' : 'ghost'}
+        onPress={send}
+      />
+      {status === 'error' ? (
+        <Button label="Envoyer par WhatsApp à la place" kind="ghost" icon="message-circle" onPress={() => { openWhatsApp(text); setStatus('idle'); setSent('whatsapp'); }} />
+      ) : null}
+    </>
+  ) : (
+    <Button
+      label={tooLong ? 'Trop long : réduis la période' : 'Ouvrir WhatsApp'}
+      icon="send"
+      kind={tooLong ? 'ghost' : 'primary'}
+      onPress={() => { if (!tooLong) { openWhatsApp(text); setSent('whatsapp'); } }}
+    />
+  );
+
   return (
-    <Sheet
-      visible={visible}
-      onClose={close}
-      title={`Envoyer mon journal à ${COACH.name}`}
-      footer={
-        <Button
-          label={tooLong ? 'Trop long : réduis la période' : 'Ouvrir WhatsApp'}
-          icon="send"
-          kind={tooLong ? 'ghost' : 'primary'}
-          onPress={() => { if (!tooLong) { openWhatsApp(text); setSent(true); } }}
-        />
-      }
-    >
+    <Sheet visible={visible} onClose={close} title={`Transmettre mes données à ${COACH.name}`} footer={footer}>
+      {direct ? (
+        <>
+          <Field label="Mon prénom">
+            <TextInput accessibilityLabel="Mon prénom" value={prenom} onChangeText={(v) => update({ coachFirstName: v })} style={st.input} autoComplete="given-name" textContentType="givenName" />
+          </Field>
+          <Field label="Mon téléphone" hint={`Pour que ${COACH.name} sache qui tu es et puisse te recontacter.`}>
+            <TextInput accessibilityLabel="Mon téléphone" value={tel} onChangeText={(v) => update({ coachPhone: v })} style={st.input} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
+          </Field>
+        </>
+      ) : null}
       <Field label="Période">
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {PERIODS.map((n) => <Chip key={n} label={`${n} jours`} selected={days === n} onPress={() => setDays(n)} />)}
@@ -165,9 +213,27 @@ export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClo
           <Txt size={13} style={{ lineHeight: 19 }} selectable>{text}</Txt>
         </ScrollView>
       </Field>
-      <Txt size={13} color={colors.muted} style={{ lineHeight: 19 }}>
-        {`Rien ne part tout seul : WhatsApp s'ouvre avec ce message, tu peux encore le modifier, et c'est toi qui appuies sur Envoyer. Ton journal n'est envoyé qu'à ${COACH.name}.`}
-      </Txt>
+      {direct ? (
+        <>
+          <Txt size={13} color={colors.muted} style={{ lineHeight: 19 }}>
+            {`Rien ne part tout seul : tes données ne sont envoyées que si tu appuies sur « Transmettre mes données ». Elles arrivent uniquement chez ${COACH.name}, qui les lit pour préparer votre appel.`}
+          </Txt>
+          {status === 'error' ? (
+            <Txt size={14} bold color={colors.danger} style={{ lineHeight: 20 }}>
+              L'envoi n'a pas marché (pas de réseau ?). Réessaie, ou envoie-les par WhatsApp.
+            </Txt>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <Txt size={13} color={colors.muted} style={{ lineHeight: 19 }}>
+            {`Rien ne part tout seul : WhatsApp s'ouvre avec ce message, tu peux encore le modifier, et c'est toi qui appuies sur Envoyer. Ton journal n'est envoyé qu'à ${COACH.name}.`}
+          </Txt>
+          <Txt size={14} bold color={colors.accentDark} style={{ lineHeight: 20 }}>
+            Une fois ton message envoyé, reviens dans l'appli : la réservation de ton appel gratuit t'attend ici.
+          </Txt>
+        </>
+      )}
     </Sheet>
   );
 }
@@ -176,6 +242,10 @@ const st = StyleSheet.create({
   further: {
     flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch', minHeight: 48,
     backgroundColor: colors.sandSoft, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.sand, paddingHorizontal: 18,
+  },
+  input: {
+    minHeight: 48, borderRadius: radius.m, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card,
+    paddingHorizontal: 14, fontSize: 16, color: colors.ink,
   },
   preview: {
     maxHeight: 240, borderRadius: radius.m, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, padding: 12,

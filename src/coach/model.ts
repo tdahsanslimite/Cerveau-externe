@@ -107,6 +107,31 @@ export function journalText(entries: EntryMap, today: DayKey, o: JournalTextOpti
   return lines.join('\n');
 }
 
+// ——— Transmission directe dans le Drive de Valentin (22 nov., décision de Valentin : « go drive ») ———
+// Un seul appui sur « Transmettre mes données » : on ne quitte plus l'appli (WhatsApp faisait sortir et l'utilisateur
+// ne revenait pas réserver), et les données ne traînent pas dans WhatsApp. Elles arrivent dans un Google Sheet du
+// compte TDAH de Valentin via un script Apps Script (scripts/reception-donnees.gs) qui le prévient aussi par e-mail.
+
+export const COACH_INBOX = {
+  /** Adresse « Application Web » du script (…/exec). Vide = on garde l'envoi par WhatsApp. */
+  url: '',
+  /** Même valeur que CLE dans scripts/reception-donnees.gs : écarte les envois qui ne viennent pas de l'appli. */
+  key: 'ce-coach-2026',
+};
+
+export interface InboxPayload {
+  key: string; prenom: string; telephone: string; jours: number; version: string; texte: string;
+}
+
+/** Prénom et téléphone obligatoires : sans eux, Valentin ne sait pas qui le contacte. */
+export function canTransmit(prenom: string, telephone: string): boolean {
+  return prenom.trim().length > 0 && telephone.replace(/\D/g, '').length >= 9;
+}
+
+export function inboxPayload(o: { prenom: string; telephone: string; jours: number; version: string; texte: string }): InboxPayload {
+  return { key: COACH_INBOX.key, prenom: o.prenom.trim(), telephone: o.telephone.trim(), jours: o.jours, version: o.version, texte: o.texte };
+}
+
 // ——— « Envie d'aller plus loin ? » (22 nov., décision de Valentin) ———
 // L'encadré coach devient un seul petit bouton qui ouvre une page hors de l'appli (transmettre ses données à Valentin,
 // réserver un appel gratuit de 45 min). Il est EN HAUT de l'accueil tant que la page n'a jamais été ouverte ; une fois

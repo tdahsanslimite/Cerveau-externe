@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coachStage, dayOfUse, firstUseDay, furtherOnTop, isSendJournalLink, journalText, markSeen, MAX_TEXT, QUESTION_TEXT, whatsappUrl } from './model.ts';
+import { canTransmit, COACH_INBOX, coachStage, dayOfUse, firstUseDay, furtherOnTop, inboxPayload, isSendJournalLink, journalText, markSeen, MAX_TEXT, QUESTION_TEXT, whatsappUrl } from './model.ts';
 import type { EntryMap } from '../journal/model.ts';
 
 const TODAY = '2026-11-22';
@@ -41,6 +41,17 @@ test('texte du journal : du plus ancien au plus récent, notes suivies, nuit, co
   assert.equal(lines.at(-1), 'Moyennes : Journée 5 · Tête 6 · Sommeil 8');
   const bare = journalText(e, TODAY, { days: 3, fields: ['mood'], comments: false, sleepTimes: false });
   assert.ok(!bare.includes('séance') && !bare.includes('Nuit'));
+});
+
+test('canTransmit : prénom et téléphone (9 chiffres au moins) obligatoires', () => {
+  assert.equal(canTransmit('Léa', '06 12 34 56 78'), true);
+  assert.equal(canTransmit('  ', '0612345678'), false);
+  assert.equal(canTransmit('Léa', '06 12'), false);
+});
+
+test('inboxPayload : nettoie prénom et téléphone, joint la clé', () => {
+  const p = inboxPayload({ prenom: ' Léa ', telephone: ' 0612345678 ', jours: 7, version: '74', texte: 'x' });
+  assert.deepEqual(p, { key: COACH_INBOX.key, prenom: 'Léa', telephone: '0612345678', jours: 7, version: '74', texte: 'x' });
 });
 
 test('30 jours avec commentaires restent sous la limite d’un message ordinaire', () => {

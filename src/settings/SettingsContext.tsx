@@ -45,6 +45,9 @@ export interface Settings {
   lastSeenDay?: string;
   comebackDay?: string;
   furtherOpenedDay?: string;
+  /** Prénom et téléphone donnés pour transmettre ses données à Valentin (retenus pour la fois suivante). */
+  coachFirstName?: string;
+  coachPhone?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true, defaultAlert: 'sonnerie' };
