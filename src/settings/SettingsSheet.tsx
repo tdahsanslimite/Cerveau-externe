@@ -53,6 +53,7 @@ export function GeneralSection() {
   const { settings, update } = useSettings();
   return (
     <View style={{ gap: 18 }}>
+      <TimePickerChoice />
       <TwoChoices
         label="Boutons tutoriel (?)"
         hint="En haut à droite de chaque module, pour revoir sa vidéo."
@@ -98,7 +99,6 @@ export function CalendarSection() {
           </View>
         </View>
       </View>
-      <TimePickerChoice place="calendrier" label="Pour choisir l’heure d’un événement" />
       <View style={{ gap: 8 }}>
         <GroupLabel>Agendas du téléphone (Google…)</GroupLabel>
         <PhoneCalendarsSettings />
@@ -115,11 +115,10 @@ export function CalendarSection() {
   );
 }
 
-/** Programmer : roulette / horloge ; les domaines (aussi utilisés par les idées) seulement dans sa pastille. */
+/** Programmer : les domaines (aussi utilisés par les idées), seulement dans sa pastille (dans Paramètres : sous Calendrier). */
 export function ProgrammerSection({ withDomains = false }: { withDomains?: boolean }) {
   return (
     <View style={{ gap: 18 }}>
-      <TimePickerChoice place="taches" label="Pour choisir l’heure quand une idée va au calendrier" />
       {withDomains ? (
         <View style={{ gap: 8 }}>
           <GroupLabel>Domaines</GroupLabel>
@@ -175,10 +174,6 @@ export function BreathingSection() {
   );
 }
 
-export function ReveilSection() {
-  return <TimePickerChoice place="reveil" label="Pour choisir l’heure du réveil" />;
-}
-
 /**
  * Le bloc de réglages de chaque module, dans l'ordre des Paramètres. `null` = rien à régler (pas de pastille).
  * Journal et Objectifs gardent en plus leur propre fenêtre (premier passage du Journal, « Mes thèmes »).
@@ -187,15 +182,22 @@ export const MODULE_SETTINGS: Partial<Record<ModuleId, () => React.ReactElement>
   journal: () => <JournalSection />,
   routines: () => <RoutinesSection />,
   objectifs: () => <GoalsSection />,
-  taches: () => <ProgrammerSection />,
   calendrier: () => <CalendarSection />,
   respiration: () => <BreathingSection />,
-  reveil: () => <ReveilSection />,
 };
+
+/** Modules où l'on règle une heure : leur pastille rappelle le choix roulette / horloge (qui vaut pour toute l'appli). */
+const TIME_MODULES: ModuleId[] = ['calendrier', 'taches', 'reveil'];
 
 /** Fenêtre « Réglages » d'un module : seulement ce qui concerne ce module. */
 export function ModuleSettingsSheet({ module, visible, onClose }: { module: ModuleId; visible: boolean; onClose: () => void }) {
-  const body = module === 'taches' ? <ProgrammerSection withDomains /> : MODULE_SETTINGS[module]?.() ?? null;
+  const own = module === 'taches' ? <ProgrammerSection withDomains /> : MODULE_SETTINGS[module]?.() ?? null;
+  const body = (
+    <>
+      {TIME_MODULES.includes(module) ? <TimePickerChoice /> : null}
+      {own}
+    </>
+  );
   return (
     <Sheet visible={visible} onClose={onClose} title={`Réglages · ${moduleById(module).label}`} footer={<Button label="Terminé" icon="check" onPress={onClose} />}>
       {body}
@@ -209,7 +211,7 @@ export function ModuleSettingsSheet({ module, visible, onClose }: { module: Modu
 /** Pastille réglages en haut d'un module : ouvre ses réglages (rien s'il n'a rien à régler). */
 export function ModuleSettingsButton({ module }: { module: ModuleId }) {
   const [open, setOpen] = useState(false);
-  if (!MODULE_SETTINGS[module]) return null;
+  if (!MODULE_SETTINGS[module] && !TIME_MODULES.includes(module)) return null;
   return (
     <>
       <IconButton icon="settings" label={`Réglages ${moduleById(module).label}`} onPress={() => setOpen(true)} />

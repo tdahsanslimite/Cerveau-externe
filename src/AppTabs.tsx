@@ -28,6 +28,7 @@ import { DayHost } from './tasks/DayHost';
 import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
 import { TutorialProvider } from './tutorials/Tutorials';
+import { usePickerMigration } from './settings/usePickerMigration';
 import { Icon, IconName, Txt } from './ui';
 
 type Where = 'accueil' | ModuleId;
@@ -50,6 +51,7 @@ const LIVE: { id: ModuleId; screen: () => React.ReactElement }[] = [
 
 export function AppTabs() {
   const insets = useSafeAreaInsets();
+  usePickerMigration();
   const [active, setActive] = useState<Where>('accueil');
   // Sous-menu ouvert sur l'accueil (null = les 3 catégories). Il reste ouvert quand on entre dans un module,
   // pour que « retour » ramène à la liste d'où l'on vient ; la barre « Accueil » repart des catégories.

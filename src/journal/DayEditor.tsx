@@ -145,7 +145,7 @@ function ScoreBlock({ field, value, base, note, onPick, onNote, extra }: {
 /** Heure de coucher (la veille au soir) et de lever (ce matin), avec la durée de la nuit. */
 function SleepTimes({ day }: { day: DayKey }) {
   const { entries, sleepTime, prefs } = useJournal();
-  const journalPicker = useTimePicker('journal', prefs.picker);
+  const journalPicker = useTimePicker();
   const entry = entries[day] ?? {};
   const [editing, setEditing] = useState<SleepTimeKey | null>(null);
   const duration = sleepDuration(entry);

@@ -1,10 +1,9 @@
-// Roue ou horloge pour choisir une heure, réglable séparément à chaque endroit de l'appli où l'on règle une heure
-// (22 nov., demande de Valentin : « à chaque endroit où on peut programmer de l'heure, on puisse choisir
-// dans les paramètres : roulette ou horloge »). Pur, testé.
+// Roulette ou horloge pour choisir une heure : UN SEUL réglage pour toute l'appli (22 nov., Valentin), qui s'applique
+// à tous les endroits où l'on règle une heure (TIME_PLACES). Pur, testé.
 
 export type TimePicker = 'wheel' | 'clock';
 
-/** Les endroits de l'appli où l'on choisit une heure. Ajouter un endroit : une ligne ici + `<TimeSelector place=…>`. */
+/** Les endroits de l'appli où l'on choisit une heure (tous suivent le même réglage). Nouvel endroit : une ligne ici + `<TimeSelector place=…>`. */
 export type TimePlace = 'calendrier' | 'taches' | 'journal' | 'reveil';
 
 export const TIME_PLACES: { id: TimePlace; where: string }[] = [
@@ -22,25 +21,24 @@ export const PICKER_HINT: Record<TimePicker, string> = {
 };
 
 /**
- * Le sélecteur à utiliser à un endroit. Sans choix enregistré : `fallback` (pour le Journal, l'ancien réglage
- * « Pour choisir une heure » du 17 nov., gardé dans ses préférences), sinon la roulette (le comportement d'avant).
+ * UN SEUL choix roulette / horloge pour toute l'appli (22 nov., Valentin : « quand tu as un style d'utilisation,
+ * tu veux le même sur toutes tes apps »). Absent ou abîmé = roulette (le comportement d'avant).
  */
-export function pickerFor(
-  map: Partial<Record<TimePlace, TimePicker>> | undefined,
-  place: TimePlace,
-  fallback: TimePicker = 'wheel',
-): TimePicker {
-  const v = map?.[place];
-  return v === 'wheel' || v === 'clock' ? v : fallback;
+export function resolvePicker(global: TimePicker | undefined): TimePicker {
+  return global === 'wheel' || global === 'clock' ? global : 'wheel';
 }
 
-/** Nouvelle carte des choix, avec un endroit changé (les autres gardent le leur). */
-export function setPicker(
-  map: Partial<Record<TimePlace, TimePicker>> | undefined,
-  place: TimePlace,
-  picker: TimePicker,
-): Partial<Record<TimePlace, TimePicker>> {
-  return { ...(map ?? {}), [place]: picker };
+/**
+ * Reprise des anciens choix, une seule fois, tant que le réglage unique n'existe pas : si l'horloge avait été
+ * choisie quelque part (réglages du Journal depuis le 17 nov., ou un endroit de la version du 22 nov. matin),
+ * elle devient le choix de toute l'appli. Sinon rien n'est écrit (roulette par défaut).
+ */
+export function legacyPicker(
+  perPlace: Partial<Record<TimePlace, TimePicker>> | undefined,
+  journalPicker: TimePicker | undefined,
+): TimePicker | undefined {
+  if (journalPicker === 'clock') return 'clock';
+  return Object.values(perPlace ?? {}).includes('clock') ? 'clock' : undefined;
 }
 
 /** Minutes de l'horloge : de 5 en 5 sur le cadran ; avec un pas de 1 (réveil), ±1 ajuste à la minute près. */

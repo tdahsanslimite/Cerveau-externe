@@ -31,7 +31,9 @@ export interface Settings {
   hideTutorials?: boolean;
   /** Modules dont la vidéo tuto s'est déjà ouverte toute seule (elle ne s'ouvre seule qu'une fois). */
   tutorialsSeen?: string[];
-  /** Roulette ou horloge, à chaque endroit où l'on règle une heure (22 nov.). Absent = roulette (Journal : son ancien réglage). */
+  /** Roulette ou horloge, UN SEUL choix pour toute l'appli (22 nov.). Absent = roulette. */
+  timePicker?: TimePicker;
+  /** Ancien choix par endroit (version du 22 nov. matin, v1.0.70) : plus lu, sauf pour la reprise (legacyPicker). */
   timePickers?: Partial<Record<TimePlace, TimePicker>>;
   /** Masquer la pastille rouge de retard des Routines (22 nov., réglage du module Routines). */
   hideRoutineDot?: boolean;

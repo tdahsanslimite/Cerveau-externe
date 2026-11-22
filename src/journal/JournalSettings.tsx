@@ -65,6 +65,7 @@ export function JournalSettingsSheet({ visible, onClose, firstTime }: { visible:
       ) : null}
 
       <JournalPrefsFields value={draft} onChange={setDraft} fallbackPicker={prefs.picker} />
+      {draft.fields.includes('sleep') && draft.sleepTimes ? <TimePickerChoice /> : null}
     </Sheet>
   );
 }
@@ -111,7 +112,6 @@ export function JournalPrefsFields({ value, onChange, fallbackPicker }: {
         </Field>
       ) : null}
 
-      {sleepOn && draft.sleepTimes ? <TimePickerChoice place="journal" fallback={fallbackPicker} /> : null}
     </>
   );
 }
