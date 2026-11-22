@@ -261,7 +261,8 @@ export function shortSummary(e: JournalEntry, fields: ScoreField[] = FIELDS): st
 
 // ——— Réglages du Journal (17 nov., demande de Valentin : « tout le monde n'a pas des problèmes de sommeil ») ———
 
-export type TimePicker = 'wheel' | 'clock';
+export type { TimePicker } from '../settings/timePicker';
+import type { TimePicker } from '../settings/timePicker';
 
 export interface JournalPrefs {
   /** Notes suivies, dans l'ordre de `FIELDS`. Au moins une. */

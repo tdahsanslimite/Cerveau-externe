@@ -81,7 +81,7 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       <View style={st.header}>
-        <IconButton icon="sliders" label="Réglages du journal" onPress={() => setSettingsOpen(true)} />
+        <IconButton icon="settings" label="Réglages Journal" onPress={() => setSettingsOpen(true)} />
         <View style={{ flex: 1 }}>
           <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
             {relativeLabel(day, today) ?? `Semaine ${isoWeek(day)}`}

@@ -73,7 +73,7 @@ export function GoalsScreen({ shown = true }: { shown?: boolean }) {
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       <View style={st.header}>
-        <IconButton icon="sliders" label="Mes thèmes" onPress={() => setSettings(true)} />
+        <IconButton icon="settings" label="Réglages Objectifs : mes thèmes" onPress={() => setSettings(true)} />
         <Txt bold size={22} style={{ flex: 1 }}>Objectifs</Txt>
         {!firstTime ? <IconButton icon="calendar" label="Objectifs de la semaine" onPress={() => setWeek(true)} /> : null}
         <TutorialButton id="objectifs" />

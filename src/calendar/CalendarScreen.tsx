@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PeriodLine } from '../goals/GoalLines';
 import { CalendarView, useSettings } from '../settings/SettingsContext';
-import { SettingsSheet } from '../settings/SettingsSheet';
+import { ModuleSettingsSheet } from '../settings/SettingsSheet';
 import { HoursBilan } from './HoursBilan';
 import { colors, radius } from '../theme';
 import { Icon, IconButton, Txt } from '../ui';
@@ -93,7 +93,7 @@ export function CalendarScreen() {
           </Pressable>
         ) : null}
         <IconButton icon="bar-chart-2" label="Bilan des heures" onPress={() => setBilanOpen(true)} />
-        <IconButton icon="sliders" label="Réglages" onPress={() => setSettingsOpen(true)} />
+        <IconButton icon="settings" label="Réglages Calendrier" onPress={() => setSettingsOpen(true)} />
         <TutorialButton id="calendrier" />
       </View>
 
@@ -137,7 +137,7 @@ export function CalendarScreen() {
       <EventEditor state={editor} onClose={() => setEditor(null)} />
       <PhoneEventSheet event={phoneEvent} onClose={() => setPhoneEvent(null)} />
       <RappelEditor rappel={rappelEdit} onClose={() => setRappelEdit(null)} />
-      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ModuleSettingsSheet module="calendrier" visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <HoursBilan visible={bilanOpen} onClose={() => setBilanOpen(false)} />
     </View>
   );

@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, radius } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
 import { useJournal } from './JournalContext';
+import { TimePickerChoice } from '../settings/TimeSelector';
 import { FIELD_LABEL, FIELDS, JournalPrefs, toggleField } from './model';
 import type { ScoreField } from './model';
 
@@ -47,8 +48,6 @@ export function JournalSettingsSheet({ visible, onClose, firstTime }: { visible:
     setPrefs(draft);
     onClose();
   };
-  const sleepOn = draft.fields.includes('sleep');
-  const last = draft.fields.length === 1;
 
   return (
     <Sheet
@@ -65,6 +64,24 @@ export function JournalSettingsSheet({ visible, onClose, firstTime }: { visible:
         </Txt>
       ) : null}
 
+      <JournalPrefsFields value={draft} onChange={setDraft} fallbackPicker={prefs.picker} />
+    </Sheet>
+  );
+}
+
+/**
+ * Ce que l'on règle dans le Journal (notes suivies, heures de sommeil, roulette / horloge).
+ * Partagé par la fenêtre « Réglages du journal » (avec brouillon + Valider) et Paramètres › Journal (appliqué tout de suite).
+ */
+export function JournalPrefsFields({ value, onChange, fallbackPicker }: {
+  value: JournalPrefs; onChange: (f: (p: JournalPrefs) => JournalPrefs) => void; fallbackPicker: JournalPrefs['picker'];
+}) {
+  const draft = value;
+  const setDraft = onChange;
+  const sleepOn = draft.fields.includes('sleep');
+  const last = draft.fields.length === 1;
+  return (
+    <>
       <Field label="Ce que je note chaque jour" hint="Une note décochée est masquée, pas effacée : la recocher fait revenir tes anciens jours.">
         <View style={{ gap: 8 }}>
           {FIELDS.map((f) => {
@@ -94,15 +111,8 @@ export function JournalSettingsSheet({ visible, onClose, firstTime }: { visible:
         </Field>
       ) : null}
 
-      {sleepOn && draft.sleepTimes ? (
-        <Field label="Pour choisir une heure" hint={draft.picker === 'wheel' ? 'Les heures et les minutes défilent.' : 'Tu touches l’heure sur le cadran, puis les minutes.'}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Chip label="Roue" selected={draft.picker === 'wheel'} onPress={() => setDraft((d) => ({ ...d, picker: 'wheel' }))} />
-            <Chip label="Horloge" selected={draft.picker === 'clock'} onPress={() => setDraft((d) => ({ ...d, picker: 'clock' }))} />
-          </View>
-        </Field>
-      ) : null}
-    </Sheet>
+      {sleepOn && draft.sleepTimes ? <TimePickerChoice place="journal" fallback={fallbackPicker} /> : null}
+    </>
   );
 }
 

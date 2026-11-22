@@ -10,7 +10,7 @@ import { EmptyState } from '../calendar/components';
 import { labelDayLong, todayKey } from '../calendar/dates';
 import { EditorState, EventEditor } from '../calendar/EventEditor';
 import { useAnnualOneThingText } from '../goals/GoalLines';
-import { SettingsSheet } from '../settings/SettingsSheet';
+import { ModuleSettingsSheet } from '../settings/SettingsSheet';
 import { colors, fonts, radius } from '../theme';
 import { Card, Icon, IconButton, Txt } from '../ui';
 import { TutorialButton } from '../tutorials/Tutorials';
@@ -220,7 +220,7 @@ export function TasksScreen() {
           <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>{labelDayLong(today)}</Txt>
           <Txt bold size={24}>Programmer</Txt>
         </View>
-        <IconButton icon="sliders" label="Réglages" onPress={() => setSettingsOpen(true)} />
+        <IconButton icon="settings" label="Réglages Programmer" onPress={() => setSettingsOpen(true)} />
         <TutorialButton id="taches" />
       </View>
 
@@ -294,7 +294,7 @@ export function TasksScreen() {
       />
       <TaskEditor task={editing} onClose={() => setEditing(null)} />
       <EventEditor state={editingEvent} onClose={() => setEditingEvent(null)} />
-      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ModuleSettingsSheet module="taches" visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </View>
   );
 }

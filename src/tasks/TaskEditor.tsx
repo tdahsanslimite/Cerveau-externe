@@ -9,7 +9,7 @@ import type { DayKey } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
 import { findConflict, nextFreeStart } from '../calendar/model';
 import { DomainPicker } from '../calendar/DomainPicker';
-import { TimeWheel } from '../calendar/TimeWheel';
+import { TimeSelector } from '../settings/TimeSelector';
 import { colors, fonts, radius, TOUCH } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
 import { ContentField, DeadlineField, PriorityWords } from './fields';
@@ -182,7 +182,7 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
                 <Txt size={15} color={colors.muted}>Début</Txt>
                 <Txt bold size={18}>{minutesToLabel(cal.start)}</Txt>
               </Pressable>
-              {wheel ? <TimeWheel value={cal.start} onChange={(start) => setCal({ ...cal, start })} /> : null}
+              {wheel ? <TimeSelector place="taches" value={cal.start} onChange={(start) => setCal({ ...cal, start })} /> : null}
               <View style={st.wrap}>
                 {DURATIONS.map((d) => (
                   <Chip key={d} label={durationLabel(d)} selected={cal.duration === d} onPress={() => setCal({ ...cal, duration: d })} />

@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
 import { Button, Card, Chip, Txt } from '../ui';
 import { TutorialButton } from '../tutorials/Tutorials';
+import { ModuleSettingsButton } from '../settings/SettingsSheet';
+import { useSettings } from '../settings/SettingsContext';
 import { DURATIONS_MIN, EXERCISES, formatClock, phaseAt, scaleAt } from './model';
 
 const PING_START = require('../../assets/sounds/ping-depart.wav');
@@ -22,8 +24,12 @@ export function BreathingScreen() {
   const [exerciseId, setExerciseId] = useState(EXERCISES[0].id);
   const exercise = EXERCISES.find((e) => e.id === exerciseId) ?? EXERCISES[0];
   const [minutes, setMinutes] = useState(exercise.defaultMinutes);
-  const [vibrate, setVibrate] = useState(true);
-  const [sound, setSound] = useState(true);
+  // Son et vibration : gardés dans les réglages (22 nov.), modifiables ici ou dans Paramètres › Respiration.
+  const { settings, update } = useSettings();
+  const vibrate = settings.breathVibrate !== false;
+  const sound = settings.breathSound !== false;
+  const setVibrate = (f: (v: boolean) => boolean) => update({ breathVibrate: f(vibrate) });
+  const setSound = (f: (v: boolean) => boolean) => update({ breathSound: f(sound) });
   const pingStart = useAudioPlayer(PING_START);
   const pingInspire = useAudioPlayer(PING_INSPIRE);
   const pingExpire = useAudioPlayer(PING_EXPIRE);
@@ -112,7 +118,7 @@ export function BreathingScreen() {
             <Txt size={13} color={colors.muted} style={st.eyebrow}>Apaiser</Txt>
             <Txt bold size={28}>Respiration</Txt>
           </View>
-          <TutorialButton id="respiration" />
+          <ModuleSettingsButton module="respiration" /><TutorialButton id="respiration" />
         </View>
 
         <View style={st.stage}>

@@ -1,6 +1,6 @@
 // Page d'accueil à deux niveaux : 3 grosses catégories ; un clic ouvre un sous-menu avec les modules de la catégorie.
 // Ajouter une catégorie ou un module = une entrée dans CATEGORIES / MODULES (modules.ts) ; les grilles s'adaptent au nombre.
-import React from 'react';
+import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
@@ -10,6 +10,7 @@ import {
 } from './modules';
 import { useUpdate } from '../update/useUpdate';
 import { CoachBanner } from '../coach/CoachBanner';
+import { SettingsScreen } from '../settings/SettingsScreen';
 
 export type { TileInfo };
 
@@ -82,12 +83,14 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
   info: Partial<Record<ModuleId, TileInfo>>;
 }) {
   const insets = useSafeAreaInsets();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const category = menu ? categoryById(menu) : null;
   const modules = menu ? categoryModules(menu) : [];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+      <SettingsScreen visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}>
         <View style={[st.hero, { paddingTop: insets.top + 24 }]}>
           {category ? (
             <Pressable
@@ -160,6 +163,22 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
                 </Pressable>
               );
             })}
+            {/* 22 nov. (Valentin) : tous les réglages de l'appli, en dessous des catégories. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Paramètres"
+              onPress={() => setSettingsOpen(true)}
+              style={({ pressed }) => [st.tile, st.settings, pressed && { opacity: 0.7 }]}
+            >
+              <View style={st.iconWrap}>
+                <Icon name="settings" size={24} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt bold size={17}>Paramètres</Txt>
+                <Txt size={13} color={colors.muted}>Tous les réglages de l’appli</Txt>
+              </View>
+              <Icon name="chevron-right" size={22} color={colors.faint} />
+            </Pressable>
             {isWeb ? <WebNotice /> : null}
           </View>
         )}
@@ -182,6 +201,7 @@ const st = StyleSheet.create({
     backgroundColor: colors.card, borderRadius: radius.l, borderWidth: 1, borderColor: colors.line,
     padding: 16, gap: 14, minHeight: 132, justifyContent: 'flex-start',
   },
+  settings: { flexDirection: 'row', alignItems: 'center', minHeight: 76, gap: 14, marginTop: 6 },
   category: { flexDirection: 'row', alignItems: 'center', minHeight: 112, gap: 16 },
   tileHalf: { width: '48.5%' },
   tileWide: { width: '100%', flexDirection: 'row', alignItems: 'center', minHeight: 96, gap: 16 },

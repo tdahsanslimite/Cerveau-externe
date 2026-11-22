@@ -13,6 +13,7 @@ import {
 } from './model';
 import type { ScoreField } from './model';
 import { TimeSheet } from './TimePicker';
+import { useTimePicker } from '../settings/TimeSelector';
 
 /** Texte propre à chaque note : question posée, repères 1 et 10, aide du commentaire. */
 const COPY: Record<ScoreField, { hint: string; low: string; high: string; placeholder: string }> = {
@@ -144,6 +145,7 @@ function ScoreBlock({ field, value, base, note, onPick, onNote, extra }: {
 /** Heure de coucher (la veille au soir) et de lever (ce matin), avec la durée de la nuit. */
 function SleepTimes({ day }: { day: DayKey }) {
   const { entries, sleepTime, prefs } = useJournal();
+  const journalPicker = useTimePicker('journal', prefs.picker);
   const entry = entries[day] ?? {};
   const [editing, setEditing] = useState<SleepTimeKey | null>(null);
   const duration = sleepDuration(entry);
@@ -181,7 +183,7 @@ function SleepTimes({ day }: { day: DayKey }) {
         title={editing === 'bedTime' ? 'Heure de coucher' : 'Heure de lever'}
         initial={editing ? (isClockTime(entry[editing]) ? entry[editing]! : lastTime(entries, day, editing)) : 0}
         hasValue={editing !== null && isClockTime(entry[editing])}
-        picker={prefs.picker}
+        picker={journalPicker}
         onClose={() => setEditing(null)}
         onSave={(m) => { if (editing) sleepTime(day, editing, m); setEditing(null); }}
         onClear={() => { if (editing) sleepTime(day, editing, null); setEditing(null); }}

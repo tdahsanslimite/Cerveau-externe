@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { toKey } from '../calendar/dates';
+import { useSettings } from '../settings/SettingsContext';
 import { useRoutines } from './RoutinesContext';
 import { alertOn } from './model';
 
@@ -12,6 +13,8 @@ const CHECK_EVERY_MS = 30_000;
 export function useRoutineAlert(): boolean {
   const { routines, done, lastCheckAt } = useRoutines();
   const [on, setOn] = useState(false);
+  // Réglage du module (22 nov.) : on peut masquer la pastille.
+  const hidden = !!useSettings().settings.hideRoutineDot;
 
   useEffect(() => {
     const compute = () => {
@@ -35,5 +38,5 @@ export function useRoutineAlert(): boolean {
     };
   }, [routines, done, lastCheckAt]);
 
-  return on;
+  return on && !hidden;
 }

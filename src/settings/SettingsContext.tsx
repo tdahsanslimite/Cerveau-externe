@@ -1,6 +1,7 @@
 // Réglages de l'utilisateur. Les modules suivants (tâches, routines) y ajouteront les leurs.
 import React, { createContext, ReactNode, useContext, useMemo } from 'react';
 import type { AlertKind } from '../calendar/model';
+import type { TimePicker, TimePlace } from './timePicker';
 import { usePersistentState } from '../storage';
 
 export type CalendarView = 'jour' | 'semaine' | 'mois' | 'trimestre' | 'annee';
@@ -30,6 +31,13 @@ export interface Settings {
   hideTutorials?: boolean;
   /** Modules dont la vidéo tuto s'est déjà ouverte toute seule (elle ne s'ouvre seule qu'une fois). */
   tutorialsSeen?: string[];
+  /** Roulette ou horloge, à chaque endroit où l'on règle une heure (22 nov.). Absent = roulette (Journal : son ancien réglage). */
+  timePickers?: Partial<Record<TimePlace, TimePicker>>;
+  /** Masquer la pastille rouge de retard des Routines (22 nov., réglage du module Routines). */
+  hideRoutineDot?: boolean;
+  /** Respiration : son et vibration à chaque temps (avant le 22 nov. : remis à « oui » à chaque ouverture). */
+  breathSound?: boolean;
+  breathVibrate?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true, defaultAlert: 'sonnerie' };

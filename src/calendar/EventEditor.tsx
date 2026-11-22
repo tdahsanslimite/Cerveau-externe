@@ -16,7 +16,7 @@ import { notificationsSupported } from './notifications';
 import { DomainPicker } from './DomainPicker';
 import { ItemListEditor } from './ItemListEditor';
 import { PriorityWords } from '../tasks/fields';
-import { TimeWheel } from './TimeWheel';
+import { TimeSelector } from '../settings/TimeSelector';
 
 const DAY_END = 24 * 60;
 const MIN_DURATION = 5;
@@ -211,9 +211,9 @@ export function EventEditor({ state, onClose, onSaved }: {
         {e.start !== null ? (
           <View style={{ gap: 8 }}>
             <TimeRow label="Début" value={start} open={wheel === 'start'} onToggle={() => setWheel(wheel === 'start' ? null : 'start')} />
-            {wheel === 'start' ? <TimeWheel value={start} onChange={setStart} /> : null}
+            {wheel === 'start' ? <TimeSelector place="calendrier" value={start} onChange={setStart} /> : null}
             <TimeRow label="Fin" value={end} open={wheel === 'end'} onToggle={() => setWheel(wheel === 'end' ? null : 'end')} />
-            {wheel === 'end' ? <TimeWheel value={Math.min(end, DAY_END - 5)} onChange={setEnd} /> : null}
+            {wheel === 'end' ? <TimeSelector place="calendrier" value={Math.min(end, DAY_END - 5)} onChange={setEnd} /> : null}
             <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4 }}>Durée : {durationLabel(e.durationMin)}</Txt>
           </View>
         ) : null}

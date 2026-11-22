@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TimeWheel } from '../calendar/TimeWheel';
+import { TimeSelector } from '../settings/TimeSelector';
 import { colors, fonts, radius } from '../theme';
 import { Button, Card, Chip, Field, Icon, SectionLabel, Sheet, Txt } from '../ui';
 import { TutorialButton } from '../tutorials/Tutorials';
+import { ModuleSettingsButton } from '../settings/SettingsSheet';
 import {
   ALL_WEEK, APP_SOUNDS, countOn, daysText, formatTime, MAX_ALARMS, newAlarm, nextOverall, nextRing, sortAlarms,
   soundLabel, TITLE_IDEAS, untilText, WakeAlarm, whenText, WORK_WEEK,
@@ -50,7 +51,7 @@ export function ReveilScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Txt bold size={22} style={{ flex: 1 }}>Réveil</Txt>
-          <TutorialButton id="reveil" />
+          <ModuleSettingsButton module="reveil" /><TutorialButton id="reveil" />
         </View>
         <View style={st.hero}>
           <Txt size={13} color={colors.sand} style={st.eyebrow}>Prochain réveil</Txt>
@@ -213,7 +214,7 @@ function AlarmEditor({ initial, isNew, onClose }: { initial: WakeAlarm; isNew: b
       }
     >
       <View style={{ gap: 6 }}>
-        <TimeWheel value={a.minutes} onChange={(minutes) => set({ minutes })} step={1} />
+        <TimeSelector place="reveil" value={a.minutes} onChange={(minutes) => set({ minutes })} step={1} />
         {at ? <Txt size={14} color={colors.accent} style={{ textAlign: 'center' }}>Sonnera {whenText(at, now)} ({untilText(at, now)})</Txt> : null}
       </View>
 
