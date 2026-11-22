@@ -114,7 +114,7 @@ export function journalText(entries: EntryMap, today: DayKey, o: JournalTextOpti
 
 export const COACH_INBOX = {
   /** Adresse « Application Web » du script (…/exec). Vide = on garde l'envoi par WhatsApp. */
-  url: '',
+  url: 'https://script.google.com/macros/s/AKfycbwmx5dwFvobipJykAJtgPLb4ThOckWoE0kg_myNylwdzzHfbS6yhsejgVMXqrYJuWhaMw/exec',
   /** Même valeur que CLE dans scripts/reception-donnees.gs : écarte les envois qui ne viennent pas de l'appli. */
   key: 'ce-coach-2026',
 };
