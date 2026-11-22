@@ -64,8 +64,8 @@ function Column({ values, value, onChange, label }: { values: number[]; value: n
   );
 }
 
-/** `value` en minutes depuis minuit. Les minutes hors pas (5 par défaut, 1 pour le réveil) sont arrondies à l'affichage. */
-export function TimeWheel({ value, onChange, step = 5 }: { value: number; onChange: (minutes: number) => void; step?: number }) {
+/** `value` en minutes depuis minuit. Minute par minute partout (22 nov., demande de Valentin) ; `step` reste possible. */
+export function TimeWheel({ value, onChange, step = 1 }: { value: number; onChange: (minutes: number) => void; step?: number }) {
   const h = Math.floor(value / 60);
   const m = Math.round((value % 60) / step) * step % 60;
   return (

@@ -33,8 +33,8 @@ export function IconButton({ icon, label, onPress, color = colors.ink, bordered 
   );
 }
 
-export function Chip({ label, selected, onPress, color, dot }: {
-  label: string; selected?: boolean; onPress: () => void; color?: string; dot?: string;
+export function Chip({ label, selected, onPress, onLongPress, color, dot }: {
+  label: string; selected?: boolean; onPress: () => void; onLongPress?: () => void; color?: string; dot?: string;
 }) {
   const on = color ?? colors.accent;
   return (
@@ -42,6 +42,7 @@ export function Chip({ label, selected, onPress, color, dot }: {
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.chip,
         selected ? { backgroundColor: on, borderColor: on } : null,

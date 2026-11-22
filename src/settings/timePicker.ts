@@ -41,9 +41,3 @@ export function legacyPicker(
   return Object.values(perPlace ?? {}).includes('clock') ? 'clock' : undefined;
 }
 
-/** Minutes de l'horloge : de 5 en 5 sur le cadran ; avec un pas de 1 (réveil), ±1 ajuste à la minute près. */
-export function nudgeMinutes(value: number, delta: number): number {
-  const h = Math.floor(value / 60);
-  const m = ((value % 60) + delta + 60) % 60;
-  return h * 60 + m;
-}

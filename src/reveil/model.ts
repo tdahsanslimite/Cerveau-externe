@@ -21,7 +21,8 @@ export type WakeAlarm = {
   on: boolean;
 };
 
-export type ReveilData = { alarms: WakeAlarm[] };
+/** `titles` : noms de réveils créés avec « + Ajouter » (facultatif, ajouté le 22 nov.). */
+export type ReveilData = { alarms: WakeAlarm[]; titles?: string[] };
 export const STORAGE_KEY = 'ce.reveil.v1';
 export const EMPTY: ReveilData = { alarms: [] };
 
@@ -38,8 +39,37 @@ export const APP_SOUNDS: { id: string; label: string }[] = [
 ];
 export const DEFAULT_SOUND = 'app:douceur';
 
-/** Titres proposés en un toucher (le champ reste libre). */
-export const TITLE_IDEAS = ['Réveil', 'Médicament', 'Partir', 'Manger', 'Sport', 'Se coucher'];
+/** Noms proposés de base (22 nov., choix de Valentin : seulement 3) ; les autres se créent avec « + Ajouter ». */
+export const TITLE_IDEAS = ['Réveil', 'Sieste', 'Médicament'];
+
+const same = (a: string, b: string) => a.trim().toLocaleLowerCase('fr') === b.trim().toLocaleLowerCase('fr');
+
+/** Noms à afficher : les 3 de base, ceux créés, puis le nom actuel du réveil s'il n'est dans aucune liste. */
+export function titleChoices(custom: string[] | undefined, current: string): string[] {
+  const out: string[] = [];
+  for (const t of [...TITLE_IDEAS, ...(custom ?? []), current]) {
+    const clean = t.trim();
+    if (clean && !out.some((x) => same(x, clean))) out.push(clean);
+  }
+  return out;
+}
+
+/** Ajoute un nom créé (sans doublon, ni avec les noms de base). Renvoie la liste inchangée si rien à ajouter. */
+export function addTitle(custom: string[] | undefined, name: string): string[] {
+  const list = custom ?? [];
+  const clean = name.trim().replace(/\s+/g, ' ');
+  if (!clean || [...TITLE_IDEAS, ...list].some((x) => same(x, clean))) return list;
+  return [...list, clean];
+}
+
+/** Retire un nom créé (les 3 de base ne se retirent pas). */
+export function removeTitle(custom: string[] | undefined, name: string): string[] {
+  return (custom ?? []).filter((x) => !same(x, name));
+}
+
+export function isCustomTitle(custom: string[] | undefined, name: string): boolean {
+  return (custom ?? []).some((x) => same(x, name)) && !TITLE_IDEAS.some((x) => same(x, name));
+}
 
 export const ALL_WEEK: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 export const WORK_WEEK: Weekday[] = [0, 1, 2, 3, 4];

@@ -4,7 +4,7 @@
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 import { usePersistentState } from '../storage';
-import { EMPTY, ReveilData, STORAGE_KEY, toNative, turnOffFired, WakeAlarm } from './model';
+import { addTitle, EMPTY, removeTitle, ReveilData, STORAGE_KEY, toNative, turnOffFired, WakeAlarm } from './model';
 import { consumeFired, reveilStatus, ReveilStatus, syncAlarms } from './native';
 
 interface Ctx {
@@ -14,6 +14,10 @@ interface Ctx {
   status: ReveilStatus | null;
   /** Dernier problème de programmation, s'il y en a un. */
   problem: string | null;
+  /** Noms créés avec « + Ajouter ». */
+  titles: string[];
+  addTitle: (name: string) => void;
+  removeTitle: (name: string) => void;
   saveAlarm: (a: WakeAlarm) => void;
   removeAlarm: (id: string) => void;
   setOn: (id: string, on: boolean) => void;
@@ -62,6 +66,9 @@ export function ReveilProvider({ children }: { children: ReactNode }) {
     loaded,
     status,
     problem,
+    titles: data.titles ?? [],
+    addTitle: (name) => setData((d) => ({ ...d, titles: addTitle(d.titles, name) })),
+    removeTitle: (name) => setData((d) => ({ ...d, titles: removeTitle(d.titles, name) })),
     saveAlarm: (a) =>
       setData((d) => {
         const exists = d.alarms.some((x) => x.id === a.id);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { legacyPicker, nudgeMinutes, resolvePicker, TIME_PLACES } from './timePicker.ts';
+import { legacyPicker, resolvePicker, TIME_PLACES } from './timePicker.ts';
 
 test('resolvePicker : un seul choix pour toute l’appli, roulette par défaut', () => {
   assert.equal(resolvePicker(undefined), 'wheel');
@@ -20,8 +20,3 @@ test('les 4 endroits où l’on règle une heure', () => {
   assert.deepEqual(TIME_PLACES.map((p) => p.id), ['calendrier', 'taches', 'journal', 'reveil']);
 });
 
-test('nudgeMinutes : ±1 minute sans changer l’heure', () => {
-  assert.equal(nudgeMinutes(7 * 60 + 30, 1), 7 * 60 + 31);
-  assert.equal(nudgeMinutes(7 * 60 + 59, 1), 7 * 60);
-  assert.equal(nudgeMinutes(7 * 60, -1), 7 * 60 + 59);
-});

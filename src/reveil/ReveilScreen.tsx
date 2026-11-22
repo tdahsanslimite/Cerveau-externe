@@ -10,7 +10,7 @@ import { TutorialButton } from '../tutorials/Tutorials';
 import { ModuleSettingsButton } from '../settings/SettingsSheet';
 import {
   ALL_WEEK, APP_SOUNDS, countOn, daysText, formatTime, MAX_ALARMS, newAlarm, nextOverall, nextRing, sortAlarms,
-  soundLabel, TITLE_IDEAS, untilText, WakeAlarm, whenText, WORK_WEEK,
+  soundLabel, isCustomTitle, titleChoices, untilText, WakeAlarm, whenText, WORK_WEEK,
 } from './model';
 import { openReveilSettings, pickPhoneRingtone, previewSound, reveilAvailable, stopPreview } from './native';
 import { useReveil } from './ReveilContext';
@@ -42,9 +42,9 @@ export function ReveilScreen() {
   const full = alarms.length >= MAX_ALARMS;
 
   const warnings: { text: string; action: string; kind: 'exact' | 'fullScreen' | 'notifications' }[] = [];
-  if (status && !status.exact) warnings.push({ text: 'Android n’autorise pas les alarmes à l’heure exacte : un réveil peut sonner en retard.', action: 'Autoriser', kind: 'exact' });
-  if (status && !status.notifications) warnings.push({ text: 'Les notifications sont coupées : le réveil sonnera, mais sans le bouton « J’arrête » dans la notification.', action: 'Activer', kind: 'notifications' });
-  if (status && !status.fullScreen) warnings.push({ text: 'L’écran du réveil ne peut pas s’afficher par-dessus l’écran verrouillé.', action: 'Autoriser', kind: 'fullScreen' });
+  if (status && !status.exact) warnings.push({ text: 'Réglage Android « Alarmes et rappels » coupé : un réveil peut sonner en retard.', action: 'Autoriser', kind: 'exact' });
+  if (status && !status.notifications) warnings.push({ text: 'Réglage Android « Notifications » coupé : le réveil sonne quand même, mais sans le bouton « J’arrête » dans la notification.', action: 'Activer', kind: 'notifications' });
+  if (status && !status.fullScreen) warnings.push({ text: 'Réglage Android « Notifications en plein écran » coupé : le réveil sonne quand même, mais son grand écran ne s’affiche pas sur l’écran verrouillé.', action: 'Autoriser', kind: 'fullScreen' });
 
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
@@ -157,7 +157,18 @@ export function ReveilScreen() {
 }
 
 function AlarmEditor({ initial, isNew, onClose }: { initial: WakeAlarm; isNew: boolean; onClose: () => void }) {
-  const { saveAlarm, removeAlarm } = useReveil();
+  const { saveAlarm, removeAlarm, titles, addTitle, removeTitle } = useReveil();
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const confirmTitle = () => {
+    const name = newTitle.trim().replace(/\s+/g, ' ');
+    if (name) {
+      addTitle(name);
+      set({ title: name });
+    }
+    setNewTitle('');
+    setAdding(false);
+  };
   const [a, setA] = useState<WakeAlarm>(initial);
   const [playing, setPlaying] = useState<string | null>(null);
   const now = new Date();
@@ -214,25 +225,43 @@ function AlarmEditor({ initial, isNew, onClose }: { initial: WakeAlarm; isNew: b
       }
     >
       <View style={{ gap: 6 }}>
-        <TimeSelector place="reveil" value={a.minutes} onChange={(minutes) => set({ minutes })} step={1} />
+        <TimeSelector place="reveil" value={a.minutes} onChange={(minutes) => set({ minutes })} />
         {at ? <Txt size={14} color={colors.accent} style={{ textAlign: 'center' }}>Sonnera {whenText(at, now)} ({untilText(at, now)})</Txt> : null}
       </View>
 
-      <Field label="À quoi il sert ?">
-        <TextInput
-          value={a.title}
-          onChangeText={(title) => set({ title })}
-          placeholder="Réveil, médicament, partir…"
-          placeholderTextColor={colors.faint}
-          maxLength={60}
-          style={st.input}
-          accessibilityLabel="Titre du réveil"
-        />
+      <Field
+        label="À quoi il sert ?"
+        hint={titles.length > 0 ? 'Appui long sur un nom que tu as ajouté pour le retirer.' : undefined}
+      >
         <View style={st.wrap}>
-          {TITLE_IDEAS.map((t) => (
-            <Chip key={t} label={t} selected={a.title.trim() === t} onPress={() => set({ title: t })} />
+          {titleChoices(titles, a.title).map((t) => (
+            <Chip
+              key={t}
+              label={t}
+              selected={a.title.trim() === t}
+              onPress={() => set({ title: t })}
+              onLongPress={isCustomTitle(titles, t) ? () => removeTitle(t) : undefined}
+            />
           ))}
+          {!adding ? <Chip label="+ Ajouter" onPress={() => setAdding(true)} /> : null}
         </View>
+        {adding ? (
+          <View style={st.addRow}>
+            <TextInput
+              value={newTitle}
+              onChangeText={setNewTitle}
+              placeholder="Nouveau nom (ex. Partir au travail)"
+              placeholderTextColor={colors.faint}
+              maxLength={40}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={confirmTitle}
+              style={[st.input, { flex: 1 }]}
+              accessibilityLabel="Nouveau nom de réveil"
+            />
+            <Button label="OK" onPress={confirmTitle} />
+          </View>
+        ) : null}
       </Field>
 
       <Field label="Quels jours ?" hint={a.days.length === 0 ? 'Aucun jour choisi : il sonne une seule fois, puis s’éteint.' : undefined}>
@@ -320,6 +349,7 @@ const st = StyleSheet.create({
     paddingHorizontal: 14, fontSize: 17, fontFamily: fonts.regular, color: colors.ink,
   },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   days: { flexDirection: 'row', justifyContent: 'space-between' },
   day: {
     width: 42, height: 42, borderRadius: 21, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,

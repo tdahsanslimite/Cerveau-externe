@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ALL_WEEK, countOn, daysText, formatTime, newAlarm, nextOverall, nextRing, sortAlarms, soundLabel, toNative,
+  addTitle, ALL_WEEK, countOn, isCustomTitle, removeTitle, titleChoices, daysText, formatTime, newAlarm, nextOverall, nextRing, sortAlarms, soundLabel, toNative,
   turnOffFired, untilText, whenText, WORK_WEEK,
 } from './model.ts';
 import type { WakeAlarm } from './model.ts';
@@ -94,4 +94,17 @@ test('nouveau réveil : le soir, 7:00 le lendemain ; la journée, dans environ u
   assert.equal(newAlarm(new Date(2026, 10, 12, 22, 10), 'n').minutes, 7 * 60);
   assert.equal(newAlarm(NOW, 'n').minutes, 9 * 60 + 50);
   assert.deepEqual(newAlarm(NOW, 'n').days, []);
+});
+
+test('noms de réveil : 3 de base, puis ceux qu’on ajoute', () => {
+  assert.deepEqual(titleChoices(undefined, 'Réveil'), ['Réveil', 'Sieste', 'Médicament']);
+  const custom = addTitle(undefined, '  Partir   au travail ');
+  assert.deepEqual(custom, ['Partir au travail']);
+  assert.deepEqual(addTitle(custom, 'partir au travail'), custom);
+  assert.deepEqual(addTitle(custom, 'sieste'), custom);
+  assert.deepEqual(addTitle(custom, '   '), custom);
+  assert.deepEqual(titleChoices(custom, 'Manger'), ['Réveil', 'Sieste', 'Médicament', 'Partir au travail', 'Manger']);
+  assert.equal(isCustomTitle(custom, 'Partir au travail'), true);
+  assert.equal(isCustomTitle(custom, 'Réveil'), false);
+  assert.deepEqual(removeTitle(custom, 'PARTIR au travail'), []);
 });
