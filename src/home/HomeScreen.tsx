@@ -9,7 +9,7 @@ import {
   CategoryId, CATEGORIES, categoryById, categoryInfo, categoryModules, directModule, ModuleId, tileSpan, TileInfo,
 } from './modules';
 import { useUpdate } from '../update/useUpdate';
-import { CoachBanner } from '../coach/CoachBanner';
+import { FurtherButton, useFurtherOnTop } from '../coach/CoachBanner';
 import { SettingsScreen } from '../settings/SettingsScreen';
 
 export type { TileInfo };
@@ -84,6 +84,7 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
 }) {
   const insets = useSafeAreaInsets();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const furtherTop = useFurtherOnTop();
   const category = menu ? categoryById(menu) : null;
   const modules = menu ? categoryModules(menu) : [];
 
@@ -106,7 +107,7 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
           ) : (
             <Txt size={13} color={colors.sand} style={st.eyebrow}>Cerveau externe</Txt>
           )}
-          <Txt bold size={30} color="#FFFFFF">{category ? category.label : 'Par où veux-tu commencer ?'}</Txt>
+          <Txt bold size={30} color="#FFFFFF">{category ? category.label : 'Laisse-toi guider par le PROCESS'}</Txt>
           <View style={st.rule} />
         </View>
 
@@ -137,8 +138,9 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
         ) : (
           <View style={st.list}>
             <UpdateBanner />
-            {/* 22 nov. (Valentin) : l'encadré coach, en haut de l'accueil seulement. */}
-            <CoachBanner />
+            {/* 22 nov. (Valentin) : « Envie d'aller plus loin ? » en haut tant que la page n'a jamais été ouverte,
+                ou au retour après 3 jours d'absence ; sinon plus bas, sous Paramètres. */}
+            {furtherTop === true ? <FurtherButton /> : null}
             {HOME_CATEGORIES.map((c) => {
               const extra = categoryInfo(c.id, info);
               const direct = directModule(c.id);
@@ -179,6 +181,7 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
               </View>
               <Icon name="chevron-right" size={22} color={colors.faint} />
             </Pressable>
+            {furtherTop === false ? <FurtherButton /> : null}
             {isWeb ? <WebNotice /> : null}
           </View>
         )}

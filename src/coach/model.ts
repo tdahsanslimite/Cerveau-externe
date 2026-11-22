@@ -104,3 +104,39 @@ export function journalText(entries: EntryMap, today: DayKey, o: JournalTextOpti
   if (avgs.length) lines.push('', `Moyennes : ${avgs.join(' · ')}`);
   return lines.join('\n');
 }
+
+// ——— « Envie d'aller plus loin ? » (22 nov., décision de Valentin) ———
+// L'encadré coach devient un seul petit bouton qui ouvre une page hors de l'appli (transmettre ses données à Valentin,
+// réserver un appel gratuit de 45 min). Il est EN HAUT de l'accueil tant que la page n'a jamais été ouverte ; une fois
+// ouverte, il descend sous « Paramètres ». Il remonte en haut quand l'utilisateur revient après au moins 3 jours sans
+// ouvrir l'appli (lutter contre l'abandon), puis redescend dès qu'il rouvre la page. Et ainsi de suite.
+
+/** Jours sans ouvrir l'appli après lesquels le bouton remonte en haut (ex. dernière ouverture lundi, retour jeudi). */
+export const ABSENCE_DAYS = 3;
+
+export interface Presence {
+  /** Dernier jour où l'appli a été ouverte. */
+  lastSeenDay?: DayKey;
+  /** Dernier jour de retour après une absence d'au moins ABSENCE_DAYS jours. */
+  comebackDay?: DayKey;
+}
+
+/** À chaque ouverture de l'appli : retient le jour, et le jour de retour s'il y a eu une absence. */
+export function markSeen(prev: Presence, today: DayKey): Presence {
+  const back = !!prev.lastSeenDay && diffDays(prev.lastSeenDay, today) >= ABSENCE_DAYS;
+  return { lastSeenDay: today, comebackDay: back ? today : prev.comebackDay };
+}
+
+/** Le bouton est-il en haut de l'accueil ? Jamais ouvert, ou pas rouvert depuis le dernier retour après absence. */
+export function furtherOnTop(openedDay: DayKey | undefined, comebackDay: DayKey | undefined): boolean {
+  if (!openedDay) return true;
+  return !!comebackDay && openedDay < comebackDay;
+}
+
+/** Lien qui ramène dans l'appli depuis la page externe pour envoyer son journal (schéma déclaré dans app.json). */
+export const SEND_JOURNAL_LINK = 'cerveauexterne://envoi-journal';
+
+/** Ce lien (ou une de ses variantes) demande-t-il d'ouvrir l'envoi du journal ? */
+export function isSendJournalLink(url: string | null | undefined): boolean {
+  return !!url && /^cerveauexterne:\/\/+envoi-journal/i.test(url);
+}

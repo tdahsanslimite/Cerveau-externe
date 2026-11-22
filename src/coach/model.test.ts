@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coachStage, dayOfUse, firstUseDay, journalText, MAX_TEXT, QUESTION_TEXT, whatsappUrl } from './model.ts';
+import { coachStage, dayOfUse, firstUseDay, furtherOnTop, isSendJournalLink, journalText, markSeen, MAX_TEXT, QUESTION_TEXT, whatsappUrl } from './model.ts';
 import type { EntryMap } from '../journal/model.ts';
 
 const TODAY = '2026-11-22';
@@ -48,4 +48,29 @@ test('30 jours avec commentaires restent sous la limite d’un message ordinaire
   for (let i = 1; i <= 30; i++) e[`2026-11-${String(i).padStart(2, '0')}`] = { mood: 5, mind: 5, body: 5, sleep: 5, note: 'Une phrase de commentaire assez normale.' };
   const text = journalText(e, '2026-11-30', { days: 30, fields: ['mood', 'mind', 'body', 'sleep'], comments: true, sleepTimes: false });
   assert.ok(text.length < MAX_TEXT, `${text.length}`);
+});
+
+test('markSeen : retient le jour ; un retour après 3 jours sans ouvrir l’appli est noté', () => {
+  assert.deepEqual(markSeen({}, '2026-11-22'), { lastSeenDay: '2026-11-22', comebackDay: undefined });
+  // ouvert lundi 16, revenu mercredi 18 : pas d'absence
+  assert.deepEqual(markSeen({ lastSeenDay: '2026-11-16' }, '2026-11-18'), { lastSeenDay: '2026-11-18', comebackDay: undefined });
+  // ouvert lundi 16, revenu jeudi 19 : retour
+  assert.deepEqual(markSeen({ lastSeenDay: '2026-11-16' }, '2026-11-19'), { lastSeenDay: '2026-11-19', comebackDay: '2026-11-19' });
+  // le jour de retour est gardé les jours suivants
+  assert.deepEqual(markSeen({ lastSeenDay: '2026-11-19', comebackDay: '2026-11-19' }, '2026-11-20'), { lastSeenDay: '2026-11-20', comebackDay: '2026-11-19' });
+});
+
+test('furtherOnTop : en haut tant que jamais ouvert, en bas après, remonte après une absence, redescend si rouvert', () => {
+  assert.equal(furtherOnTop(undefined, undefined), true);
+  assert.equal(furtherOnTop('2026-11-16', undefined), false);
+  assert.equal(furtherOnTop('2026-11-16', '2026-11-19'), true);
+  assert.equal(furtherOnTop('2026-11-19', '2026-11-19'), false);
+  assert.equal(furtherOnTop('2026-11-20', '2026-11-19'), false);
+});
+
+test('isSendJournalLink', () => {
+  assert.equal(isSendJournalLink('cerveauexterne://envoi-journal'), true);
+  assert.equal(isSendJournalLink('cerveauexterne:///envoi-journal?x=1'), true);
+  assert.equal(isSendJournalLink('https://wa.me/33'), false);
+  assert.equal(isSendJournalLink(null), false);
 });

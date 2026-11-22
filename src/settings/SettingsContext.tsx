@@ -40,6 +40,11 @@ export interface Settings {
   /** Respiration : son et vibration à chaque temps (avant le 22 nov. : remis à « oui » à chaque ouverture). */
   breathSound?: boolean;
   breathVibrate?: boolean;
+  /** « Envie d'aller plus loin ? » (22 nov.) : dernier jour d'ouverture de l'appli, dernier retour après 3 jours
+   *  d'absence, dernier jour où la page a été ouverte (voir coach/model.ts : markSeen, furtherOnTop). */
+  lastSeenDay?: string;
+  comebackDay?: string;
+  furtherOpenedDay?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true, defaultAlert: 'sonnerie' };

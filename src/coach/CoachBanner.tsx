@@ -1,15 +1,20 @@
-// Encadré « coach » en haut de l'accueil (seulement l'accueil, visible avant d'entrer dans un module).
-// Jours 1 à 3 : « Une question sur l'appli ? » → WhatsApp. Dès le 4e jour : « Envoie ton journal » → feuille d'envoi.
-// Logique dans model.ts ; tout passe par WhatsApp, rien ne part sans que l'utilisateur appuie sur Envoyer.
+// « Envie d'aller plus loin ? » (22 nov., décision de Valentin ; remplace le grand encadré coach du même jour) :
+// un seul petit bouton sur l'accueil, qui ouvre une page HORS de l'appli (FURTHER_URL) pour transmettre ses données
+// à Valentin et réserver un appel gratuit de 45 min. Position (en haut / sous Paramètres) : coach/model.ts.
+// La page ramène dans l'appli par le lien cerveauexterne://envoi-journal → feuille d'envoi du journal (CoachLinkHost).
+// Tout passe par WhatsApp, rien ne part sans que l'utilisateur appuie sur Envoyer.
 import React, { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { AppState, Linking, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { colors, radius } from '../theme';
 import { Button, Chip, Field, Icon, Sheet, Txt } from '../ui';
 import { todayKey } from '../calendar/dates';
 import { useSettings } from '../settings/SettingsContext';
 import { useJournal } from '../journal/JournalContext';
 import { asksSleepTimes } from '../journal/model';
-import { COACH, coachStage, firstUseDay, journalText, MAX_TEXT, QUESTION_TEXT, whatsappUrl } from './model';
+import { COACH, furtherOnTop, isSendJournalLink, journalText, markSeen, MAX_TEXT, whatsappUrl } from './model';
+
+/** Page « Envie d'aller plus loin ? » : public/aller-plus-loin/index.html, publiée avec la version web sur GitHub Pages. */
+export const FURTHER_URL = 'https://tdahsanslimite.github.io/cerveau-externe-telechargement/aller-plus-loin/';
 
 /** Ouvre WhatsApp ; sans WhatsApp sur le téléphone, la feuille de partage du téléphone prend le relais. */
 async function openWhatsApp(text: string) {
@@ -20,68 +25,80 @@ async function openWhatsApp(text: string) {
   }
 }
 
-export function CoachBanner() {
+/** Retient chaque jour d'ouverture (au démarrage et à chaque retour dans l'appli) : sert à repérer les absences. */
+export function usePresence() {
   const { settings, loaded, update } = useSettings();
-  const { entries, loaded: journalLoaded } = useJournal();
-  const [sending, setSending] = useState(false);
-  const today = todayKey();
-
-  // Premier jour d'ouverture, enregistré une seule fois.
   useEffect(() => {
-    if (loaded && !settings.firstOpenDay) update({ firstOpenDay: today });
-  }, [loaded, settings.firstOpenDay, today, update]);
+    if (!loaded) return;
+    const mark = () => {
+      const today = todayKey();
+      if (settings.lastSeenDay === today) return;
+      update(markSeen({ lastSeenDay: settings.lastSeenDay, comebackDay: settings.comebackDay }, today));
+    };
+    mark();
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') mark(); });
+    return () => sub.remove();
+  }, [loaded, settings.lastSeenDay, settings.comebackDay, update]);
+  // Premier jour d'ouverture, enregistré une seule fois (gardé : sert au jour 1 d'utilisation).
+  useEffect(() => {
+    if (loaded && !settings.firstOpenDay) update({ firstOpenDay: todayKey() });
+  }, [loaded, settings.firstOpenDay, update]);
+}
 
-  if (!loaded || !journalLoaded) return null;
-  const stage = coachStage(firstUseDay(settings.firstOpenDay, entries, today), today, entries);
+/** Le bouton est-il en haut de l'accueil ? (null tant que les réglages ne sont pas lus) */
+export function useFurtherOnTop(): boolean | null {
+  const { settings, loaded } = useSettings();
+  if (!loaded) return null;
+  return furtherOnTop(settings.furtherOpenedDay, settings.comebackDay);
+}
 
+/** Le petit bouton « Envie d'aller plus loin ? » : ouvre la page externe et retient le jour (il descend). */
+export function FurtherButton() {
+  const { update } = useSettings();
+  const open = () => {
+    update({ furtherOpenedDay: todayKey() });
+    Linking.openURL(FURTHER_URL).catch(() => undefined);
+  };
   return (
-    <View style={st.card}>
-      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-        <View style={st.icon}>
-          <Icon name={stage === 'question' ? 'message-circle' : 'send'} size={22} color={colors.accentDark} />
-        </View>
-        <View style={{ flex: 1, gap: 3 }}>
-          {stage === 'question' ? (
-            <>
-              <Txt bold size={17} color={colors.accentDark}>Une question sur l'appli ?</Txt>
-              <Txt size={14} color={colors.accentDark} style={{ lineHeight: 20 }}>
-                {`Écris-moi directement sur WhatsApp, je te réponds moi-même. — ${COACH.name}, coach TDAH`}
-              </Txt>
-            </>
-          ) : (
-            <>
-              <Txt bold size={17} color={colors.accentDark}>{`Envoie ton journal à ${COACH.name}`}</Txt>
-              <Txt size={14} color={colors.accentDark} style={{ lineHeight: 20 }}>
-                Coach TDAH : on le lit ensemble lors d'un premier appel offert, pour comprendre ce qui se répète.
-              </Txt>
-            </>
-          )}
-        </View>
-      </View>
-      <View style={st.actions}>
-        {stage === 'journal' ? (
-          <Pressable accessibilityRole="button" onPress={() => openWhatsApp(QUESTION_TEXT)} hitSlop={6} style={({ pressed }) => [st.secondary, pressed && { opacity: 0.6 }]}>
-            <Txt size={14} color={colors.accentDark}>Juste une question</Txt>
-          </Pressable>
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => (stage === 'question' ? openWhatsApp(QUESTION_TEXT) : setSending(true))}
-          style={({ pressed }) => [st.primary, pressed && { opacity: 0.8 }]}
-        >
-          <Icon name={stage === 'question' ? 'message-circle' : 'send'} size={16} color="#FFFFFF" />
-          <Txt bold size={15} color="#FFFFFF">{stage === 'question' ? 'Écrire sur WhatsApp' : 'Envoyer mon journal'}</Txt>
-        </Pressable>
-      </View>
-      <SendJournalSheet visible={sending} onClose={() => setSending(false)} />
-    </View>
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel="Envie d'aller plus loin ? Ouvre une page hors de l'appli"
+      onPress={open}
+      style={({ pressed }) => [st.further, pressed && { opacity: 0.75 }]}
+    >
+      <Icon name="compass" size={18} color={colors.accentDark} />
+      <Txt bold size={15} color={colors.accentDark} style={{ flex: 1 }}>Envie d'aller plus loin ?</Txt>
+      <Icon name="external-link" size={16} color={colors.accentDark} />
+    </Pressable>
+  );
+}
+
+/** Écoute le lien cerveauexterne://envoi-journal (depuis la page externe) et ouvre la feuille d'envoi du journal. */
+export function CoachLinkHost() {
+  const [sending, setSending] = useState(false);
+  useEffect(() => {
+    Linking.getInitialURL().then((u) => { if (isSendJournalLink(u)) setSending(true); }).catch(() => undefined);
+    const sub = Linking.addEventListener('url', ({ url }) => { if (isSendJournalLink(url)) setSending(true); });
+    return () => sub.remove();
+  }, []);
+  return <SendJournalSheet visible={sending} onClose={() => setSending(false)} />;
+}
+
+/** Bouton « Envoyer mon journal à Valentin » (Paramètres › Journal) : secours si le lien de la page ne marche pas. */
+export function SendJournalButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button label={`Envoyer mon journal à ${COACH.name}`} kind="ghost" icon="send" onPress={() => setOpen(true)} />
+      <SendJournalSheet visible={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 
 const PERIODS = [7, 14, 30];
 
 /** Choisir quoi envoyer, relire le texte exact, puis ouvrir WhatsApp avec le message prêt. */
-function SendJournalSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { entries, prefs } = useJournal();
   const [days, setDays] = useState(7);
   const [comments, setComments] = useState(true);
@@ -127,14 +144,10 @@ function SendJournalSheet({ visible, onClose }: { visible: boolean; onClose: () 
 }
 
 const st = StyleSheet.create({
-  card: { backgroundColor: colors.sandSoft, borderRadius: radius.l, padding: 16, gap: 12, borderWidth: 1, borderColor: colors.sand },
-  icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
-  actions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' },
-  primary: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.accentDark, borderRadius: radius.m,
-    paddingHorizontal: 16, minHeight: 44,
+  further: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch', minHeight: 48,
+    backgroundColor: colors.sandSoft, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.sand, paddingHorizontal: 18,
   },
-  secondary: { paddingHorizontal: 8, minHeight: 44, justifyContent: 'center' },
   preview: {
     maxHeight: 240, borderRadius: radius.m, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, padding: 12,
   },

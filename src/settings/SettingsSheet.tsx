@@ -12,6 +12,7 @@ import { moduleById } from '../home/modules';
 import { useJournal } from '../journal/JournalContext';
 import { JournalPrefsFields } from '../journal/JournalSettings';
 import { ThemesSheet } from '../goals/ThemeSheets';
+import { SendJournalButton } from '../coach/CoachBanner';
 import { DomainsEditor } from './DomainsEditor';
 import { PhoneCalendarsSettings } from './PhoneCalendarsSettings';
 import { RemindersSettings } from './RemindersSettings';
@@ -149,6 +150,7 @@ export function JournalSection() {
   return (
     <View style={{ gap: 18 }}>
       <JournalPrefsFields value={prefs} onChange={(f) => setPrefs(f(prefs))} fallbackPicker={prefs.picker} />
+      <SendJournalButton />
     </View>
   );
 }
