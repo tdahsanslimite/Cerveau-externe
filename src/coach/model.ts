@@ -17,6 +17,8 @@ export const COACH = {
   name: 'Valentin',
   /** Numéro WhatsApp au format international sans « + » ni espaces (donné par Valentin le 22 nov. : 06 20 88 22 80). */
   whatsapp: '33620882280',
+  /** Appel découverte gratuit de 45 min (événement secret, donné par Valentin le 22 nov.). */
+  calendly: 'https://calendly.com/orducadre/tdahsanslimite',
 };
 
 /** Jours d'utilisation avant de proposer l'envoi du journal (jours 1 à 3 : la question ; dès le 4e : le journal). */

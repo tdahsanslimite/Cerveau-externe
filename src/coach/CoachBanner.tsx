@@ -97,26 +97,55 @@ export function SendJournalButton() {
 
 const PERIODS = [7, 14, 30];
 
-/** Choisir quoi envoyer, relire le texte exact, puis ouvrir WhatsApp avec le message prêt. */
+/**
+ * Choisir quoi envoyer, relire le texte exact, puis ouvrir WhatsApp avec le message prêt.
+ * Envoyer sur WhatsApp fait sortir de l'appli : la feuille ne se ferme donc pas, elle passe à l'étape « Réserver
+ * mon appel » (22 nov., Valentin : au retour on n'est plus sur la page qui montrait Calendly). Données d'abord, appel ensuite.
+ */
 export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { entries, prefs } = useJournal();
   const [days, setDays] = useState(7);
   const [comments, setComments] = useState(true);
+  const [sent, setSent] = useState(false);
   const today = todayKey();
   const text = journalText(entries, today, { days, fields: prefs.fields, comments, sleepTimes: asksSleepTimes(prefs) });
   const tooLong = text.length > MAX_TEXT;
+  const close = () => { setSent(false); onClose(); };
+
+  if (sent) {
+    return (
+      <Sheet
+        visible={visible}
+        onClose={close}
+        title="Dernière étape"
+        footer={
+          <>
+            <Button label="Réserver mon appel gratuit" icon="calendar" onPress={() => { Linking.openURL(COACH.calendly).catch(() => undefined); close(); }} />
+            <Button label="Je n'ai pas encore envoyé" kind="ghost" icon="send" onPress={() => setSent(false)} />
+          </>
+        }
+      >
+        <Txt size={16} style={{ lineHeight: 23 }}>
+          {`Ton journal est parti sur WhatsApp ? Réserve maintenant ton appel gratuit de 45 min avec ${COACH.name}.`}
+        </Txt>
+        <Txt size={14} color={colors.muted} style={{ lineHeight: 20 }}>
+          Je prends le temps d'analyser tes données avant notre appel. Tu vois seulement les créneaux où je suis disponible.
+        </Txt>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet
       visible={visible}
-      onClose={onClose}
+      onClose={close}
       title={`Envoyer mon journal à ${COACH.name}`}
       footer={
         <Button
           label={tooLong ? 'Trop long : réduis la période' : 'Ouvrir WhatsApp'}
           icon="send"
           kind={tooLong ? 'ghost' : 'primary'}
-          onPress={() => { if (!tooLong) { openWhatsApp(text); onClose(); } }}
+          onPress={() => { if (!tooLong) { openWhatsApp(text); setSent(true); } }}
         />
       }
     >
