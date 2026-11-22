@@ -11,7 +11,7 @@ import { todayKey } from '../calendar/dates';
 import { useSettings } from '../settings/SettingsContext';
 import { useJournal } from '../journal/JournalContext';
 import { asksSleepTimes } from '../journal/model';
-import { COACH, furtherOnTop, isSendJournalLink, journalText, markSeen, MAX_TEXT, whatsappUrl } from './model';
+import { COACH, furtherOnTop, isSendJournalLink, journalText, markSeen, MAX_TEXT, whatsappUrl, withBookingLink } from './model';
 
 /** Page « Envie d'aller plus loin ? » : public/aller-plus-loin/index.html, publiée avec la version web sur GitHub Pages. */
 export const FURTHER_URL = 'https://tdahsanslimite.github.io/cerveau-externe-telechargement/aller-plus-loin/';
@@ -108,7 +108,7 @@ export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClo
   const [comments, setComments] = useState(true);
   const [sent, setSent] = useState(false);
   const today = todayKey();
-  const text = journalText(entries, today, { days, fields: prefs.fields, comments, sleepTimes: asksSleepTimes(prefs) });
+  const text = withBookingLink(journalText(entries, today, { days, fields: prefs.fields, comments, sleepTimes: asksSleepTimes(prefs) }));
   const tooLong = text.length > MAX_TEXT;
   const close = () => { setSent(false); onClose(); };
 
@@ -129,7 +129,7 @@ export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClo
           {`Ton journal est parti sur WhatsApp ? Réserve maintenant ton appel gratuit de 45 min avec ${COACH.name}.`}
         </Txt>
         <Txt size={14} color={colors.muted} style={{ lineHeight: 20 }}>
-          Je prends le temps d'analyser tes données avant notre appel. Tu vois seulement les créneaux où je suis disponible.
+          {`${COACH.name} analysera tes données en amont et vous pourrez faire le point lors de l'appel. Tu vois seulement les créneaux au sein desquels ${COACH.name} est disponible.`}
         </Txt>
       </Sheet>
     );
@@ -167,6 +167,9 @@ export function SendJournalSheet({ visible, onClose }: { visible: boolean; onClo
       </Field>
       <Txt size={13} color={colors.muted} style={{ lineHeight: 19 }}>
         {`Rien ne part tout seul : WhatsApp s'ouvre avec ce message, tu peux encore le modifier, et c'est toi qui appuies sur Envoyer. Ton journal n'est envoyé qu'à ${COACH.name}.`}
+      </Txt>
+      <Txt size={14} bold color={colors.accentDark} style={{ lineHeight: 20 }}>
+        Une fois ton message envoyé, touche le lien en bas de ton message dans WhatsApp pour réserver ton appel gratuit.
       </Txt>
     </Sheet>
   );

@@ -107,6 +107,14 @@ export function journalText(entries: EntryMap, today: DayKey, o: JournalTextOpti
   return lines.join('\n');
 }
 
+/**
+ * Ajoute le lien de réservation en bas du message (22 nov.) : WhatsApp fait sortir de l'appli et la personne n'y revient
+ * pas forcément ; une fois son message envoyé, elle touche le lien dans la conversation WhatsApp pour réserver.
+ */
+export function withBookingLink(text: string, url: string = COACH.calendly): string {
+  return `${text}\n\nJe réserve mon appel gratuit (45 min) : ${url}`;
+}
+
 // ——— « Envie d'aller plus loin ? » (22 nov., décision de Valentin) ———
 // L'encadré coach devient un seul petit bouton qui ouvre une page hors de l'appli (transmettre ses données à Valentin,
 // réserver un appel gratuit de 45 min). Il est EN HAUT de l'accueil tant que la page n'a jamais été ouverte ; une fois

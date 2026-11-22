@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coachStage, dayOfUse, firstUseDay, furtherOnTop, isSendJournalLink, journalText, markSeen, MAX_TEXT, QUESTION_TEXT, whatsappUrl } from './model.ts';
+import { COACH, coachStage, dayOfUse, firstUseDay, furtherOnTop, isSendJournalLink, journalText, markSeen, MAX_TEXT, QUESTION_TEXT, whatsappUrl, withBookingLink } from './model.ts';
 import type { EntryMap } from '../journal/model.ts';
 
 const TODAY = '2026-11-22';
@@ -41,6 +41,12 @@ test('texte du journal : du plus ancien au plus récent, notes suivies, nuit, co
   assert.equal(lines.at(-1), 'Moyennes : Journée 5 · Tête 6 · Sommeil 8');
   const bare = journalText(e, TODAY, { days: 3, fields: ['mood'], comments: false, sleepTimes: false });
   assert.ok(!bare.includes('séance') && !bare.includes('Nuit'));
+});
+
+test('withBookingLink : le lien Calendly en dernière ligne du message', () => {
+  const t = withBookingLink('Bonjour', 'https://calendly.com/x');
+  assert.equal(t.split('\n').at(-1), 'Je réserve mon appel gratuit (45 min) : https://calendly.com/x');
+  assert.ok(withBookingLink('a').includes(COACH.calendly));
 });
 
 test('30 jours avec commentaires restent sous la limite d’un message ordinaire', () => {
