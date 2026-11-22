@@ -5,14 +5,20 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 import { Card, Icon, Txt } from '../ui';
+import { TutorialButton } from '../tutorials/Tutorials';
 
 export function MeditationScreen() {
   const insets = useSafeAreaInsets();
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       <View style={st.content}>
-        <Txt size={13} color={colors.muted} style={st.eyebrow}>Apaiser</Txt>
-        <Txt bold size={28}>Méditation</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Txt size={13} color={colors.muted} style={st.eyebrow}>Apaiser</Txt>
+            <Txt bold size={28}>Méditation</Txt>
+          </View>
+          <TutorialButton id="meditation" />
+        </View>
         <Card style={st.card}>
           <View style={st.badge}>
             <Icon name="moon" size={28} color={colors.accent} />

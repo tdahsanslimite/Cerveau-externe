@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { todayKey } from '../calendar/dates';
 import { colors, radius } from '../theme';
 import { IconButton, Txt } from '../ui';
+import { TutorialButton } from '../tutorials/Tutorials';
 import { BlasonView } from './BlasonView';
 import { useGoals } from './GoalsContext';
 import { BLASON, blasonCount, ThemeId, Zoom, zoomToday, zoomYear } from './model';
@@ -75,6 +76,7 @@ export function GoalsScreen({ shown = true }: { shown?: boolean }) {
         <IconButton icon="sliders" label="Mes thèmes" onPress={() => setSettings(true)} />
         <Txt bold size={22} style={{ flex: 1 }}>Objectifs</Txt>
         {!firstTime ? <IconButton icon="calendar" label="Objectifs de la semaine" onPress={() => setWeek(true)} /> : null}
+        <TutorialButton id="objectifs" />
       </View>
       <View style={st.navRow}>
         <View style={st.segmented} accessibilityRole="tablist">

@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Vibration, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
 import { Button, Card, Chip, Txt } from '../ui';
+import { TutorialButton } from '../tutorials/Tutorials';
 import { DURATIONS_MIN, EXERCISES, formatClock, phaseAt, scaleAt } from './model';
 
 const PING_START = require('../../assets/sounds/ping-depart.wav');
@@ -106,8 +107,13 @@ export function BreathingScreen() {
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={st.content} keyboardShouldPersistTaps="handled">
-        <Txt size={13} color={colors.muted} style={st.eyebrow}>Apaiser</Txt>
-        <Txt bold size={28}>Respiration</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Txt size={13} color={colors.muted} style={st.eyebrow}>Apaiser</Txt>
+            <Txt bold size={28}>Respiration</Txt>
+          </View>
+          <TutorialButton id="respiration" />
+        </View>
 
         <View style={st.stage}>
           <View

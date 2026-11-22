@@ -47,6 +47,16 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
         </View>
       </View>
       <View style={{ gap: 8 }}>
+        <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 4 }}>Tutoriels</Txt>
+        <View style={[st.group, { padding: 14, gap: 10 }]}>
+          <Txt size={13} color={colors.muted}>Le bouton (?) en haut à droite de chaque module, pour revoir sa vidéo.</Txt>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Chip label="Afficher" selected={!settings.hideTutorials} onPress={() => update({ hideTutorials: false })} />
+            <Chip label="Masquer" selected={!!settings.hideTutorials} onPress={() => update({ hideTutorials: true })} />
+          </View>
+        </View>
+      </View>
+      <View style={{ gap: 8 }}>
         <Txt size={13} color={colors.muted} style={{ textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 4 }}>Agendas du téléphone</Txt>
         <PhoneCalendarsSettings />
       </View>

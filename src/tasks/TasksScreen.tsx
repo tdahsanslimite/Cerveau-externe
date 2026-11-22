@@ -13,6 +13,7 @@ import { useAnnualOneThingText } from '../goals/GoalLines';
 import { SettingsSheet } from '../settings/SettingsSheet';
 import { colors, fonts, radius } from '../theme';
 import { Card, Icon, IconButton, Txt } from '../ui';
+import { TutorialButton } from '../tutorials/Tutorials';
 import { useApplyUpdates } from './apply';
 import { TaskRow } from './components';
 import { byQuadrant, moveIdea, QuadrantId, QUADRANTS, Task, TaskItem } from './model';
@@ -220,6 +221,7 @@ export function TasksScreen() {
           <Txt bold size={24}>Programmer</Txt>
         </View>
         <IconButton icon="sliders" label="Réglages" onPress={() => setSettingsOpen(true)} />
+        <TutorialButton id="taches" />
       </View>
 
       <View style={st.capture}>

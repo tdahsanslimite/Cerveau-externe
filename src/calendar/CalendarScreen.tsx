@@ -9,6 +9,7 @@ import { SettingsSheet } from '../settings/SettingsSheet';
 import { HoursBilan } from './HoursBilan';
 import { colors, radius } from '../theme';
 import { Icon, IconButton, Txt } from '../ui';
+import { TutorialButton } from '../tutorials/Tutorials';
 import { addDays, addMonths, DayKey, fromKey, isoWeek, labelDayLong, labelMonth, labelWeekRange, relativeLabel, startOfWeek, todayKey } from './dates';
 import { useCalendar } from './CalendarContext';
 import { EditorState, EventEditor } from './EventEditor';
@@ -93,6 +94,7 @@ export function CalendarScreen() {
         ) : null}
         <IconButton icon="bar-chart-2" label="Bilan des heures" onPress={() => setBilanOpen(true)} />
         <IconButton icon="sliders" label="Réglages" onPress={() => setSettingsOpen(true)} />
+        <TutorialButton id="calendrier" />
       </View>
 
       <View style={st.navRow}>

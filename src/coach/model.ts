@@ -1,0 +1,106 @@
+// Encadré « coach » de l'accueil (22 nov., décision de Valentin) — logique pure, testée dans model.test.ts.
+//
+// Le parcours : l'appli est gratuite ; la valeur payante, c'est l'analyse humaine de Valentin.
+//  - Jours 1 à 3 d'utilisation : « Une question sur l'appli ? » → WhatsApp de Valentin (c'est l'utilisateur qui écrit
+//    le premier : consentement maximum).
+//  - À partir du 4e jour (s'il a noté au moins un jour) : « Envoie ton journal » → l'utilisateur choisit la période et les
+//    commentaires, relit le texte, puis WhatsApp s'ouvre avec le message prêt. Rien ne part sans son geste.
+// Le journal part en TEXTE dans WhatsApp (pas de fichier, pas de serveur) : Valentin le lit directement.
+import { addDays, DAY_SHORT, diffDays, fromKey, weekdayIndex } from '../calendar/dates.ts';
+import type { DayKey } from '../calendar/dates.ts';
+import {
+  average, FIELD_LABEL, formatClock, formatDuration, formatScore, isClockTime, isEmptyEntry, isScore, noteOf, sleepDuration,
+} from '../journal/model.ts';
+import type { EntryMap, ScoreField } from '../journal/model.ts';
+
+export const COACH = {
+  name: 'Valentin',
+  /** Numéro WhatsApp au format international sans « + » ni espaces (donné par Valentin le 22 nov. : 06 20 88 22 80). */
+  whatsapp: '33620882280',
+};
+
+/** Jours d'utilisation avant de proposer l'envoi du journal (jours 1 à 3 : la question ; dès le 4e : le journal). */
+export const QUESTION_DAYS = 3;
+
+export type CoachStage = 'question' | 'journal';
+
+/**
+ * Premier jour d'utilisation : le plus ancien entre le jour enregistré à la première ouverture et le premier jour noté
+ * du journal (quelqu'un qui notait déjà avant cette version n'a pas à attendre 3 jours de plus).
+ */
+export function firstUseDay(stored: DayKey | undefined, entries: EntryMap, today: DayKey): DayKey {
+  const days = Object.keys(entries).filter((d) => d <= today && !isEmptyEntry(entries[d])).sort();
+  const candidates = [stored ?? today, ...(days.length ? [days[0]] : [])];
+  return candidates.sort()[0];
+}
+
+/** Numéro du jour d'utilisation : 1 le premier jour. */
+export function dayOfUse(first: DayKey, today: DayKey): number {
+  return Math.max(1, diffDays(first, today) + 1);
+}
+
+/** Quel encadré montrer : la question les 3 premiers jours, puis l'envoi du journal s'il y a au moins un jour noté. */
+export function coachStage(first: DayKey, today: DayKey, entries: EntryMap): CoachStage {
+  const noted = Object.keys(entries).some((d) => d <= today && !isEmptyEntry(entries[d]));
+  return dayOfUse(first, today) > QUESTION_DAYS && noted ? 'journal' : 'question';
+}
+
+/** Lien qui ouvre WhatsApp sur la conversation avec Valentin, message prêt (l'utilisateur appuie lui-même sur Envoyer). */
+export function whatsappUrl(text: string, phone: string = COACH.whatsapp): string {
+  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+}
+
+export const QUESTION_TEXT = `Bonjour ${COACH.name}, j'utilise l'appli Cerveau Externe et j'ai une question : `;
+
+/** Au-delà, le lien WhatsApp risque d'être trop long : on propose une période plus courte ou sans commentaires. */
+export const MAX_TEXT = 6000;
+
+export interface JournalTextOptions {
+  /** Nombre de jours envoyés, jusqu'à aujourd'hui inclus. */
+  days: number;
+  /** Notes suivies (réglages du journal). */
+  fields: ScoreField[];
+  comments: boolean;
+  /** Ajouter les heures de coucher / lever. */
+  sleepTimes: boolean;
+}
+
+const SHORT: Record<ScoreField, string> = { mood: 'Journée', mind: 'Tête', body: 'Corps', sleep: 'Sommeil' };
+
+const dayLabel = (d: DayKey) => {
+  const date = fromKey(d);
+  return `${DAY_SHORT[weekdayIndex(d)]} ${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/** Le message envoyé à Valentin : les jours du plus ancien au plus récent, puis les moyennes. */
+export function journalText(entries: EntryMap, today: DayKey, o: JournalTextOptions): string {
+  const days = Array.from({ length: o.days }, (_, i) => addDays(today, i - o.days + 1));
+  const lines: string[] = [
+    `Bonjour ${COACH.name}, voici mon journal Cerveau Externe des ${o.days} derniers jours. J'aimerais en parler avec toi lors d'un appel.`,
+    '',
+  ];
+  for (const d of days) {
+    const e = entries[d];
+    const scores = o.fields.filter((f) => isScore(e?.[f])).map((f) => `${SHORT[f]} ${e![f]}`);
+    const night = o.sleepTimes && e && (isClockTime(e.bedTime) || isClockTime(e.wakeTime))
+      ? `Nuit ${isClockTime(e.bedTime) ? formatClock(e.bedTime) : '?'} → ${isClockTime(e.wakeTime) ? formatClock(e.wakeTime) : '?'}`
+        + (sleepDuration(e) !== null ? ` (${formatDuration(sleepDuration(e)!)})` : '')
+      : null;
+    const parts = [...scores, ...(night ? [night] : [])];
+    const comments = o.comments && e
+      ? o.fields.map((f) => ({ f, t: noteOf(e, f).trim() })).filter((c) => c.t)
+      : [];
+    if (!parts.length && !comments.length) {
+      lines.push(`${dayLabel(d)} : pas noté`);
+      continue;
+    }
+    lines.push(`${dayLabel(d)} : ${parts.length ? parts.join(' · ') : 'pas de note'}`);
+    for (const c of comments) lines.push(`   ${FIELD_LABEL[c.f]} : ${c.t.replace(/\s*\n\s*/g, ' / ')}`);
+  }
+  const avgs = o.fields
+    .map((f) => ({ f, v: average(entries, days, f) }))
+    .filter((a) => a.v !== null)
+    .map((a) => `${SHORT[a.f]} ${formatScore(a.v!)}`);
+  if (avgs.length) lines.push('', `Moyennes : ${avgs.join(' · ')}`);
+  return lines.join('\n');
+}

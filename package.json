@@ -20,7 +20,8 @@
     "react-native-android-widget": "0.26.0",
     "react-native-notify-kit": "^10.9.0",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-web": "~0.21.0"
+    "react-native-web": "~0.21.0",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

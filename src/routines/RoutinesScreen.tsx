@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
 import { Button, Card, Icon, IconButton, SectionLabel, Txt } from '../ui';
+import { TutorialButton } from '../tutorials/Tutorials';
 import { addDays, DAY_SHORT, DayKey, fromKey, isoWeek, labelDayLong, labelWeekRange, relativeLabel, startOfWeek, todayKey, weekDays } from '../calendar/dates';
 import { BilanScreen } from './BilanScreen';
 import { RoutineChecklist } from './components';
@@ -41,6 +42,7 @@ export function RoutinesScreen() {
             <Txt bold size={14} color={colors.accent}>Aujourd'hui</Txt>
           </Pressable>
         ) : null}
+        <TutorialButton id="routines" />
       </View>
 
       <View style={st.navRow}>

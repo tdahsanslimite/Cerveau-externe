@@ -24,6 +24,12 @@ export interface Settings {
   dayPopupDay?: string;
   /** Premier jour pris en compte par le ménage de la veille (jour d'installation de cette version : pas d'historique à rattraper). */
   reviewFrom?: string;
+  /** Premier jour d'ouverture de l'appli (encadré coach de l'accueil : la question les 3 premiers jours, puis l'envoi du journal). */
+  firstOpenDay?: string;
+  /** Masquer les boutons « tutoriel » (?) en haut des modules (22 nov., demande de Valentin : retirable dans les réglages). */
+  hideTutorials?: boolean;
+  /** Modules dont la vidéo tuto s'est déjà ouverte toute seule (elle ne s'ouvre seule qu'une fois). */
+  tutorialsSeen?: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = { dailyLimit: 6, startView: 'jour', showFreeSlots: true, defaultAlert: 'sonnerie' };

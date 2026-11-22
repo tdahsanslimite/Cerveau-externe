@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TimeWheel } from '../calendar/TimeWheel';
 import { colors, fonts, radius } from '../theme';
 import { Button, Card, Chip, Field, Icon, SectionLabel, Sheet, Txt } from '../ui';
+import { TutorialButton } from '../tutorials/Tutorials';
 import {
   ALL_WEEK, APP_SOUNDS, countOn, daysText, formatTime, MAX_ALARMS, newAlarm, nextOverall, nextRing, sortAlarms,
   soundLabel, TITLE_IDEAS, untilText, WakeAlarm, whenText, WORK_WEEK,
@@ -47,6 +48,10 @@ export function ReveilScreen() {
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Txt bold size={22} style={{ flex: 1 }}>Réveil</Txt>
+          <TutorialButton id="reveil" />
+        </View>
         <View style={st.hero}>
           <Txt size={13} color={colors.sand} style={st.eyebrow}>Prochain réveil</Txt>
           {next ? (

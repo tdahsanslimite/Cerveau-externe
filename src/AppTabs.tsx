@@ -27,6 +27,7 @@ import { CleanupHost } from './tasks/CleanupHost';
 import { DayHost } from './tasks/DayHost';
 import { useTaskItems } from './tasks/useTaskItems';
 import { colors } from './theme';
+import { TutorialProvider } from './tutorials/Tutorials';
 import { Icon, IconName, Txt } from './ui';
 
 type Where = 'accueil' | ModuleId;
@@ -96,6 +97,7 @@ export function AppTabs() {
   };
 
   return (
+    <TutorialProvider active={active === 'accueil' ? null : active}>
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style={active === 'accueil' ? 'light' : 'dark'} />
       {/* La barre du bas gère elle-même la zone de sécurité : les écrans n'ont pas à l'ajouter. */}
@@ -167,6 +169,7 @@ export function AppTabs() {
         </View>
       ) : null}
     </View>
+    </TutorialProvider>
   );
 }
 

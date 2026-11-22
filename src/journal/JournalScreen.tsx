@@ -16,6 +16,7 @@ import {
 } from './model';
 import { JournalSettingsSheet } from './JournalSettings';
 import { RecapScreen } from './RecapScreen';
+import { TutorialButton } from '../tutorials/Tutorials';
 import { SLEEP_COLOR, SleepChart } from './SleepChart';
 
 const CHART_DAYS = 14;
@@ -94,6 +95,7 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
         ) : null}
         <IconButton icon="chevron-left" label="Jour précédent" onPress={() => setDay((d) => addDays(d, -1))} />
         {day < today ? <IconButton icon="chevron-right" label="Jour suivant" onPress={() => setDay((d) => addDays(d, 1))} /> : <View style={{ width: 44 }} />}
+        <TutorialButton id="journal" />
       </View>
 
       <ScrollView ref={scroller} contentContainerStyle={[st.content, { paddingBottom: 110 }]} keyboardShouldPersistTaps="handled">

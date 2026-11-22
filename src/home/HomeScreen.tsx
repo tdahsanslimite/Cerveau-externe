@@ -9,6 +9,7 @@ import {
   CategoryId, CATEGORIES, categoryById, categoryInfo, categoryModules, directModule, ModuleId, tileSpan, TileInfo,
 } from './modules';
 import { useUpdate } from '../update/useUpdate';
+import { CoachBanner } from '../coach/CoachBanner';
 
 export type { TileInfo };
 
@@ -133,6 +134,8 @@ export function HomeScreen({ menu, onMenu, onOpen, info }: {
         ) : (
           <View style={st.list}>
             <UpdateBanner />
+            {/* 22 nov. (Valentin) : l'encadré coach, en haut de l'accueil seulement. */}
+            <CoachBanner />
             {HOME_CATEGORIES.map((c) => {
               const extra = categoryInfo(c.id, info);
               const direct = directModule(c.id);
