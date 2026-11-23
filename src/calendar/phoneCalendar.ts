@@ -45,5 +45,6 @@ export async function listPhoneEvents(calendarIds: string[], from: Date, to: Dat
     endDate: e.endDate,
     allDay: !!e.allDay,
     location: e.location,
+    notes: e.notes,
   }));
 }

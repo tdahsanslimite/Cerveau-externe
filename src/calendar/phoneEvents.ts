@@ -19,6 +19,8 @@ export interface RawPhoneEvent {
   endDate: string | Date;
   allDay: boolean;
   location?: string | null;
+  /** Description de l'événement (sert à reconnaître les créneaux du planning BAM, voir bamImport.ts). */
+  notes?: string | null;
 }
 
 /** Préfixe des domaines virtuels : un domaine par agenda du téléphone (pour la couleur et le bilan des heures). */

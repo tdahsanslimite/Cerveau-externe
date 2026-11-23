@@ -9,11 +9,17 @@ import type { DayKey } from './dates';
 import { CalendarEvent, DEFAULT_DOMAINS, LEGACY_DOMAINS, Domain, domainOf, itemsOf } from './model';
 import { listPhoneCalendars, listPhoneEvents, phoneCalendarsSupported, phonePermission } from './phoneCalendar';
 import { isPhoneDomain, PhoneCalendarInfo, phoneDomain, phoneEventsToCalendar } from './phoneEvents';
+import type { RawPhoneEvent } from './phoneEvents';
+import { applyBamImport, bamKeyOf, markBamEdit } from './bamImport';
 
 export type PhoneStatus = 'off' | 'unsupported' | 'denied' | 'loading' | 'on' | 'error';
 
-/** Fenêtre lue dans les agendas du téléphone : 2 mois en arrière (bilan), 6 mois devant. */
-const PHONE_PAST_DAYS = 62;
+/**
+ * Fenêtre lue dans les agendas du téléphone : ~13 mois en arrière (bilan, historique du planning BAM ; 23 nov.,
+ * demande de Valentin « tous les mois que tu peux »), 6 mois devant. Android ne garde parfois qu'une partie du passé :
+ * on lit ce qu'il a. Les créneaux BAM importés restent ensuite dans l'appli même s'ils sortent de la fenêtre.
+ */
+const PHONE_PAST_DAYS = 400;
 const PHONE_FUTURE_DAYS = 183;
 const PHONE_REFRESH_MS = 10 * 60 * 1000;
 
@@ -22,6 +28,8 @@ interface CalendarData {
   /** Page de notes libres, indexée par le lundi de la semaine. */
   weekNotes: Record<DayKey, string>;
   domains?: Domain[]; // absent tant que rien n'est enregistré (voir le premier chargement plus bas)
+  /** Créneaux du planning BAM supprimés à la main dans l'appli : jamais réimportés (voir bamImport.ts). */
+  bamDeleted?: string[];
   /** Les sous-domaines de Sport (Roller, Trampo, Renfo) ont été proposés une fois : on ne les recrée pas s'ils sont supprimés. */
   sportSubsSeeded?: boolean;
 }
@@ -98,6 +106,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [phoneStatus, setPhoneStatus] = useState<PhoneStatus>('off');
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<number | null>(null);
+  /** Créneaux du planning BAM lus au dernier passage (null = pas encore lu) : importés comme vrais événements. */
+  const [bamRaws, setBamRaws] = useState<{ raws: RawPhoneEvent[]; today: string; until: string } | null>(null);
   const phoneOn = !!settings.phoneCalendars;
   const hiddenKey = (settings.hiddenPhoneCalendars ?? []).join(',');
 
@@ -116,9 +126,14 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       const hidden = new Set(hiddenKey ? hiddenKey.split(',') : []);
       const shown = cals.filter((c) => !hidden.has(c.id));
       const today = todayKey();
-      const raws = await listPhoneEvents(shown.map((c) => c.id), fromKey(addDays(today, -PHONE_PAST_DAYS)), fromKey(addDays(today, PHONE_FUTURE_DAYS)));
+      const until = addDays(today, PHONE_FUTURE_DAYS);
+      // Tous les agendas sont lus (même masqués) pour ne rater aucun créneau BAM ; seuls les affichés apparaissent ensuite.
+      const raws = await listPhoneEvents(cals.map((c) => c.id), fromKey(addDays(today, -PHONE_PAST_DAYS)), fromKey(until));
+      const bam = raws.filter((r) => bamKeyOf(r));
+      const others = raws.filter((r) => !bamKeyOf(r));
       setPhoneCals(cals);
-      setPhoneEvents(phoneEventsToCalendar(raws, shown));
+      setPhoneEvents(phoneEventsToCalendar(others, shown));
+      setBamRaws({ raws: bam, today, until });
       setPhoneStatus('on');
       setPhoneError(null);
       setLastSync(Date.now());
@@ -135,6 +150,25 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     const timer = setInterval(() => void refreshPhone(), PHONE_REFRESH_MS);
     return () => { sub.remove(); clearInterval(timer); };
   }, [refreshPhone]);
+
+  // Planning BAM → vrais créneaux du domaine Travail (cochables, modifiables). Seulement une fois les données chargées,
+  // sinon le chargement écraserait l'import.
+  useEffect(() => {
+    if (!loaded || !bamRaws) return;
+    setData((d) => {
+      const res = applyBamImport({
+        events: d.events,
+        domains: d.domains?.length ? d.domains : DEFAULT_DOMAINS,
+        deleted: d.bamDeleted ?? [],
+        raws: bamRaws.raws,
+        today: bamRaws.today,
+        readUntil: bamRaws.until,
+      });
+      if (!res.changed) return d;
+      const list = d.domains?.length ? d.domains : DEFAULT_DOMAINS;
+      return { ...d, events: res.events, domains: res.addedDomain ? [...list, res.addedDomain] : d.domains };
+    });
+  }, [loaded, bamRaws, setData]);
 
   // Reprogramme les rappels du téléphone dès que le calendrier change (et au démarrage).
   useEffect(() => {
@@ -178,10 +212,19 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     loaded,
     saveEvent: (e) =>
       setData((d) => {
-        const exists = d.events.some((x) => x.id === e.id);
-        return { ...d, events: exists ? d.events.map((x) => (x.id === e.id ? e : x)) : [...d.events, e] };
+        const prev = d.events.find((x) => x.id === e.id);
+        const next = markBamEdit(prev, e);
+        return { ...d, events: prev ? d.events.map((x) => (x.id === e.id ? next : x)) : [...d.events, next] };
       }),
-    deleteEvent: (id) => setData((d) => ({ ...d, events: d.events.filter((x) => x.id !== id) })),
+    deleteEvent: (id) =>
+      setData((d) => {
+        const key = d.events.find((x) => x.id === id)?.bam?.key;
+        return {
+          ...d,
+          events: d.events.filter((x) => x.id !== id),
+          bamDeleted: key ? [...(d.bamDeleted ?? []), key] : d.bamDeleted,
+        };
+      }),
     skipOccurrence: (id, day) =>
       setData((d) => ({
         ...d,

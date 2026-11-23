@@ -133,6 +133,12 @@ export interface CalendarEvent {
   repeat: Repeat;
   /** Lu depuis un agenda du téléphone (Google Agenda, Planning BAM…) : affiché, jamais enregistré ni modifié ici. */
   phone?: { calendarId: string; calendarTitle: string; location?: string };
+  /**
+   * Créneau importé du planning BAM (23 nov.) : un vrai événement de l'appli (cochable, modifiable), domaine Travail.
+   * `key` = marque BAM (« shift:<id> » ou « cp:<début>..<fin> ») ; `edited` = modifié à la main, le planning n'y touche plus.
+   * Voir bamImport.ts.
+   */
+  bam?: { key: string; edited?: boolean };
   /** Dernier jour d'un événement « toute la journée » sur plusieurs jours (vacances…). Absent = un seul jour. */
   endDate?: DayKey;
   /** Absent sur les événements créés avant la v1.1 : traité comme ['rdv']. */
