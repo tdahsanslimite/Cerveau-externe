@@ -12,7 +12,7 @@ import { useJournal } from './JournalContext';
 import { describeDay, LineChart } from './LineChart';
 import {
   asksSleepTimes, average, FIELD_LABEL, formatClock, formatDuration, formatScore, recentDays, ScoreField, SCORE_LEVELS, SCORE_MAX,
-  SCORE_MIN, shortSummary, sleepStats, stackedTotals, totalRange, totalScore,
+  SCORE_MIN, shortSummary, sleepStats, totalRange, totalScore,
 } from './model';
 import { JournalSettingsSheet } from './JournalSettings';
 import { RecapScreen } from './RecapScreen';
@@ -66,7 +66,6 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
   const range = totalRange(fields.length);
   const totals = chart.map((d) => totalScore(entries[d], fields));
   const totalDays = totals.filter((t) => t !== null).length;
-  const stacked = stackedTotals(entries, chart, fields);
   const sleepTimes = asksSleepTimes(prefs);
   const sleepDays = recentDays(today, SLEEP_DAYS);
   const nights = sleepStats(entries, sleepDays);
@@ -145,12 +144,8 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
                     <>
                       <LineChart
                         days={chart}
-                        series={stacked.map((values, k) => ({
-                          key: fields[k],
-                          // La dernière ligne (le haut de la pile) = le total, en noir.
-                          color: k === fields.length - 1 ? colors.ink : FIELD_COLOR[fields[k]],
-                          values,
-                        }))}
+                        // Une seule ligne : la somme des notes du jour (Valentin, 23 nov.).
+                        series={[{ key: 'total', color: colors.ink, values: totals }]}
                         min={range.min}
                         max={range.max}
                         levels={range.levels}
@@ -161,16 +156,8 @@ export function JournalScreen({ shown = true }: { shown?: boolean }) {
                           return describeDay(d, t === null ? '' : `total des notes : ${t}`);
                         }}
                       />
-                      <View style={st.legend}>
-                        {fields.map((f, k) => (
-                          <View key={f} style={st.legendItem}>
-                            <View style={[st.legendDot, { backgroundColor: k === fields.length - 1 ? colors.ink : FIELD_COLOR[f] }]} />
-                            <Txt size={12} color={colors.muted}>{`${k === 0 ? '' : '+ '}${FIELD_LABEL[f]}${k === fields.length - 1 ? ' = total' : ''}`}</Txt>
-                          </View>
-                        ))}
-                      </View>
                       <Txt size={12} color={colors.faint}>
-                        {`Les notes s'empilent : chaque ligne ajoute la sienne, la ligne noire du haut est le total. Lignes fines : ${range.levels.map(formatScore).join(' · ')}.`}
+                        {`Une seule ligne : l'addition de tes notes du jour. Lignes fines : ${range.levels.map(formatScore).join(' · ')}. Un jour sans note coupe la ligne.`}
                       </Txt>
                     </>
                   )}
