@@ -389,3 +389,16 @@ export function zoomYear(year: number, today: DayKey): Zoom {
 export function zoomKeys(z: Zoom): { trimestre: string; mois: string; semaine: string } {
   return { trimestre: `T${z.year}-Q${z.quarter}`, mois: `M${z.month}`, semaine: periodKey('semaine', z.week) };
 }
+
+/**
+ * La fiche Semaine du thème « en tête » (celui du One Thing annuel), pour la fenêtre « Ta journée » (23 nov., Valentin :
+ * « dans le pop-up du jour, la fiche objectif de la semaine, celle de The One Thing »).
+ * `null` s'il n'y a pas de thème en tête ; `empty` si sa fiche de la semaine n'est pas encore remplie.
+ */
+export function leadingWeekGoal(
+  years: Record<string, YearGoals>, tp: Partial<Record<ThemeId, PeriodMap>>, chosen: ThemeId[], day: DayKey,
+): { theme: ThemeId; goal: WeekGoal | null } | null {
+  const theme = effectiveLeading(years[yearKey(day)], chosen);
+  if (!theme) return null;
+  return { theme, goal: weekGoals(tp, [theme], day)[0] ?? null };
+}

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  annualOneThing, BLASON, effectiveLeading, monthsOfQuarter, weekMonths, weeksOfMonth, zoomKeys, zoomMonth, zoomQuarter, zoomToday, zoomYear, normalizeGoals, periodWhoByTheme, setThemePeriodField, toggleChosen, weekGoals, blasonCount, isoYear, linesOf, periodKey, periodWho, setBlason, setPeriodField, setThemeField,
+  annualOneThing, leadingWeekGoal, BLASON, effectiveLeading, monthsOfQuarter, weekMonths, weeksOfMonth, zoomKeys, zoomMonth, zoomQuarter, zoomToday, zoomYear, normalizeGoals, periodWhoByTheme, setThemePeriodField, toggleChosen, weekGoals, blasonCount, isoYear, linesOf, periodKey, periodWho, setBlason, setPeriodField, setThemeField,
   themeIndicator, themeProgress, THEMES, toggleLeading,
 } from './model.ts';
 import type { YearGoals } from './model.ts';
@@ -215,4 +215,20 @@ test('zoom : périodes en cours par défaut, changer de trimestre ou de mois rec
   assert.deepEqual(zoomToday('2026-12-29'), { year: 2027, quarter: 1, month: '2027-01', week: '2026-12-28' });
   // Une semaine qui n'est pas à cheval ne change rien.
   assert.equal(zoomToday('2026-11-23').month, '2026-11');
+});
+
+test('leadingWeekGoal : la fiche Semaine du thème en tête, pour « Ta journée »', () => {
+  const day = '2026-11-23';
+  const key = periodKey('semaine', day);
+  const tp = { sante: { [key]: { who: 'Je bouge chaque jour', todo: 'Marcher 30 min', review: 'bilan' } }, business: { [key]: { who: 'Je publie' } } };
+  const years: Record<string, YearGoals> = { '2026': { leading: 'sante', themes: {} } };
+  assert.deepEqual(leadingWeekGoal(years, tp, ['sante', 'business'], day), {
+    theme: 'sante', goal: { theme: 'sante', who: 'Je bouge chaque jour', todo: 'Marcher 30 min' },
+  });
+  // un seul thème choisi : il est en tête sans avoir été marqué
+  assert.equal(leadingWeekGoal({}, tp, ['business'], day)?.goal?.who, 'Je publie');
+  // thème en tête sans fiche cette semaine
+  assert.deepEqual(leadingWeekGoal(years, {}, ['sante', 'business'], day), { theme: 'sante', goal: null });
+  // aucun thème en tête (plusieurs choisis, aucun marqué)
+  assert.equal(leadingWeekGoal({}, tp, ['sante', 'business'], day), null);
 });
