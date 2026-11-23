@@ -9,42 +9,42 @@ import type { ModuleId } from '../home/modules.ts';
 export interface Tutorial {
   /** Lien de la vidéo ; vide = pas encore tournée (le bouton (?) montre alors seulement le texte). */
   url: string;
-  /** Deux ou trois phrases sous la vidéo (écrites par Claude, à reformuler par Valentin). */
+  /** Texte facultatif sous la vidéo (vide = rien d'affiché ; textes de Claude retirés le 23 nov. à la demande de Valentin). */
   summary: string;
 }
 
 export const TUTORIALS: Record<ModuleId, Tutorial> = {
   journal: {
     url: '',
-    summary: "Chaque jour, 30 secondes à 5 minutes : tes notes de 1 à 10 et, si tu veux, un commentaire pour vider ton sac. Les courbes et le Recap t'aident ensuite à voir ce qui se répète.",
+    summary: '',
   },
   routines: {
     url: '',
-    summary: 'Tes routines du matin, de la journée et du soir. Tu coches ce que tu as fait ; le bouton Bilan montre ton mois d’un coup d’œil.',
+    summary: '',
   },
   objectifs: {
     url: '',
-    summary: 'Qui tu veux devenir, thème par thème, de l’année jusqu’à la semaine.',
+    summary: '',
   },
   taches: {
-    url: '',
-    summary: 'Tout ce qui te passe par la tête entre ici : tu le notes, puis tu le classes ou tu le mets au calendrier.',
+    url: 'https://youtu.be/WkIte4bAl7c',
+    summary: '',
   },
   calendrier: {
     url: '',
-    summary: 'Ta journée, ta semaine, ton mois. Un seul bouton pour ajouter, et la charge du jour pour ne pas trop en prendre.',
+    summary: '',
   },
   respiration: {
     url: '',
-    summary: 'Quelques minutes pour faire redescendre la pression : suis le cercle, inspire quand il grandit, expire quand il rétrécit.',
+    summary: '',
   },
   meditation: {
     url: '',
-    summary: 'Des méditations courtes pour se poser. Elles arrivent bientôt.',
+    summary: '',
   },
   reveil: {
     url: '',
-    summary: 'Tes réveils de la journée, pour ne pas oublier les moments importants.',
+    summary: '',
   },
 };
 

@@ -72,7 +72,7 @@ function TutorialSheet({ id, onClose }: { id: ModuleId | null; onClose: () => vo
           ) : (
             <Txt size={13} color={colors.faint}>La vidéo arrive bientôt.</Txt>
           )}
-          <Txt size={15} style={{ lineHeight: 22 }}>{t.summary}</Txt>
+          {t.summary ? <Txt size={15} style={{ lineHeight: 22 }}>{t.summary}</Txt> : null}
           <Txt size={12} color={colors.faint}>Tu peux remettre les boutons tuto dans Réglages (Calendrier ou Programmer).</Txt>
         </View>
       ) : null}
