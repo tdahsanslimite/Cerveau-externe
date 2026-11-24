@@ -4,6 +4,7 @@
 // C'est fait (coché) / Reprogrammer (un nouveau créneau, le passé reste comme historique) / Ça n'a pas eu lieu.
 // Le bouton retour du téléphone ramène à l'accueil (on n'entre pas dans Organiser sans avoir fait le ménage).
 import React, { useEffect, useState } from 'react';
+import { useTutorialOpen } from '../tutorials/Tutorials';
 import { StyleSheet, View } from 'react-native';
 import { useCalendar } from '../calendar/CalendarContext';
 import { labelDayLong, minutesToLabel, relativeLabel, todayKey } from '../calendar/dates';
@@ -29,7 +30,8 @@ export function CleanupHost({ active, onLeave }: { active: boolean; onLeave: () 
     if (settingsLoaded && !settings.reviewFrom) update({ reviewFrom: todayKey() });
   }, [settingsLoaded, settings.reviewFrom, update]);
 
-  const occ = active && loaded && settingsLoaded && settings.reviewFrom && !reprog ? nextToReview(events, today, settings.reviewFrom) : null;
+  const tutorialOpen = useTutorialOpen();
+  const occ = active && !tutorialOpen && loaded && settingsLoaded && settings.reviewFrom && !reprog ? nextToReview(events, today, settings.reviewFrom) : null;
 
   const reviewed = (o: Occurrence) => saveEvent({ ...o.event, reviewedDays: [...(o.event.reviewedDays ?? []), o.day] });
 

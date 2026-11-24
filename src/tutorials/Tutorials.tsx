@@ -6,29 +6,39 @@ import { colors } from '../theme';
 import { Button, IconButton, Sheet, Txt } from '../ui';
 import { moduleById, ModuleId } from '../home/modules';
 import { useSettings } from '../settings/SettingsContext';
-import { hasVideo, shouldAutoOpen, TUTORIALS, youtubeId } from './registry';
+import { hasVideo, isVertical, shouldAutoOpen, TUTORIALS, youtubeId } from './registry';
 import { VideoPlayer } from './VideoPlayer';
 
 const Ctx = createContext<(id: ModuleId) => void>(() => undefined);
+const OpenCtx = createContext(false);
+
+/** Vrai quand la fenêtre tuto est ouverte : les autres fenêtres (ménage de la veille) attendent qu'elle soit fermée. */
+export function useTutorialOpen(): boolean {
+  return useContext(OpenCtx);
+}
 
 /** À poser une fois autour de l'appli : garde la fenêtre tuto et l'ouvre seule à la première visite d'un module. */
-export function TutorialProvider({ active, children }: { active: ModuleId | null; children: ReactNode }) {
+// `paused` : une autre fenêtre est ouverte (« Ta journée ») ; l'ouverture automatique attend qu'elle soit fermée
+// (jamais deux fenêtres l'une sur l'autre).
+export function TutorialProvider({ active, paused, children }: { active: ModuleId | null; paused?: boolean; children: ReactNode }) {
   const { settings, loaded, update } = useSettings();
   const [open, setOpen] = useState<ModuleId | null>(null);
 
   useEffect(() => {
-    if (!loaded || !active) return;
+    if (!loaded || !active || paused) return;
     if (shouldAutoOpen(TUTORIALS[active], active, settings.tutorialsSeen, settings.hideTutorials)) {
       setOpen(active);
       update({ tutorialsSeen: [...(settings.tutorialsSeen ?? []), active] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, loaded]);
+  }, [active, loaded, paused]);
 
   return (
     <Ctx.Provider value={setOpen}>
-      {children}
-      <TutorialSheet id={open} onClose={() => setOpen(null)} />
+      <OpenCtx.Provider value={open !== null}>
+        {children}
+        <TutorialSheet id={open} onClose={() => setOpen(null)} />
+      </OpenCtx.Provider>
     </Ctx.Provider>
   );
 }
@@ -64,7 +74,7 @@ function TutorialSheet({ id, onClose }: { id: ModuleId | null; onClose: () => vo
       {t ? (
         <View style={{ gap: 12 }}>
           {/* Le lecteur n'est monté que fenêtre ouverte : fermer la fenêtre arrête la vidéo. */}
-          {yt ? <VideoPlayer youtubeId={yt} /> : null}
+          {yt ? <VideoPlayer youtubeId={yt} vertical={isVertical(t)} /> : null}
           {t && hasVideo(t) ? (
             <Pressable accessibilityRole="link" onPress={() => Linking.openURL(t.url).catch(() => undefined)} hitSlop={6}>
               <Txt size={13} color={colors.accent}>{yt ? 'La vidéo ne se lance pas ? Ouvrir dans YouTube' : 'Ouvrir la vidéo'}</Txt>

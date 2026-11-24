@@ -2,7 +2,7 @@
 // perdre). Lien YouTube = lecteur intégré qui démarre tout seul ; autre lien = rien ici (bouton « Ouvrir la vidéo »).
 // Version web : VideoPlayer.web.tsx.
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors, radius } from '../theme';
 
@@ -14,9 +14,13 @@ const html = (id: string) => `<!doctype html><html><head><meta name="viewport" c
  allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
 </body></html>`;
 
-export function VideoPlayer({ youtubeId }: { youtubeId: string }) {
+/** Vertical (9:16) : aussi haut que possible sans pousser les boutons hors de l'écran (62 % de la hauteur), centré. */
+export function VideoPlayer({ youtubeId, vertical }: { youtubeId: string; vertical?: boolean }) {
+  const { height } = useWindowDimensions();
+  const h = Math.round(height * 0.62);
+  const size = vertical ? { height: h, width: Math.round((h * 9) / 16), alignSelf: 'center' as const } : { width: '100%' as const, aspectRatio: 16 / 9 };
   return (
-    <View style={st.frame}>
+    <View style={[st.frame, size]}>
       <WebView
         source={{ html: html(youtubeId), baseUrl: ORIGIN }}
         allowsInlineMediaPlayback
@@ -30,5 +34,5 @@ export function VideoPlayer({ youtubeId }: { youtubeId: string }) {
 }
 
 const st = StyleSheet.create({
-  frame: { width: '100%', aspectRatio: 16 / 9, borderRadius: radius.m, overflow: 'hidden', backgroundColor: colors.ink },
+  frame: { maxWidth: '100%', borderRadius: radius.m, overflow: 'hidden', backgroundColor: colors.ink },
 });

@@ -101,7 +101,7 @@ export function AppTabs() {
   };
 
   return (
-    <TutorialProvider active={active === 'accueil' ? null : active}>
+    <TutorialProvider active={active === 'accueil' ? null : active} paused={dayOpen}>
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style={active === 'accueil' ? 'light' : 'dark'} />
       {/* La barre du bas gère elle-même la zone de sécurité : les écrans n'ont pas à l'ajouter. */}

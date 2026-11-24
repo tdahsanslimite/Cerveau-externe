@@ -11,6 +11,8 @@ export interface Tutorial {
   url: string;
   /** Texte facultatif sous la vidéo (vide = rien d'affiché ; textes de Claude retirés le 23 nov. à la demande de Valentin). */
   summary: string;
+  /** Format de la vidéo. Absent = vertical (9:16, décision de Valentin le 24 nov. : vidéos verticales, voix off). */
+  format?: 'vertical' | 'horizontal';
 }
 
 export const TUTORIALS: Record<ModuleId, Tutorial> = {
@@ -29,6 +31,7 @@ export const TUTORIALS: Record<ModuleId, Tutorial> = {
   taches: {
     url: 'https://youtu.be/WkIte4bAl7c',
     summary: '',
+    format: 'horizontal', // 1re vidéo (Eisenhower), tournée en horizontal
   },
   calendrier: {
     url: '',
@@ -52,6 +55,10 @@ export const TUTORIALS: Record<ModuleId, Tutorial> = {
 export function youtubeId(url: string): string | null {
   const m = url.trim().match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
+}
+
+export function isVertical(t: Tutorial): boolean {
+  return t.format !== 'horizontal';
 }
 
 export function hasVideo(t: Tutorial): boolean {
