@@ -66,6 +66,11 @@ export interface BamImportInput {
   /** Fenêtre lue : un créneau à venir absent de cette fenêtre a été retiré du planning. */
   today: DayKey;
   readUntil: DayKey;
+  /**
+   * Jours réellement lus (lecture directe du site BAM : seulement les semaines publiées). Absent = tous les jours
+   * jusqu'à `readUntil` (lecture de Google Agenda). Un créneau n'est retiré que si son jour a été lu.
+   */
+  isCovered?: (day: DayKey) => boolean;
 }
 
 export interface BamImportResult {
@@ -117,7 +122,8 @@ export function applyBamImport(input: BamImportInput): BamImportResult {
     const next = wanted.get(key)?.event;
     if (!next) {
       const untouched = !e.bam?.edited && !(e.doneDays?.length);
-      if (untouched && e.date >= today && e.date <= readUntil) {
+      const covered = input.isCovered ? input.isCovered(e.date) : e.date <= readUntil;
+      if (untouched && e.date >= today && covered) {
         changed = true; // retiré du planning
         continue;
       }

@@ -52,9 +52,10 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "Cerveau Externe lit tes agendas (Google Agenda, planning du travail) pour tout afficher au même endroit."
+          "calendarPermission": "Cerveau Externe lit tes agendas (Google Agenda, planning du travail) pour tout afficher au même endroit, et y recopie ton planning de travail."
         }
       ],
+      "expo-secure-store",
       [
         "react-native-android-widget",
         {

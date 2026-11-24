@@ -9,6 +9,8 @@ export interface PhoneCalendarInfo {
   title: string;
   color: string;
   account: string;
+  /** L'appli peut y écrire (agenda Google de l'utilisateur, pas un agenda en lecture seule). */
+  writable?: boolean;
 }
 
 export interface RawPhoneEvent {

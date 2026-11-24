@@ -19,6 +19,14 @@ export interface Settings {
   phoneCalendars?: boolean;
   /** Agendas du téléphone masqués (par identifiant). Par défaut : tous affichés. */
   hiddenPhoneCalendars?: string[];
+  /** Planning BAM lu directement sur le site du travail (24 nov.) : compte connecté (identifiants dans expo-secure-store). */
+  bamEnabled?: boolean;
+  /** Email du compte BAM (affichage seulement ; le mot de passe n'est jamais ici). */
+  bamEmail?: string;
+  /** Historique complet déjà lu une fois sur le site BAM (ensuite : 2 semaines en arrière seulement). */
+  bamBackfilled?: boolean;
+  /** Agenda Google (id du téléphone) où recopier les créneaux BAM pour bloquer Calendly ; 'none' = ne pas recopier. */
+  bamWriteCalendar?: string;
   /** Dernier jour (la nuit finit à 3 h) où la matrice des idées a été vidée de Important / Urgent / Abandonner. */
   ideasResetDay?: string;
   /** Dernier jour où le pop-up « ta journée » a été montré (une fois par jour, à la première ouverture). */

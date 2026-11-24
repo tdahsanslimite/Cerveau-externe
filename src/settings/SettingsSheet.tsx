@@ -15,6 +15,7 @@ import { ThemesSheet } from '../goals/ThemeSheets';
 import { SendJournalButton } from '../coach/CoachBanner';
 import { DomainsEditor } from './DomainsEditor';
 import { PhoneCalendarsSettings } from './PhoneCalendarsSettings';
+import { BamSettings } from './BamSettings';
 import { RemindersSettings } from './RemindersSettings';
 import { CalendarView, useSettings } from './SettingsContext';
 import { TimePickerChoice } from './TimeSelector';
@@ -103,6 +104,10 @@ export function CalendarSection() {
       <View style={{ gap: 8 }}>
         <GroupLabel>Agendas du téléphone (Google…)</GroupLabel>
         <PhoneCalendarsSettings />
+      </View>
+      <View style={{ gap: 8 }}>
+        <GroupLabel>Planning du travail (BAM)</GroupLabel>
+        <BamSettings />
       </View>
       <View style={{ gap: 8 }}>
         <GroupLabel>Rappels</GroupLabel>

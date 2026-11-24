@@ -1,5 +1,5 @@
 // Données du calendrier : événements, domaines, page libre de chaque semaine.
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { usePersistentState } from '../storage';
 import { useSettings } from '../settings/SettingsContext';
@@ -7,7 +7,9 @@ import { syncReminders } from './notifications';
 import { addDays, fromKey, todayKey } from './dates';
 import type { DayKey } from './dates';
 import { CalendarEvent, DEFAULT_DOMAINS, LEGACY_DOMAINS, Domain, domainOf, itemsOf } from './model';
-import { listPhoneCalendars, listPhoneEvents, phoneCalendarsSupported, phonePermission } from './phoneCalendar';
+import { applyMirror, listPhoneCalendars, listPhoneEvents, phoneCalendarsSupported, phonePermission } from './phoneCalendar';
+import { BamAuthError, bamConnect, bamDisconnect, bamRead, bamSupported } from './bamClient';
+import { isEmptyOps, planMirror } from './bamMirror';
 import { isPhoneDomain, PhoneCalendarInfo, phoneDomain, phoneEventsToCalendar } from './phoneEvents';
 import type { RawPhoneEvent } from './phoneEvents';
 import { applyBamImport, bamKeyOf, markBamEdit } from './bamImport';
@@ -22,6 +24,15 @@ export type PhoneStatus = 'off' | 'unsupported' | 'denied' | 'loading' | 'on' | 
 const PHONE_PAST_DAYS = 400;
 const PHONE_FUTURE_DAYS = 183;
 const PHONE_REFRESH_MS = 10 * 60 * 1000;
+/** Site BAM : relu à l'ouverture (au plus toutes les 5 min) et toutes les 30 min ; 2 semaines en arrière, 10 devant. */
+const BAM_REFRESH_MS = 30 * 60 * 1000;
+const BAM_MIN_GAP_MS = 5 * 60 * 1000;
+const BAM_BACK_WEEKS = 2;
+const BAM_AHEAD_WEEKS = 10;
+/** Première lecture : tout l'historique disponible (le site BAM commence fin juin 2026). */
+const BAM_BACKFILL_WEEKS = 30;
+
+export type BamStatus = 'off' | 'unsupported' | 'loading' | 'on' | 'error';
 
 interface CalendarData {
   events: CalendarEvent[];
@@ -51,6 +62,24 @@ interface Ctx {
     /** Agendas masqués (identifiants). */
     hidden: string[];
     toggleCalendar: (id: string) => void;
+  };
+  /** Planning BAM lu directement sur le site du travail (24 nov.). */
+  bam: {
+    status: BamStatus;
+    email: string | null;
+    error: string | null;
+    lastSync: number | null;
+    /** Créneaux BAM lus au dernier passage. */
+    count: number;
+    connect: (email: string, password: string) => Promise<void>;
+    disconnect: () => Promise<void>;
+    refresh: () => Promise<void>;
+    /** Agenda Google où les créneaux sont recopiés (pour Calendly), et ceux où l'on peut écrire. */
+    writeCalendar: PhoneCalendarInfo | null;
+    writableCalendars: PhoneCalendarInfo[];
+    setWriteCalendar: (id: string) => void;
+    mirrorError: string | null;
+    lastMirror: number | null;
   };
   domains: Domain[];
   domain: (id: string) => Domain;
@@ -151,24 +180,122 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     return () => { sub.remove(); clearInterval(timer); };
   }, [refreshPhone]);
 
-  // Planning BAM → vrais créneaux du domaine Travail (cochables, modifiables). Seulement une fois les données chargées,
+  // ---- Planning BAM lu directement sur le site (24 nov.) ----
+  const bamOn = !!settings.bamEnabled;
+  const [bamApi, setBamApi] = useState<{ raws: RawPhoneEvent[]; covered: Set<string>; today: string } | null>(null);
+  const [bamStatus, setBamStatus] = useState<BamStatus>(bamSupported ? 'off' : 'unsupported');
+  const [bamError, setBamError] = useState<string | null>(null);
+  const [bamLastSync, setBamLastSync] = useState<number | null>(null);
+  const bamBusy = useRef(false);
+  const bamLastTry = useRef(0);
+  const backfilled = !!settings.bamBackfilled;
+
+  const refreshBam = useCallback(async (force = false) => {
+    if (!bamSupported) return setBamStatus('unsupported');
+    if (!bamOn) {
+      setBamApi(null);
+      return setBamStatus('off');
+    }
+    if (bamBusy.current || (!force && Date.now() - bamLastTry.current < BAM_MIN_GAP_MS)) return;
+    bamBusy.current = true;
+    bamLastTry.current = Date.now();
+    setBamStatus('loading');
+    try {
+      const today = todayKey();
+      const read = await bamRead(today, backfilled ? BAM_BACK_WEEKS : BAM_BACKFILL_WEEKS, BAM_AHEAD_WEEKS);
+      setBamApi({ ...read, today });
+      setBamStatus('on');
+      setBamError(null);
+      setBamLastSync(Date.now());
+      if (!backfilled) update({ bamBackfilled: true });
+    } catch (err) {
+      setBamStatus('error');
+      setBamError(err instanceof BamAuthError ? err.message : `Lecture du planning impossible : ${String((err as Error)?.message ?? err)}`);
+    } finally {
+      bamBusy.current = false;
+    }
+  }, [bamOn, backfilled, update]);
+
+  useEffect(() => {
+    void refreshBam(true);
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') void refreshBam(); });
+    const timer = setInterval(() => void refreshBam(true), BAM_REFRESH_MS);
+    return () => { sub.remove(); clearInterval(timer); };
+  }, [refreshBam]);
+
+  // Planning BAM → vrais créneaux du domaine Travail (cochables, modifiables). Source : le site BAM si le compte est
+  // connecté, sinon les créneaux marqués trouvés dans Google Agenda. Seulement une fois les données chargées,
   // sinon le chargement écraserait l'import.
   useEffect(() => {
-    if (!loaded || !bamRaws) return;
+    if (!loaded) return;
+    const source = bamOn && bamApi
+      ? { raws: bamApi.raws, today: bamApi.today, until: bamApi.today, isCovered: (day: string) => bamApi.covered.has(day) }
+      : bamRaws
+        ? { raws: bamRaws.raws, today: bamRaws.today, until: bamRaws.until, isCovered: undefined }
+        : null;
+    if (!source) return;
     setData((d) => {
       const res = applyBamImport({
         events: d.events,
         domains: d.domains?.length ? d.domains : DEFAULT_DOMAINS,
         deleted: d.bamDeleted ?? [],
-        raws: bamRaws.raws,
-        today: bamRaws.today,
-        readUntil: bamRaws.until,
+        raws: source.raws,
+        today: source.today,
+        readUntil: source.until,
+        isCovered: source.isCovered,
       });
       if (!res.changed) return d;
       const list = d.domains?.length ? d.domains : DEFAULT_DOMAINS;
       return { ...d, events: res.events, domains: res.addedDomain ? [...list, res.addedDomain] : d.domains };
     });
-  }, [loaded, bamRaws, setData]);
+  }, [loaded, bamRaws, bamApi, bamOn, setData]);
+
+  // Créneaux BAM de l'appli → agenda Google choisi (pour bloquer Calendly). Seulement quand le site BAM est la source.
+  const writableCals = useMemo(() => phoneCals.filter((c) => c.writable), [phoneCals]);
+  const writeCal = useMemo(() => {
+    if (settings.bamWriteCalendar === 'none') return null;
+    if (settings.bamWriteCalendar) return writableCals.find((c) => c.id === settings.bamWriteCalendar) ?? null;
+    // Par défaut : l'agenda où se trouvent déjà les créneaux BAM (celui de la synchro Google du 22 nov.).
+    const counts = new Map<string, number>();
+    for (const r of bamRaws?.raws ?? []) counts.set(r.calendarId, (counts.get(r.calendarId) ?? 0) + 1);
+    const best = [...counts.entries()].sort((a, b) => b[1] - a[1]).find(([id]) => writableCals.some((c) => c.id === id));
+    return best ? writableCals.find((c) => c.id === best[0]) ?? null : null;
+  }, [settings.bamWriteCalendar, writableCals, bamRaws]);
+  const [mirrorError, setMirrorError] = useState<string | null>(null);
+  const [lastMirror, setLastMirror] = useState<number | null>(null);
+  const mirrorBusy = useRef(false);
+  const lastPlan = useRef('');
+
+  useEffect(() => {
+    if (!loaded || !bamOn || !bamApi || !bamRaws || !writeCal || phoneStatus !== 'on') return;
+    const t = setTimeout(async () => {
+      if (mirrorBusy.current) return;
+      const ops = planMirror(data.events, bamRaws.raws.filter((r) => r.calendarId === writeCal.id), todayKey());
+      if (isEmptyOps(ops)) {
+        lastPlan.current = '';
+        return;
+      }
+      // Le même plan deux fois de suite : Google n'a pas gardé le changement, on n'insiste pas (pas de boucle).
+      const sig = JSON.stringify(ops);
+      if (sig === lastPlan.current) {
+        setMirrorError('Google Agenda n’a pas gardé certains créneaux. Réessaie avec « Synchroniser ».');
+        return;
+      }
+      lastPlan.current = sig;
+      mirrorBusy.current = true;
+      try {
+        await applyMirror(writeCal.id, ops);
+        setMirrorError(null);
+        setLastMirror(Date.now());
+        await refreshPhone();
+      } catch (err) {
+        setMirrorError(`Écriture dans Google Agenda impossible : ${String((err as Error)?.message ?? err)}`);
+      } finally {
+        mirrorBusy.current = false;
+      }
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [loaded, bamOn, bamApi, bamRaws, writeCal, phoneStatus, data.events, refreshPhone]);
 
   // Reprogramme les rappels du téléphone dès que le calendrier change (et au démarrage).
   useEffect(() => {
@@ -200,6 +327,33 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         if (hidden.has(id)) hidden.delete(id); else hidden.add(id);
         update({ hiddenPhoneCalendars: [...hidden] });
       },
+    },
+    bam: {
+      status: bamStatus,
+      email: settings.bamEmail ?? null,
+      error: bamError,
+      lastSync: bamLastSync,
+      count: bamApi?.raws.length ?? 0,
+      connect: async (email, password) => {
+        await bamConnect(email, password); // lève une erreur si les identifiants sont refusés
+        bamLastTry.current = 0;
+        update({ bamEnabled: true, bamEmail: email.trim() });
+      },
+      disconnect: async () => {
+        await bamDisconnect();
+        setBamApi(null);
+        update({ bamEnabled: false, bamEmail: undefined });
+      },
+      refresh: async () => {
+        lastPlan.current = '';
+        await refreshBam(true);
+        await refreshPhone();
+      },
+      writeCalendar: writeCal,
+      writableCalendars: writableCals,
+      setWriteCalendar: (id) => update({ bamWriteCalendar: id }),
+      mirrorError,
+      lastMirror,
     },
     domains,
     domain: (id) => {
@@ -264,7 +418,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       }),
     weekNote: (weekStart) => data.weekNotes[weekStart] ?? '',
     setWeekNote: (weekStart, text) => setData((d) => ({ ...d, weekNotes: { ...d.weekNotes, [weekStart]: text } })),
-  }), [data, domains, loaded, setData, phoneEvents, phoneStatus, phoneCals, phoneError, lastSync, refreshPhone, settings.hiddenPhoneCalendars, update]);
+  }), [data, domains, loaded, setData, phoneEvents, phoneStatus, phoneCals, phoneError, lastSync, refreshPhone, settings.hiddenPhoneCalendars, settings.bamEmail, update,
+    bamStatus, bamError, bamLastSync, bamApi, refreshBam, writeCal, writableCals, mirrorError, lastMirror]);
 
   return <CalendarCtx.Provider value={value}>{children}</CalendarCtx.Provider>;
 }
