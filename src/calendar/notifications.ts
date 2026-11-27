@@ -140,7 +140,7 @@ async function doSync(events: CalendarEvent[], defaultAlert: AlertKind): Promise
     for (const p of plan) {
       try {
         await scheduleSafe(
-          { title: p.title, body: p.body },
+          { title: p.title, body: p.body, ...(p.color ? { color: p.color } : {}) },
           { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.at, channelId: channelIdFor(p.alert) },
           `Rappel « ${p.title} »`,
         );

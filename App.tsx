@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AtkinsonHyperlegible_400Regular, AtkinsonHyperlegible_700Bold, useFonts } from '@expo-google-fonts/atkinson-hyperlegible';
 import { CalendarProvider, useCalendar } from './src/calendar/CalendarContext';
+import { NotifPromptProvider } from './src/calendar/NotifPrompt';
 import { AppTabs } from './src/AppTabs';
 import { GoalsProvider, useGoals } from './src/goals/GoalsContext';
 import { JournalProvider, useJournal } from './src/journal/JournalContext';
@@ -46,7 +47,9 @@ export default function App() {
                 <JournalProvider>
                   <GoalsProvider>
                     <ReveilProvider>
-                      <Gate />
+                      <NotifPromptProvider>
+                        <Gate />
+                      </NotifPromptProvider>
                     </ReveilProvider>
                   </GoalsProvider>
                 </JournalProvider>

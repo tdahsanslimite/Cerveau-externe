@@ -13,6 +13,9 @@ import {
   Reminder, REMINDER_UNITS, REPEATS,
 } from './model';
 import { notificationsSupported } from './notifications';
+import { useNotifPrompt } from './NotifPrompt';
+import { colorLabel } from './notifModels';
+import { AlertChips, ColorChips, ReminderRows } from './ReminderFields';
 import { DomainPicker } from './DomainPicker';
 import { ItemListEditor } from './ItemListEditor';
 import { PriorityWords } from '../tasks/fields';
@@ -31,7 +34,8 @@ export interface EditorState {
 export function blankEvent(day: DayKey, start: number | null = 9 * 60, category = 'travail'): CalendarEvent {
   return {
     id: newId(), title: '', date: day, start, durationMin: 60, category, repeat: 'none',
-    kinds: ['rdv'], reminders: [{ amount: 30, unit: 'min' }],
+    // Plus de rappel posé en silence (27 nov.) : il est proposé juste après la création (NotifPrompt).
+    kinds: ['rdv'], reminders: [],
   };
 }
 
@@ -42,6 +46,7 @@ export function EventEditor({ state, onClose, onSaved }: {
 }) {
   const { events, domains, saveEvent, deleteEvent, skipOccurrence } = useCalendar();
   const { settings } = useSettings();
+  const { askAfterCreate } = useNotifPrompt();
   const load = useDayLoad();
   const [e, setE] = useState<CalendarEvent | null>(state?.event ?? null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -95,9 +100,6 @@ export function EventEditor({ state, onClose, onSaved }: {
   const others = load(e.date, { eventId: e.id });
   const overLimit = others + 1 > settings.dailyLimit;
 
-  const setReminder = (i: number, r: Partial<Reminder>) =>
-    patch({ reminders: reminders.map((x, j) => (j === i ? { ...x, ...r } : x)) });
-
   const save = () => {
     setTried(true);
     if (!canSave) return;
@@ -113,6 +115,8 @@ export function EventEditor({ state, onClose, onSaved }: {
       // Plusieurs jours : seulement pour un événement « toute la journée » qui ne se répète pas.
       endDate: e.start === null && !recurring && lastDay > e.date ? lastDay : undefined,
     });
+    // Création : la notification est proposée juste après (rien n'est posé en silence).
+    if (state.isNew) askAfterCreate(e.id);
     onSaved?.();
     onClose();
   };
@@ -247,67 +251,26 @@ export function EventEditor({ state, onClose, onSaved }: {
 
       <DayPreview day={conflict?.day ?? e.date} candidate={asSaved} blockingId={conflict?.event.id ?? null} />
 
-      <Field
-        label="Rappels"
-        hint={notificationsSupported ? undefined : 'Les rappels sonnent uniquement dans l’appli installée sur le téléphone.'}
-      >
-        {reminders.map((r, i) => (
-          <View key={i} style={st.reminderRow}>
-            <TextInput
-              accessibilityLabel={`Rappel ${i + 1}, durée`}
-              keyboardType="number-pad"
-              value={String(r.amount)}
-              onChangeText={(t) => setReminder(i, { amount: Math.max(1, Math.min(999, parseInt(t.replace(/\D/g, ''), 10) || 1)) })}
-              style={[st.input, st.amount]}
-              maxLength={3}
-            />
-            <View style={st.units}>
-              {REMINDER_UNITS.map((u) => (
-                <Pressable
-                  key={u.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: r.unit === u.id }}
-                  onPress={() => setReminder(i, { unit: u.id })}
-                  style={[st.unit, r.unit === u.id && st.unitOn]}
-                >
-                  <Txt bold={r.unit === u.id} size={13} color={r.unit === u.id ? colors.ink : colors.muted}>{u.label}</Txt>
-                </Pressable>
-              ))}
+      {state.isNew ? null : (
+        <Field
+          label="Notifications"
+          hint={notificationsSupported ? undefined : 'Les rappels sonnent uniquement dans l’appli installée sur le téléphone.'}
+        >
+          <ReminderRows reminders={reminders} onChange={(r) => patch({ reminders: r })} />
+          {reminders.length > 0 || e.itemEveReminder ? (
+            <View style={{ gap: 8, marginTop: 4 }}>
+              <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4 }}>Son</Txt>
+              <AlertChips
+                value={e.alert ?? settings.defaultAlert}
+                defaultAlert={settings.defaultAlert}
+                onChange={(a) => patch({ alert: a === settings.defaultAlert ? undefined : a })}
+              />
+              <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4, marginTop: 4 }}>Couleur : {colorLabel(e.color)}</Txt>
+              <ColorChips value={e.color} onChange={(c) => patch({ color: c })} />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Retirer le rappel ${i + 1}`}
-              onPress={() => patch({ reminders: reminders.filter((_, j) => j !== i) })}
-              style={st.remove}
-            >
-              <Icon name="x" size={18} color={colors.muted} />
-            </Pressable>
-          </View>
-        ))}
-        {reminders.length < MAX_REMINDERS ? (
-          <Button
-            label={reminders.length ? 'Ajouter un autre rappel' : 'Ajouter un rappel'}
-            kind="ghost"
-            icon="bell"
-            onPress={() => patch({ reminders: [...reminders, reminders.length === 0 ? { amount: 30, unit: 'min' } : { amount: 1, unit: 'j' }] })}
-          />
-        ) : null}
-        {reminders.length > 0 || e.itemEveReminder ? (
-          <View style={{ gap: 8, marginTop: 4 }}>
-            <Txt size={13} color={colors.muted} style={{ paddingHorizontal: 4 }}>Type d'alerte</Txt>
-            <View style={st.wrap}>
-              {ALERTS.map((a) => (
-                <Chip
-                  key={a.id}
-                  label={a.id === settings.defaultAlert ? `${a.label} (par défaut)` : a.label}
-                  selected={(e.alert ?? settings.defaultAlert) === a.id}
-                  onPress={() => patch({ alert: a.id === settings.defaultAlert ? undefined : a.id })}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null}
-      </Field>
+          ) : null}
+        </Field>
+      )}
 
       <Field label="Domaine">
         <DomainPicker value={e.category} onChange={(id) => id && patch({ category: id })} />

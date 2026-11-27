@@ -3,11 +3,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { minutesToLabel, relativeLabel, toKey, labelDayShort } from '../calendar/dates';
 import { ALERTS } from '../calendar/model';
+import { modelSummary, removeModel } from '../calendar/notifModels';
 import {
   clearProblems, notificationsSupported, notificationStatus, NotificationStatus, openAppSettings, sendTestNotification,
 } from '../calendar/notifications';
 import { colors, radius } from '../theme';
-import { Button, Chip, Txt } from '../ui';
+import { Button, Chip, IconButton, Txt } from '../ui';
 import { useSettings } from './SettingsContext';
 
 function when(d: Date): string {
@@ -45,6 +46,26 @@ export function RemindersSettings() {
         <Txt size={13} color={colors.muted} style={{ lineHeight: 19 }}>
           Chaque événement peut avoir le sien. Sonnerie = le son de notification de ton téléphone. Alarme = le son recommence jusqu'à ce que tu touches « Je m'en occupe ».
         </Txt>
+      </View>
+
+      <View style={st.block}>
+        <Txt bold>Mes notifications enregistrées</Txt>
+        {(settings.notifModels ?? []).length ? (
+          (settings.notifModels ?? []).map((m) => (
+            <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: m.color }} />
+              <View style={{ flex: 1 }}>
+                <Txt bold size={15}>{m.name}</Txt>
+                <Txt size={13} color={colors.muted}>{modelSummary(m)}</Txt>
+              </View>
+              <IconButton icon="trash-2" label={`Supprimer ${m.name}`} onPress={() => update({ notifModels: removeModel(settings.notifModels ?? [], m.id) })} bordered={false} />
+            </View>
+          ))
+        ) : (
+          <Txt size={13} color={colors.muted} style={{ lineHeight: 19 }}>
+            Aucune pour l'instant : elles se créent juste après avoir programmé quelque chose.
+          </Txt>
+        )}
       </View>
 
       {notificationsSupported ? (

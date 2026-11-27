@@ -14,6 +14,8 @@ export interface Planned {
   alert: AlertKind;
   title: string;
   body: string;
+  /** Couleur de la notification (celle de l'événement). */
+  color?: string;
 }
 
 function dateAt(day: DayKey, minutes: number): Date {
@@ -48,6 +50,7 @@ export function planReminders(
           at: dateAt(day, base - reminderMinutes(r)),
           title: `${e.title} · ${reminderLabel(r)}`,
           body: lines.join('\n'),
+          color: e.color,
         });
       }
       if (item && e.itemEveReminder) {
@@ -56,6 +59,7 @@ export function planReminders(
           at: dateAt(addDays(day, -1), EVE_REMINDER),
           title: `Demain : ${e.title}`,
           body: `Prépare dès ce soir : ${item}`,
+          color: e.color,
         });
       }
     }

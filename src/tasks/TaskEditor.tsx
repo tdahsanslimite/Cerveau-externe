@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { addDays, durationLabel, labelDayLong, minutesToLabel, relativeLabel, todayKey } from '../calendar/dates';
 import type { DayKey } from '../calendar/dates';
 import { useCalendar } from '../calendar/CalendarContext';
+import { useNotifPrompt } from '../calendar/NotifPrompt';
 import { findConflict, nextFreeStart } from '../calendar/model';
 import { DomainPicker } from '../calendar/DomainPicker';
 import { TimeSelector } from '../settings/TimeSelector';
@@ -21,6 +22,7 @@ const DURATIONS = [15, 30, 45, 60, 90, 120];
 export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null; onClose: () => void; isNew?: boolean }) {
   const { save, remove } = useTasks();
   const { domains, events, saveEvent } = useCalendar();
+  const { askAfterCreate } = useNotifPrompt();
   const [t, setT] = useState<Task | null>(task);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [cal, setCal] = useState<{ day: DayKey; start: number; duration: number } | null>(null);
@@ -67,6 +69,7 @@ export function TaskEditor({ task, onClose, isNew = false }: { task: Task | null
     if (cal && candidate) {
       if (conflict) return;
       saveEvent({ ...candidate, title: done.title, important: imp, urgent: urg, note: done.note, items: done.kind === 'liste' ? done.items : undefined });
+      askAfterCreate(candidate.id); // notification proposée juste après la mise au calendrier
       remove(t.id); // un seul exemplaire : l'événement du calendrier, qui reste dans les listes
     } else {
       save(done);

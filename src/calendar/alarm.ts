@@ -37,7 +37,7 @@ async function ensureChannel(): Promise<void> {
   });
 }
 
-function alarmNotification(id: string, title: string, body: string, phrase: string): Notification {
+function alarmNotification(id: string, title: string, body: string, phrase: string, color?: string): Notification {
   const { AndroidCategory, AndroidImportance, AndroidStyle, AndroidVisibility } = kit();
   const text = phrase ? `${body}\n\n${phrase}` : body;
   return {
@@ -47,6 +47,7 @@ function alarmNotification(id: string, title: string, body: string, phrase: stri
     data: { kind: ALARM_KIND },
     android: {
       channelId: ALARM_CHANNEL_ID,
+      ...(color ? { color } : {}),
       category: AndroidCategory.ALARM,
       importance: AndroidImportance.HIGH,
       visibility: AndroidVisibility.PUBLIC,
@@ -75,7 +76,7 @@ export async function scheduleAlarms(items: Planned[]): Promise<void> {
     const phrase = pickPhrase(ALARM_PHRASES, Math.random, previous);
     previous = phrase;
     await notifee.createTriggerNotification(
-      alarmNotification(`alarme-${it.at.getTime()}-${i}`, it.title, it.body, phrase),
+      alarmNotification(`alarme-${it.at.getTime()}-${i}`, it.title, it.body, phrase, it.color),
       { type: TriggerType.TIMESTAMP, timestamp: it.at.getTime(), alarmManager: { type: AlarmType.SET_ALARM_CLOCK } },
     );
   }

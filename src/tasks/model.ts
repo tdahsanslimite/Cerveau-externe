@@ -415,7 +415,7 @@ export function eventFromTask(t: Task, today: DayKey, domainIds: string[]): Cale
   const category = t.category && domainIds.includes(t.category) ? t.category : domainIds.includes('travail') ? 'travail' : (domainIds[0] ?? 'travail');
   return {
     id: newId(), title: t.title.trim(), date: t.day ?? today, start: 9 * 60, durationMin: 60, category,
-    repeat: 'none', kinds: t.kind === 'liste' ? ['tache', 'objet'] : ['tache'], reminders: [{ amount: 30, unit: 'min' }],
+    repeat: 'none', kinds: t.kind === 'liste' ? ['tache', 'objet'] : ['tache'], reminders: [], // notification proposée après la création (NotifPrompt)
     items: t.kind === 'liste' ? t.items : undefined,
     important: t.important, urgent: t.urgent, note: t.note, rank: t.rank, oneThing: t.oneThing,
   };

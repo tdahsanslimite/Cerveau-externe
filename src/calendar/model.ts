@@ -155,6 +155,8 @@ export interface CalendarEvent {
   reminders?: Reminder[];
   /** Type d'alerte de ses rappels ; absent = celui choisi dans les réglages. */
   alert?: AlertKind;
+  /** Couleur de ses notifications (choisie avec un modèle de notification, 27 nov.). Absent = couleur par défaut d'Android. */
+  color?: string;
   /** Jours où la tâche a été faite (une série peut être cochée jour par jour). */
   doneDays?: DayKey[];
   /**

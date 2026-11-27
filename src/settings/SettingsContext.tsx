@@ -1,6 +1,7 @@
 // Réglages de l'utilisateur. Les modules suivants (tâches, routines) y ajouteront les leurs.
 import React, { createContext, ReactNode, useContext, useMemo } from 'react';
 import type { AlertKind } from '../calendar/model';
+import type { NotifModel } from '../calendar/notifModels';
 import type { TimePicker, TimePlace } from './timePicker';
 import { usePersistentState } from '../storage';
 
@@ -15,6 +16,8 @@ export interface Settings {
   showFreeSlots: boolean;
   /** Type d'alerte des rappels quand l'événement n'en précise pas. */
   defaultAlert: AlertKind;
+  /** Modèles de notification enregistrés (27 nov.), proposés après chaque création. Le plus récent en premier. */
+  notifModels?: NotifModel[];
   /** Afficher les agendas du téléphone (Google Agenda…) en lecture seule. */
   phoneCalendars?: boolean;
   /** Agendas du téléphone masqués (par identifiant). Par défaut : tous affichés. */
